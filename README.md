@@ -354,11 +354,24 @@ from the exact same `AgentConfig`/`think`/`act` primitives:
 Every builder accepts a real `checkpointer` (`SqliteSaver`/`PostgresSaver`)
 for restart-durable sessions — see `orchestration.py`'s module docstring.
 
-Serve any compiled graph over HTTP with a real browser chat UI:
+### 4. UI/UX — a minimal reference chat UI, not a polished product
+
+`serve.py`'s `build_http_app` serves any compiled graph behind a real browser
+chat UI at `GET /`, with human-in-the-loop approval wired to `POST /resume`.
+It's intentionally bare — a title, a message list, and an input box — because
+its job is proving the API works end to end, not being a product frontend:
 
 ```bash
 python examples/serve_http.py
 ```
+
+![The built-in demo chat UI, mid-conversation with a real tool call](docs/screenshots/serve-demo-ui.png)
+
+For an actual product UI, build your own against `POST /chat` (and
+`POST /resume` for approvals) — this reference page is meant to be replaced,
+not polished. `channels.py` covers the other direction: wiring the same
+compiled graph into an existing surface (Slack, SMS, email) instead of a
+custom web frontend.
 
 Or containerize it — nothing in `agent_foundry/` imports a cloud-specific SDK,
 so this runs on ECS/Fargate, Cloud Run, Azure Container Apps, any Kubernetes,
