@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor U as User
+    participant O as orchestration.think()
+    participant L as LLM Gateway
+    participant C as Context Layer (RAG)
+    participant A as orchestration.act()
+    participant T as Tools Gateway
+    participant K as critique() / KPI
+
+    U->>O: message
+    O->>C: retrieve relevant memory
+    C-->>O: ranked, budgeted context
+    O->>L: route by task complexity (cheap/default/hard)
+    L-->>O: draft response or tool call
+    alt model wants a tool
+        O->>A: dispatch tool call
+        A->>T: invoke (RBAC + cache + rate limit checked)
+        T-->>A: result
+        A->>O: tool result appended to state
+        O->>L: continue with tool result in context
+    end
+    O->>K: score draft against KPIs + evidence
+    alt confident
+        K-->>U: final answer
+    else low confidence, retries left
+        K->>O: retry with "gather more evidence" prompt
+    else genuinely unclear
+        K-->>U: CLARIFY: a clean question, unscored
+    else retried and still no improvement
+        K-->>U: escalate to human review (interrupt)
+    end

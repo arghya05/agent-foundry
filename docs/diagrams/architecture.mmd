@@ -1,0 +1,93 @@
+flowchart TD
+    User["Client / End User"]
+
+    subgraph Entry["Entry Points"]
+        Quick["quickstart.py\nplug_and_play_agent()"]
+        Serve["serve.py\nFastAPI + browser chat UI + HITL"]
+        Channels["channels.py\nSlack / SMS / email / any surface"]
+        A2A["a2a_bridge.py\nAgent2Agent protocol"]
+    end
+
+    subgraph Loop["orchestration.py — the agent loop (LangGraph StateGraph)"]
+        direction LR
+        Think["think()\nprompt + context -> LLM"] --> Act["act()\ntool calls, RBAC-checked"]
+        Act --> Think
+        Think --> SelfVerify["self_verify()\noptional revise pass"]
+        SelfVerify --> Critique["critique()\nKPI-scored gate"]
+        Critique -- "below threshold,\nretries left" --> Think
+        Critique -- "CLARIFY:" --> Question(["ask the user\ninstead of guessing"])
+        Critique -- "no improvement,\nescalate_threshold" --> HITL(["human-in-the-loop\ninterrupt()"])
+        Critique -- passes --> Final(["final answer"])
+    end
+
+    subgraph Model["LLM Gateway — Layer 05"]
+        LLMG["llm_gateway.py\ntask -> model routing (cheap/default/hard)\nprovider failover, cost metering, prompt cache"]
+    end
+
+    subgraph Tool["Tools Gateway — Layer 04"]
+        ToolsG["tools_gateway.py\nregistry, RBAC scopes,\nresult cache, rate limiter,\nidempotency store"]
+        MCP["mcp_tools.py — any MCP server"]
+        HTTP["http_tools.py — any REST API"]
+        AutoGen["autogen_bridge.py — AutoGen agent as a tool"]
+        DataConn["data_connectors.py — SQL / warehouses"]
+    end
+
+    subgraph Context["Context Layer — Layer 06"]
+        Mem["context.py\nworking / episodic / semantic (RAG) /\nprocedural memory + knowledge graph +\nuser & org profiles"]
+    end
+
+    subgraph Runtime["Harness / Runtime — Layer 03"]
+        RT["runtime.py\nRunBudget · LatencyBudget ·\nCircuitBreaker · RateLimiter · SLATracker\n(all behind swappable *Like Protocols)"]
+    end
+
+    subgraph Governance["Guardrails & Security"]
+        GR["guardrails.py — input/output/action gates"]
+        Sec["security.py — signed tool manifests,\negress allowlist, audit trail"]
+        Policy["policy_engine.py — OPA/Rego policy-as-code"]
+        Escalation["escalation.py — auto-approve / deny / escalate"]
+        Sandbox["sandbox.py — restricted-namespace code execution"]
+    end
+
+    subgraph Measure["Eval, Observability & Optimization"]
+        KPI["kpi.py — composable scoring functions"]
+        Eval["eval.py — atomic / component / flow / overall"]
+        Obs["observability.py — tracing, cost ledger, SLA dashboards"]
+        Bench["benchmark.py — regression suite against a compiled graph"]
+        Exp["experiments.py — A/B variant assignment + metrics"]
+        Flags["feature_flags.py — on/off & % rollout"]
+        Reinforce["reinforcement.py — eval signal -> prompt/policy/model"]
+        Plan["planning.py — Objectives scored against KPIs"]
+    end
+
+    subgraph Cross["Cross-cutting"]
+        Events["events.py — pub/sub event bus"]
+        Blackboard["blackboard.py — shared multi-agent workspace"]
+        Version["versioning.py — rollback for prompts/policy docs"]
+        I18n["i18n.py — locale-aware prompts & formatting"]
+        Batch["batch.py — batch & scheduled runs"]
+        Scaffold["scaffold.py — generate a new agent's starting files"]
+        Contracts["contracts.py — Identity, Policy, ToolSpec, LLMResponse…\nthe types every layer plugs into"]
+    end
+
+    User --> Quick & Serve & Channels & A2A --> Loop
+    Think --> LLMG
+    Act --> ToolsG
+    ToolsG --> MCP & HTTP & AutoGen & DataConn
+    Think --> Mem
+    Loop --> RT
+    Act --> GR
+    Act --> Sec
+    GR --> Policy
+    Act -. "requires_approval" .-> Escalation
+    ToolsG -. "sandboxed tools" .-> Sandbox
+    Critique --> KPI --> Eval
+    Loop --> Obs
+    Loop -. "variant_assignment" .-> Exp
+    Loop -. "gated behavior" .-> Flags
+    Eval -. "closes the loop" .-> Reinforce
+    Reinforce -. "scored against" .-> Plan
+    Loop --> Events
+    Loop -. "multi-agent" .-> Blackboard
+    Contracts -.-> Loop
+    Contracts -.-> ToolsG
+    Contracts -.-> Mem
