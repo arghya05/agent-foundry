@@ -1,5 +1,10 @@
 # Agent Foundry
 
+Built by **Arghya Mukherjee**, CTO at Algonomy — a reference architecture for
+taking a 0-to-1 startup from idea to a production-grade agentic product fast,
+without re-deriving the governance, memory, and multi-agent primitives from
+scratch each time.
+
 A modular, SOTA-2026 framework for building governed LLM agents on
 [LangGraph](https://github.com/langchain-ai/langgraph)/[LangChain](https://github.com/langchain-ai/langchain). Every layer — model routing, tools,
 memory, budgets, guardrails, eval, observability — is a slot you fill with
