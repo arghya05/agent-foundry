@@ -13,6 +13,16 @@ core primitives assumes a single fixed agent shape: one agent, a supervisor
 of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
 the same `think`/`act` building blocks wired differently.
 
+> **34 modules** · **7 multi-agent topologies** on one shared core · **209
+> tests passing** · MCP / A2A / AutoGen protocol interop built in
+
+**Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
+[Architecture](#architecture) ·
+[Problem → solution table](#problem--platform-service--what-solves-it-here) ·
+[Module reference](#module-reference) ·
+[Build your own agent](#building-your-own-agent) ·
+[Testing](#testing) · [Docs](#docs)
+
 ## Why this helps a 0-to-1 startup
 
 The stuff that normally gets skipped under startup time pressure — and then
@@ -209,41 +219,77 @@ repo, not just the concept:
 
 ## Module reference
 
-| Module | Layer / role |
-|---|---|
-| `contracts.py` | Core types every layer plugs into: `Identity`, `Policy`, `ToolSpec`, `LLMResponse`, `AgentRole` |
-| `orchestration.py` | **Layer 02** — the LangGraph think/act/critique loop; `build_agent_graph`, `build_supervisor_graph`, `build_swarm_graph`, `build_fanout_graph`, `build_blackboard_graph`, `build_debate_graph`, `build_dag_graph` |
-| `runtime.py` | **Layer 03** — `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker`, each behind a swappable `*Like` Protocol for fleet-wide (multi-replica) backing |
-| `tools_gateway.py` | **Layer 04** — `ToolRegistry`: RBAC-scoped invocation, `ToolCache`, idempotency store |
-| `llm_gateway.py` | **Layer 05** — `LLMGateway`: task→model routing (cheap/default/hard), provider failover, cost metering, prompt cache |
-| `context.py` | **Layer 06** — `MemoryStore`: working/episodic/semantic (RAG)/procedural memory, `KnowledgeGraph`, user/org profiles |
-| `guardrails.py` | Input/output/action gates (regex/heuristic, zero extra dependencies) |
-| `security.py` | Signed tool manifests, egress allowlisting, audit trail (`AuditLog`, `EncryptedJSONLAuditLog`) |
-| `policy_engine.py` | Real policy-as-code via OPA/Rego, alongside or instead of `Policy` |
-| `escalation.py` | The third outcome besides auto-approve/deny |
-| `sandbox.py` | Restricted-builtins, wall-clock-timeout execution for untrusted code |
-| `kpi.py` | Composable scoring functions — the general mechanism guardrails/eval/planning all build on |
-| `eval.py` | Atomic / component / flow / overall evaluation levels |
-| `observability.py` | Tracing (`Tracer`/`OTelTracer`), `CostLedger`, alerting, dashboards |
-| `benchmark.py` | Regression suite runner against any compiled graph |
-| `experiments.py` | Deterministic A/B variant assignment + per-variant metrics |
-| `feature_flags.py` | On/off and percentage-rollout switches |
-| `reinforcement.py` | Closes eval signal back into prompt/policy/model |
-| `planning.py` | `Objectives` scored against whatever KPIs are registered |
-| `events.py` | Pub/sub event bus for async/cross-agent events |
-| `blackboard.py` | Shared reasoning workspace for multi-agent graphs |
-| `mcp_tools.py` | MCP client bridge — any stdio/HTTP MCP server becomes registry tools |
-| `http_tools.py` | Wraps any REST endpoint as a `ToolSpec` |
-| `data_connectors.py` | Structured data sources (SQL, warehouses) — distinct from `context.py`'s unstructured RAG |
-| `a2a_bridge.py` | Makes an agent discoverable/callable over the open A2A protocol |
-| `autogen_bridge.py` | A Microsoft AutoGen agent as a single tool call |
-| `serve.py` | Minimal FastAPI wrapper: browser chat UI + human-in-the-loop approval |
-| `channels.py` | Connects any external messaging surface to a compiled graph |
-| `versioning.py` | Rollback for prompts/policy documents |
-| `i18n.py` | Locale-aware prompt variants and response formatting |
-| `batch.py` | Batch & scheduled runs, distinct from `orchestration.build_fanout_graph`'s in-turn parallelism |
-| `scaffold.py` | Generates a new agent's starting files in seconds |
-| `quickstart.py` | The plug-and-play entry point on real LangChain primitives |
+34 modules, grouped the same way as the architecture diagram above. Every
+"Provides" entry is a real class or function actually defined in that file.
+
+### Foundation
+
+| Module | Provides | For |
+|---|---|---|
+| `contracts.py` | `Identity`, `Policy`, `ToolSpec`, `ToolResult`, `ToolCall`, `LLMResponse`, `AgentRole`, `AutonomyLevel` | The types every other layer plugs into — read this file first |
+| `prompts.py` | `PromptLibrary`, `VersionedPromptLibrary`, `load_prompt()` | Loads prompts as plain text/markdown files, not Python string literals |
+
+### Core loop — Layer 02
+
+| Module | Provides | For |
+|---|---|---|
+| `orchestration.py` | `AgentConfig`, `CritiqueConfig`, `AgentState`, `make_think_node`, `make_act_node`, `make_critique_node`, `make_self_verify_node`, and all 7 `build_*_graph` topology builders | The think/act/critique loop itself — everything else in this repo is a slot it calls into |
+
+### Runtime, tools & model — Layers 03–05
+
+| Module | Provides | For |
+|---|---|---|
+| `runtime.py` | `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker` — each with a swappable `*Like` Protocol | Per-thread cost/step/latency budgets, retries, circuit breaking |
+| `tools_gateway.py` | `ToolRegistry`, `ToolCache`, `InMemoryIdempotencyStore`, `tool_json_schema` | RBAC-scoped tool invocation, result caching, idempotency |
+| `mcp_tools.py` | `MCPToolSource` | Any stdio/HTTP MCP server's tools, registered into a `ToolRegistry` |
+| `http_tools.py` | `http_tool()` | Wraps any REST endpoint as a `ToolSpec`, no MCP server needed |
+| `autogen_bridge.py` | `autogen_as_tool()` | A Microsoft AutoGen agent as a single tool call |
+| `data_connectors.py` | `DataSource` (Protocol), `SQLiteDataSource`, `data_query_tool()` | Structured data (SQL, warehouses) — distinct from `context.py`'s unstructured RAG |
+| `llm_gateway.py` | `LLMGateway`, `AnthropicProvider`, `OpenAIProvider`, `MultiProvider`, `PromptCache`, `ModelRegistry`, `make_llm_judge()` | Task→model routing (cheap/default/hard), provider failover, cost metering |
+
+### Context Layer — Layer 06
+
+| Module | Provides | For |
+|---|---|---|
+| `context.py` | `VectorStore` (Protocol), `InMemoryVectorStore`, `ChromaVectorStore`, `KnowledgeGraphStore`, `ProceduralMemory`, `retrieval_tool()`, `memory_write_tool()`, `profile_write_tool()` | Working/episodic/semantic (RAG)/procedural memory, knowledge graph, cross-session profiles |
+
+### Guardrails & security
+
+| Module | Provides | For |
+|---|---|---|
+| `guardrails.py` | `GuardrailEngine`, `LLMGuardrails`, `redact()`, `looks_like_injection()` | Input/output/action gates — regex/heuristic by default, LLM-based via `LLMGuardrails` |
+| `security.py` | `ToolManifestRegistry`, `EgressPolicy`, `CredentialVault`, `VaultCredentialProvider`, `AuditLog`, `EncryptedJSONLAuditLog` | Signed tool manifests, egress allowlisting, encrypted audit trail |
+| `policy_engine.py` | `OPAPolicyEngine`, `CedarPolicyEngine` | Real policy-as-code (Rego or Cedar), alongside or instead of `Policy` |
+| `escalation.py` | `EscalationTicket`, `QueueEscalator` | The third outcome besides auto-approve/deny |
+| `sandbox.py` | `run_sandboxed()`, `code_execution_tool()` | Restricted-builtins, wall-clock-timeout execution for untrusted code |
+
+### Eval, observability & optimization
+
+| Module | Provides | For |
+|---|---|---|
+| `kpi.py` | `KPI`, `KPIBoard`, `KPIResult`, `efficiency_kpi()`, `conciseness_kpi()`, `policy_adherence_kpi()`, `word_overlap()` | Composable scoring functions guardrails/eval/planning all build on |
+| `eval.py` | `EvalHarness`, `JSONLEvalSink` | Atomic / component / flow / overall evaluation levels |
+| `observability.py` | `Tracer`, `OTelTracer`, `Metrics`, `CostLedger`, `check_alerts()` | Tracing, cost ledger, alerting, dashboards |
+| `benchmark.py` | `BenchmarkCase`, `CaseResult`, `BenchmarkReport`, `run_benchmark()` | Regression suite against any compiled graph |
+| `experiments.py` | `Experiment`, `ExperimentTracker` | Deterministic A/B variant assignment + per-variant metrics |
+| `feature_flags.py` | `FeatureFlagProvider` (Protocol), `StaticFeatureFlagProvider` | On/off and percentage-rollout switches |
+| `reinforcement.py` | `PromptOptimizer`, `PreferenceStore` | Closes eval signal back into prompt/policy/model |
+| `planning.py` | `Objective`, `Planner`, `StrategySelector`, `BanditSelector` | `Objectives` scored against whatever KPIs are registered |
+
+### Integration & cross-cutting
+
+| Module | Provides | For |
+|---|---|---|
+| `events.py` | `EventBus` (Protocol), `InMemoryEventBus`, `KafkaEventBus`, `wire_event_driven()` | Pub/sub for async/cross-agent events |
+| `blackboard.py` | `Blackboard`, `parse_post()` | Shared reasoning workspace for multi-agent graphs |
+| `a2a_bridge.py` | `agent_card_for()`, `build_a2a_app()` | Makes an agent discoverable/callable over the open A2A protocol |
+| `serve.py` | `build_http_app()`, `invoke_graph_chat_turn()` | Minimal FastAPI wrapper: browser chat UI + human-in-the-loop approval |
+| `channels.py` | `build_slack_app()`, `verify_slack_signature()` | Connects an external messaging surface (Slack, etc.) to a compiled graph |
+| `versioning.py` | `VersionStore` (Protocol), `FileVersionStore` | Rollback for prompts/policy documents |
+| `i18n.py` | `LocaleSpec`, `register_locale()`, `format_currency()`, `format_date()` | Locale-aware prompt variants and response formatting |
+| `batch.py` | `Scheduler` (Protocol), `IntervalScheduler`, `run_batch()`, `BatchReport` | Batch & scheduled runs — distinct from `build_fanout_graph`'s in-turn parallelism |
+| `scaffold.py` | CLI: `python -m agent_foundry.scaffold` | Generates a new agent's starting files in seconds |
+| `quickstart.py` | `plug_and_play_agent()`, `to_langchain_tool()` | The plug-and-play entry point on real LangChain primitives |
 
 ## Building your own agent
 
