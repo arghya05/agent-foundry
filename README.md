@@ -195,7 +195,32 @@ sequenceDiagram
 | `scaffold.py` | Generates a new agent's starting files in seconds |
 | `quickstart.py` | The plug-and-play entry point on real LangChain primitives |
 
-## Quickstart
+## Building your own agent
+
+There are three ways in, in increasing order of governance. Pick the one that
+matches what you're building — you can start on the left and grow into the
+right without rewriting your tools (`quickstart.to_langchain_tool()` bridges
+a governed `ToolRegistry` tool back into the simple path).
+
+### 1. Scaffold it (fastest way to a runnable file)
+
+```bash
+python -m agent_foundry.scaffold sales_agent --tools lookup_lead,send_email
+```
+
+Writes `prompts/sales_agent.md` and `agents/sales_agent.py` — a runnable
+script with gateways, guardrails, eval, runtime and tracer already wired.
+The only TODOs left are the prompt's content and each tool function's body:
+
+```bash
+export ANTHROPIC_API_KEY=...
+python agents/sales_agent.py
+```
+
+### 2. `quickstart.py` (a few lines, real LangChain tool-calling)
+
+No `ToolSpec`, no JSON schema — plain Python functions, type hints and a
+docstring become the tool's schema automatically:
 
 ```bash
 pip install -r requirements.txt
@@ -218,6 +243,66 @@ agent = plug_and_play_agent(
 )
 agent.invoke({"messages": [{"role": "user", "content": "status of order A100?"}]}, config)
 ```
+
+### 3. The governed path — `orchestration.build_agent_graph` (full control)
+
+This is what `examples/support_agent.py` and `scaffold.py`'s generated file
+both build on. Five real steps, each backed by a real module above:
+
+```python
+from agent_foundry.contracts import Identity, Policy, ToolSpec
+from agent_foundry.tools_gateway import ToolRegistry
+from agent_foundry.llm_gateway import LLMGateway, AnthropicProvider
+from agent_foundry.runtime import RunBudget
+from agent_foundry.observability import Tracer
+from agent_foundry.guardrails import GuardrailEngine
+from agent_foundry.orchestration import build_agent_graph
+
+# 1. Who's calling, and what are they allowed to do (contracts.py)
+identity = Identity(id="sales-agent-1", tenant_id="acme")
+policy = Policy(allowed_tools=frozenset({"lookup_lead"}), max_cost_usd_per_thread=0.50, max_steps_per_thread=10)
+
+# 2. Register real tools behind RBAC (tools_gateway.py)
+tools = ToolRegistry()
+tools.register(ToolSpec("lookup_lead", "Look up a sales lead", {"lead_id": "string"}, lookup_lead))
+
+# 3. Wire the model, budget and guardrails (llm_gateway.py, runtime.py, guardrails.py)
+llm = LLMGateway(provider=AnthropicProvider())
+budget = RunBudget(policy)
+guardrails = GuardrailEngine(policy)
+
+# 4. (optional) memory/RAG, critique-and-retry, cross-session profiles —
+#    see context.py's MemoryStore and orchestration.py's CritiqueConfig
+
+# 5. Compile the graph — this one call is the whole think/act/critique loop
+graph = build_agent_graph(
+    system_prompt="You are a sales agent...",
+    llm=llm, tools=tools, guardrails=guardrails, identity=identity,
+    policy=policy, budget=budget, tracer=Tracer("thread-1"),
+    eval_harness=EvalHarness(),
+)
+
+state = graph.invoke(
+    {"messages": [{"role": "user", "content": "any updates on lead L200?"}], "thread_id": "thread-1"},
+    {"configurable": {"thread_id": "thread-1"}},
+)
+```
+
+Then pick a topology for how multiple agents (if any) cooperate — all built
+from the exact same `AgentConfig`/`think`/`act` primitives:
+
+| Builder | Shape | Use it when |
+|---|---|---|
+| `build_agent_graph` | One agent, one think/act loop | The default — most agents need exactly this |
+| `build_supervisor_graph` | One router LLM picks a named specialist per turn | Different specialists (billing, tech, sales) with different tools/policy |
+| `build_swarm_graph` | No central router — specialists hand off directly to a named peer | Decentralized handoffs, no single dispatcher |
+| `build_fanout_graph` | One config, parallel branches in a single turn | Fan out sub-tasks and merge results in-turn |
+| `build_blackboard_graph` | Agents read/write a shared workspace over N rounds | Iterative, shared-context collaboration |
+| `build_debate_graph` | N debaters + a judge | Adversarial verification, higher-stakes answers |
+| `build_dag_graph` | A fixed sequence of steps | A pipeline where the order is known upfront, not decided by an LLM |
+
+Every builder accepts a real `checkpointer` (`SqliteSaver`/`PostgresSaver`)
+for restart-durable sessions — see `orchestration.py`'s module docstring.
 
 Serve any compiled graph over HTTP with a real browser chat UI:
 
