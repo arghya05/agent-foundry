@@ -1,0 +1,10 @@
+# Optional: only needed if you use agent_foundry/distributed.py's
+# Redis-backed RunBudget/RateLimiter/ToolCache/SLATracker/CostLedger for a
+# real multi-replica deployment. Not required for anything else in this repo.
+redis>=5.0
+
+# Optional: for a restart-durable, multi-replica-safe LangGraph checkpointer
+# (SqliteSaver for a single-node deployment, PostgresSaver for a real fleet).
+# See orchestration.py's module docstring.
+# langgraph-checkpoint-sqlite
+# langgraph-checkpoint-postgres
