@@ -157,6 +157,10 @@ sequenceDiagram
     end
 ```
 
+High-definition JPG exports of both diagrams (and their `.mmd` source) live in
+[`docs/diagrams/`](docs/diagrams/) — useful for slides or docs that can't
+render Mermaid.
+
 ## Module reference
 
 | Module | Layer / role |
