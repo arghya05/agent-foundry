@@ -1,0 +1,15 @@
+-r requirements.txt
+pytest>=8.0
+openai>=1.40
+httpx>=0.27
+jsonschema>=4.20
+fastapi>=0.110
+uvicorn[standard]>=0.29
+chromadb>=0.5
+mcp>=1.0
+autogen-agentchat>=0.4
+autogen-ext[openai]>=0.4
+opentelemetry-sdk>=1.25
+a2a-sdk>=0.2
+sse-starlette>=2.1
+cedarpy>=1.1
