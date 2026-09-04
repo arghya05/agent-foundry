@@ -19,7 +19,7 @@ the same `think`/`act` building blocks wired differently.
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
 [Architecture](#architecture) ·
 [Problem → solution table](#problem--platform-service--what-solves-it-here) ·
-[Module reference](#module-reference) ·
+[Module reference](#module-reference) · [Security](#security) ·
 [Build your own agent](#building-your-own-agent) ·
 [Testing](#testing) · [Docs](#docs)
 
@@ -300,6 +300,45 @@ repo, not just the concept:
 | `batch.py` | `Scheduler` (Protocol), `IntervalScheduler`, `run_batch()`, `BatchReport` | Batch & scheduled runs — distinct from `build_fanout_graph`'s in-turn parallelism |
 | `scaffold.py` | CLI: `python -m agent_foundry.scaffold` | Generates a new agent's starting files in seconds |
 | `quickstart.py` | `plug_and_play_agent()`, `to_langchain_tool()` | The plug-and-play entry point on real LangChain primitives |
+
+## Security
+
+Threaded through the architecture, not bolted on — the Governance &
+Security layer in the diagram above is a real code path, not a diagram-only
+box. What's actually there:
+
+- **RBAC** — every tool call is checked against `Policy.allowed_tools` for
+  the calling `Identity`, before it executes (`tools_gateway.py`)
+- **Signed tool manifests** — `ToolManifestRegistry.pin()` fingerprints a
+  tool's schema; later drift fails `.verify()` (`security.py`)
+- **Egress allowlisting** — `EgressPolicy` (`security.py`)
+- **Audit trail** — every tool call, approval decision, and clarification
+  request is recorded via `AuditLog` (plain JSONL) or `EncryptedJSONLAuditLog`
+  (Fernet-encrypted at rest) (`security.py`)
+- **Policy-as-code** — OPA/Rego or Cedar as an alternative to the built-in
+  `Policy`, for teams that want real policy engines (`policy_engine.py`)
+- **Guardrails** — input/output/action gates, regex/heuristic by default
+  (`GuardrailEngine`, zero extra dependencies), with an LLM-based option
+  (`LLMGuardrails`) layered on top (`guardrails.py`)
+- **Sandboxed execution** — untrusted code runs with a restricted builtins
+  namespace and a wall-clock timeout (`sandbox.py`)
+- **Pluggable secrets** — `SecretsProvider` Protocol + `VaultCredentialProvider`
+  (`security.py`) — nothing hardcoded
+- **Human-in-the-loop** — `Policy.requires_approval` pauses a destructive
+  tool call for a real approval decision before it runs; `escalation.py` is
+  the third outcome besides auto-approve/deny
+- **OWASP LLM Top 10** — `docs/OWASP_LLM_TOP10.md` walks through how each of
+  the ten risks is addressed
+
+**The honest gap, worth stating plainly rather than glossing over**: the
+default guardrails are regex/heuristic, not a trained prompt-injection
+classifier — real adversarial-input defense at scale should layer
+`LLMGuardrails` or a dedicated classifier on top, not rely on the default
+alone. And most runtime enforcement (`RunBudget`, `RateLimiter`, `ToolCache`,
+`SLATracker`) is in-process by default, so a "enforced" rate limit or cost
+budget is actually enforced *per replica* — across a real fleet, that's N
+times over until the shared backend is wired in (see the scaling caveat
+under [Building your own agent](#building-your-own-agent)).
 
 ## Building your own agent
 
