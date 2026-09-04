@@ -199,13 +199,15 @@ High-definition JPG exports of both diagrams (and their `.mmd` source) live in
 [`docs/diagrams/`](docs/diagrams/) — useful for slides or docs that can't
 render Mermaid.
 
-`docs/diagrams/reference-universal-agentic-architecture-2026.png` is a
-broader reference architecture (experience layer, orchestration/control
-plane, runtime fabric, context fabric, tools/integration layer, cross-cutting
-capabilities) this codebase was checked against — most of it maps directly
-onto real modules above; see the [problem → platform service
+The diagram below is a broader reference architecture (experience layer,
+orchestration/control plane, runtime fabric, context fabric, tools/
+integration layer, cross-cutting capabilities) this codebase was checked
+against — most of it maps directly onto real modules above; see the
+[problem → platform service
 table](#problem--platform-service--what-solves-it-here) for the concrete
 mapping.
+
+![Universal Agentic Architecture 2026 — reference diagram](docs/diagrams/reference-universal-agentic-architecture-2026.png)
 
 ## Problem → platform service → what solves it here
 
