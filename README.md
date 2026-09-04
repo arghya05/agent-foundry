@@ -13,7 +13,7 @@ core primitives assumes a single fixed agent shape: one agent, a supervisor
 of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
 the same `think`/`act` building blocks wired differently.
 
-> **34 modules** · **7 multi-agent topologies** on one shared core · **209
+> **35 modules** · **7 multi-agent topologies** on one shared core · **216
 > tests passing** · MCP / A2A / AutoGen protocol interop built in
 
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
@@ -224,12 +224,12 @@ repo, not just the concept:
 | Unsafe actions and responses | Guardrails Service | `guardrails.py` (input/output/action gates) + `security.py` (signed manifests, audit) + `policy_engine.py` (OPA/Rego) |
 | Cannot see what happened | Observability Service | `observability.py` — tracing, `CostLedger`, SLA dashboards |
 | Cannot measure improvement | Experimentation Service | `experiments.py` (A/B variant assignment) + `kpi.py` + `eval.py` (atomic/component/flow/overall) |
-| Cannot deploy and scale | Workflow Service | `serve.py` + `Dockerfile` (any cloud that runs a container) + `runtime.py`'s `*Like` Protocols (swap in fleet-shared budget/cache/rate-limiter) |
+| Cannot deploy and scale | Workflow Service | `serve.py` + `Dockerfile` (any cloud that runs a container) + `distributed.py`'s Redis-backed budget/cache/rate-limiter/SLA/cost-ledger for real multi-replica scaling |
 | Model vendor lock-in | Model Service | `llm_gateway.py` — `Provider` protocol, task→model routing, provider failover |
 
 ## Module reference
 
-34 modules, grouped the same way as the architecture diagram above. Every
+35 modules, grouped the same way as the architecture diagram above. Every
 "Provides" entry is a real class or function actually defined in that file.
 
 ### Foundation
@@ -250,6 +250,7 @@ repo, not just the concept:
 | Module | Provides | For |
 |---|---|---|
 | `runtime.py` | `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker` — each with a swappable `*Like` Protocol | Per-thread cost/step/latency budgets, retries, circuit breaking |
+| `distributed.py` | `RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`, `RedisSLATracker`, `RedisCostLedger` | Real cross-replica versions of the above, backed by Redis — for a genuine multi-node deployment |
 | `tools_gateway.py` | `ToolRegistry`, `ToolCache`, `InMemoryIdempotencyStore`, `tool_json_schema` | RBAC-scoped tool invocation, result caching, idempotency |
 | `mcp_tools.py` | `MCPToolSource` | Any stdio/HTTP MCP server's tools, registered into a `ToolRegistry` |
 | `http_tools.py` | `http_tool()` | Wraps any REST endpoint as a `ToolSpec`, no MCP server needed |
@@ -334,11 +335,13 @@ box. What's actually there:
 default guardrails are regex/heuristic, not a trained prompt-injection
 classifier — real adversarial-input defense at scale should layer
 `LLMGuardrails` or a dedicated classifier on top, not rely on the default
-alone. And most runtime enforcement (`RunBudget`, `RateLimiter`, `ToolCache`,
-`SLATracker`) is in-process by default, so a "enforced" rate limit or cost
-budget is actually enforced *per replica* — across a real fleet, that's N
-times over until the shared backend is wired in (see the scaling caveat
-under [Building your own agent](#building-your-own-agent)).
+alone. Runtime enforcement (`RunBudget`, `RateLimiter`, `ToolCache`,
+`SLATracker`) is in-process *by default* — a fresh install is single-process
+until you configure otherwise — but this is now a closed gap, not an open
+one: `agent_foundry/distributed.py` has real, Redis-backed, cross-replica
+versions of all of them, tested against a live Redis to prove they actually
+share state across separate instances (see [Deploying to any cloud, at real
+scale](#deploying-to-any-cloud-at-real-scale--not-just-portably)).
 
 ## Building your own agent
 
@@ -477,19 +480,39 @@ docker build -t agent-foundry .
 docker run -p 8080:8080 -e ANTHROPIC_API_KEY=... agent-foundry
 ```
 
-**Portable ≠ horizontally scalable out of the box**, and it's worth being
-precise about which one you're getting for free. The container itself is
-genuinely cloud-agnostic — no SDK lock-in, runs anywhere a container runs.
-But the *defaults* (`MemorySaver` checkpointer, in-process `RunBudget`,
-`RateLimiter`, `ToolCache`, `CostLedger`, `SLATracker`) live in one process's
-memory, so two replicas of this container don't share session state,
-budgets, or rate limits — each enforces its own copy, N times over across N
-replicas. Going from one process to a real fleet means backing those with
-something shared (Postgres/Redis) instead of the in-process default — every
-one of them is already behind a `*Like` Protocol in `runtime.py`/
-`tools_gateway.py`/`observability.py` specifically so that swap is a
-constructor argument, not a rewrite. See `docs/BACKUP_DR.md` for what state
-needs backing up and how, per deployment shape.
+### Deploying to any cloud, at real scale — not just portably
+
+The container itself is genuinely cloud-agnostic — no SDK lock-in, runs on
+ECS/Fargate, Cloud Run, Azure Container Apps, any Kubernetes, or a bare VM
+unmodified. But portable and horizontally scalable are different claims, and
+this repo backs both:
+
+- **Session/thread state** — swap the default in-process `MemorySaver` for
+  `SqliteSaver` (one node) or `PostgresSaver` (a real fleet); both are
+  drop-in `checkpointer=` arguments (see `orchestration.py`'s module
+  docstring).
+- **Budget, rate limiting, tool cache, SLA tracking, cost ledger** —
+  `agent_foundry/distributed.py` has real Redis-backed implementations of
+  all five (`RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`,
+  `RedisSLATracker`, `RedisCostLedger`), each satisfying the exact same
+  `*Like` Protocol the in-process version does, so it's a constructor swap,
+  not a rewrite. `examples/serve_http_distributed.py` wires all five into a
+  real running server. `tests/test_distributed.py` proves the actual point —
+  not just that these type-check, but that **two separate instances pointed
+  at the same Redis key share one real ceiling**: a rate limit exhausted by
+  "replica A" is seen as exhausted by "replica B", a budget spent by one
+  instance trips `BudgetExceeded` when a *different* instance tries to spend
+  more against the same thread. That test is what makes "deployable at
+  scale" a verified claim instead of an aspirational one.
+
+```bash
+pip install -r requirements.txt -r requirements-distributed.txt
+export ANTHROPIC_API_KEY=... REDIS_URL=redis://localhost:6379/0
+python examples/serve_http_distributed.py
+```
+
+See `docs/BACKUP_DR.md` for what state needs backing up and how, per
+deployment shape.
 
 ## Testing
 
