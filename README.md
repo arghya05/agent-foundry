@@ -189,6 +189,24 @@ High-definition JPG exports of both diagrams (and their `.mmd` source) live in
 [`docs/diagrams/`](docs/diagrams/) — useful for slides or docs that can't
 render Mermaid.
 
+## Problem → platform service → what solves it here
+
+Every one of these is a named platform-service concern any production agent
+eventually needs — the third column is what actually implements it in this
+repo, not just the concept:
+
+| Problem | Platform service | Solved by (this repo) |
+|---|---|---|
+| No memory between messages | Session Service | `orchestration.py` — `AgentState` + a real `checkpointer` (`MemorySaver`/`SqliteSaver`/`PostgresSaver`) |
+| Forgets across sessions | Session Service (memory layer) | `context.py` — `MemoryStore.profiles`, loaded via `AgentConfig.user_id` every turn regardless of thread |
+| Hallucinates organizational facts | Data Service (RAG) | `context.py` — semantic memory (RAG) + `ContextEngine`; `data_connectors.py` for structured sources |
+| Cannot take actions | Tool Service + MCP | `tools_gateway.py` — RBAC-scoped `ToolRegistry`; `mcp_tools.py` bridges any MCP server in |
+| Unsafe actions and responses | Guardrails Service | `guardrails.py` (input/output/action gates) + `security.py` (signed manifests, audit) + `policy_engine.py` (OPA/Rego) |
+| Cannot see what happened | Observability Service | `observability.py` — tracing, `CostLedger`, SLA dashboards |
+| Cannot measure improvement | Experimentation Service | `experiments.py` (A/B variant assignment) + `kpi.py` + `eval.py` (atomic/component/flow/overall) |
+| Cannot deploy and scale | Workflow Service | `serve.py` + `Dockerfile` (any cloud that runs a container) + `runtime.py`'s `*Like` Protocols (swap in fleet-shared budget/cache/rate-limiter) |
+| Model vendor lock-in | Model Service | `llm_gateway.py` — `Provider` protocol, task→model routing, provider failover |
+
 ## Module reference
 
 | Module | Layer / role |
