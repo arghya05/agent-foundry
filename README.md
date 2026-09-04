@@ -13,7 +13,30 @@ core primitives assumes a single fixed agent shape: one agent, a supervisor
 of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
 the same `think`/`act` building blocks wired differently.
 
-Two entry points, by how much governance you need:
+## Why this helps a 0-to-1 startup
+
+The stuff that normally gets skipped under startup time pressure — and then
+costs a rewrite once a customer actually needs it — is already here, so the
+skip never has to happen:
+
+- **Week 1**: `python -m agent_foundry.scaffold` gets a runnable agent with
+  tools, guardrails, and tracing already wired — fill in the prompt and tool
+  bodies, not the plumbing. A week of infra work becomes an afternoon.
+- **First paying customer**: RBAC (`Policy.allowed_tools`), fail-closed cost
+  budgets, and an audit trail are already there — a security questionnaire
+  doesn't send you scrambling to retrofit access controls under deadline.
+- **First bad answer in front of a customer**: the critique loop already
+  retries with more evidence, asks a clarifying question instead of guessing,
+  and only escalates to a human when retrying genuinely didn't help — not a
+  raw LLM call with no safety net.
+- **Product grows past one agent**: swap `build_agent_graph` for
+  `build_supervisor_graph` (or swarm/debate/DAG) — same `AgentConfig`s, same
+  tools, no rewrite, because you were never on a bespoke single-agent script.
+- **You need to prove it's improving**: `experiments.py`/`kpi.py` give real
+  A/B variant assignment and scored metrics from day one, instead of "we
+  think the new prompt is better."
+
+## Two entry points, by how much governance you need
 
 - **`quickstart.plug_and_play_agent`** — a junior developer's whole agent in
   ~5 lines, built on real `langchain.agents.create_agent`. No `ToolSpec`, no
