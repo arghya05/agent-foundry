@@ -428,6 +428,20 @@ docker build -t agent-foundry .
 docker run -p 8080:8080 -e ANTHROPIC_API_KEY=... agent-foundry
 ```
 
+**Portable ≠ horizontally scalable out of the box**, and it's worth being
+precise about which one you're getting for free. The container itself is
+genuinely cloud-agnostic — no SDK lock-in, runs anywhere a container runs.
+But the *defaults* (`MemorySaver` checkpointer, in-process `RunBudget`,
+`RateLimiter`, `ToolCache`, `CostLedger`, `SLATracker`) live in one process's
+memory, so two replicas of this container don't share session state,
+budgets, or rate limits — each enforces its own copy, N times over across N
+replicas. Going from one process to a real fleet means backing those with
+something shared (Postgres/Redis) instead of the in-process default — every
+one of them is already behind a `*Like` Protocol in `runtime.py`/
+`tools_gateway.py`/`observability.py` specifically so that swap is a
+constructor argument, not a rewrite. See `docs/BACKUP_DR.md` for what state
+needs backing up and how, per deployment shape.
+
 ## Testing
 
 ```bash
