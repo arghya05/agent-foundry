@@ -13,8 +13,10 @@ core primitives assumes a single fixed agent shape: one agent, a supervisor
 of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
 the same `think`/`act` building blocks wired differently.
 
-> **35 modules** · **7 multi-agent topologies** on one shared core · **216
-> tests passing** · MCP / A2A / AutoGen protocol interop built in
+> **36 modules** · **2 interchangeable orchestration engines** · **7
+> multi-agent topologies** · a formal run lifecycle and eval-as-release-gate
+> on one shared core · **285 tests passing** · MCP / A2A / AutoGen / CrewAI
+> protocol interop built in
 
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
 [Architecture](#architecture) ·
@@ -68,13 +70,14 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=\"langgraph\" (default) | \"native\"\n(no LangGraph in this surface)"]
         Quick["quickstart.py\nplug_and_play_agent()"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
         Channels["channels.py\nSlack / SMS / email / any surface"]
         A2A["a2a_bridge.py\nAgent2Agent protocol"]
     end
 
-    subgraph Loop["orchestration.py — the agent loop (LangGraph StateGraph)"]
+    subgraph Loop["orchestration.py — runtime=\"langgraph\" (LangGraph StateGraph)"]
         direction LR
         Think["think()\nprompt + context -> LLM"] --> Act["act()\ntool calls, RBAC-checked"]
         Act --> Think
@@ -86,16 +89,30 @@ flowchart TD
         Critique -- passes --> Final(["final answer"])
     end
 
+    subgraph NativeLoop["core/native_engine.py — runtime=\"native\" (plain Python, zero LangGraph)"]
+        direction LR
+        NThink["_think()\nsame prompt+context -> LLM"] --> NAct["_act()\nsame RBAC-checked tool calls"]
+        NAct --> NThink
+        NThink --> NCritique["_critique()\nsame KPI-scored gate"]
+        NCritique -- "escalate" --> NHITL(["pause: a plain dict flag,\nresume() continues the loop"])
+        NCritique -- passes --> NFinal(["final answer"])
+    end
+
     subgraph Model["LLM Gateway — Layer 05"]
+        ModelRouter["core/model_router.py\ncapability-based selection\n(ModelRequest -> routes[task])"]
         LLMG["llm_gateway.py\ntask -> model routing (cheap/default/hard)\nprovider failover, cost metering, prompt cache"]
+        ModelRouter --> LLMG
     end
 
     subgraph Tool["Tools Gateway — Layer 04"]
+        ToolDecorator["core/tool_decorator.py\n@tool(...) — real timeout + cache_ttl,\npermissions metadata"]
         ToolsG["tools_gateway.py\nregistry, RBAC scopes,\nresult cache, rate limiter,\nidempotency store"]
         MCP["mcp_tools.py — any MCP server"]
         HTTP["http_tools.py — any REST API"]
         AutoGen["autogen_bridge.py — AutoGen agent as a tool"]
+        CrewAI["crewai_bridge.py — CrewAI crew as a tool"]
         DataConn["data_connectors.py — SQL / warehouses"]
+        ToolDecorator --> ToolsG
     end
 
     subgraph Context["Context Layer — Layer 06"]
@@ -117,42 +134,61 @@ flowchart TD
     subgraph Measure["Eval, Observability & Optimization"]
         KPI["kpi.py — composable scoring functions"]
         Eval["eval.py — atomic / component / flow / overall"]
+        EvalGate["core/evalgate.py\nrun_eval() -> Scorecard\n.passes(thresholds) release gate"]
         Obs["observability.py — tracing, cost ledger, SLA dashboards"]
         Bench["benchmark.py — regression suite against a compiled graph"]
         Exp["experiments.py — A/B variant assignment + metrics"]
         Flags["feature_flags.py — on/off & % rollout"]
         Reinforce["reinforcement.py — eval signal -> prompt/policy/model"]
         Plan["planning.py — Objectives scored against KPIs"]
+        EvalGate --> KPI
     end
 
     subgraph Cross["Cross-cutting"]
-        Events["events.py — pub/sub event bus"]
+        ExecCtx["core/execution_context.py\nExecutionContext — run_id/thread_id/session_id/\nuser_id/tenant_id/agent_id/trace_id/permissions/budget"]
+        RunLifecycle["core/run.py\nRun — STARTED/RUNNING/WAITING_HUMAN/WAITING_EVENT/\nSUSPENDED/COMPLETED/FAILED/CANCELLED\npause/unpause/cancel/retry/fork/replay/wait_for_event"]
+        Registries["core/registries.py\nPromptRegistry · PolicyRegistry · EvalRegistry\n(named lookup -> Agent(instructions=/policy=/eval_harness=))"]
+        Events["events.py — pub/sub event bus\n(Agent.on(topic) wires an agent's own graph to it)"]
         Blackboard["blackboard.py — shared multi-agent workspace"]
         Version["versioning.py — rollback for prompts/policy docs"]
         I18n["i18n.py — locale-aware prompts & formatting"]
-        Batch["batch.py — batch & scheduled runs"]
+        Batch["batch.py — batch & scheduled runs\n(Agent.batch()/.schedule() delegate here)"]
         Scaffold["scaffold.py — generate a new agent's starting files"]
         Contracts["contracts.py — Identity, Policy, ToolSpec, LLMResponse…\nthe types every layer plugs into"]
     end
 
-    User --> Quick & Serve & Channels & A2A --> Loop
+    User --> Core & Quick & Serve & Channels & A2A
+    Quick & Serve & Channels & A2A --> Loop
+    Core --> Loop
+    Core -. "runtime=\"native\"" .-> NativeLoop
+    Core --> ExecCtx
+    Core -. "agent.start(msg)" .-> RunLifecycle
+    Core -. "run_eval(agent, cases)" .-> EvalGate
+    Registries -.-> Core
     Think --> LLMG
     Act --> ToolsG
-    ToolsG --> MCP & HTTP & AutoGen & DataConn
+    NThink --> LLMG
+    NAct --> ToolsG
+    ToolsG --> MCP & HTTP & AutoGen & CrewAI & DataConn
     Think --> Mem
+    NThink --> Mem
     Loop --> RT
+    NativeLoop --> RT
     Act --> GR
+    NAct --> GR
     Act --> Sec
     GR --> Policy
     Act -. "requires_approval" .-> Escalation
     ToolsG -. "sandboxed tools" .-> Sandbox
     Critique --> KPI --> Eval
+    NCritique --> KPI
     Loop --> Obs
     Loop -. "variant_assignment" .-> Exp
     Loop -. "gated behavior" .-> Flags
     Eval -. "closes the loop" .-> Reinforce
     Reinforce -. "scored against" .-> Plan
     Loop --> Events
+    Core -. "agent.on(topic)" .-> Events
     Loop -. "multi-agent" .-> Blackboard
     Contracts -.-> Loop
     Contracts -.-> ToolsG
@@ -229,7 +265,7 @@ repo, not just the concept:
 
 ## Module reference
 
-35 modules, grouped the same way as the architecture diagram above. Every
+36 modules, grouped the same way as the architecture diagram above. Every
 "Provides" entry is a real class or function actually defined in that file.
 
 ### Foundation
@@ -244,6 +280,9 @@ repo, not just the concept:
 | Module | Provides | For |
 |---|---|---|
 | `orchestration.py` | `AgentConfig`, `CritiqueConfig`, `AgentState`, `make_think_node`, `make_act_node`, `make_critique_node`, `make_self_verify_node`, and all 7 `build_*_graph` topology builders | The think/act/critique loop itself — everything else in this repo is a slot it calls into |
+| `core/native_engine.py` | `NativeEngine` | A second, framework-free implementation of the same think/act/critique loop — `Agent(..., runtime="native")` |
+| `core/run.py` | `Run`, `RunStatus` | `Agent.start()`'s formal run lifecycle — pause/unpause/cancel/retry/fork/replay/wait_for_event |
+| `core/evalgate.py` | `run_eval()`, `EvalCase`, `Scorecard` | Evaluation-as-release-gate — score an Agent against a dataset, `.passes(thresholds)` |
 
 ### Runtime, tools & model — Layers 03–05
 
@@ -255,6 +294,7 @@ repo, not just the concept:
 | `mcp_tools.py` | `MCPToolSource` | Any stdio/HTTP MCP server's tools, registered into a `ToolRegistry` |
 | `http_tools.py` | `http_tool()` | Wraps any REST endpoint as a `ToolSpec`, no MCP server needed |
 | `autogen_bridge.py` | `autogen_as_tool()` | A Microsoft AutoGen agent as a single tool call |
+| `crewai_bridge.py` | `crewai_as_tool()` | A CrewAI crew as a single tool call |
 | `data_connectors.py` | `DataSource` (Protocol), `SQLiteDataSource`, `data_query_tool()` | Structured data (SQL, warehouses) — distinct from `context.py`'s unstructured RAG |
 | `llm_gateway.py` | `LLMGateway`, `AnthropicProvider`, `OpenAIProvider`, `MultiProvider`, `PromptCache`, `ModelRegistry`, `make_llm_judge()` | Task→model routing (cheap/default/hard), provider failover, cost metering |
 
@@ -345,7 +385,7 @@ scale](#deploying-to-any-cloud-at-real-scale--not-just-portably)).
 
 ## Building your own agent
 
-There are three ways in, in increasing order of governance. Pick the one that
+There are four ways in, in increasing order of governance. Pick the one that
 matches what you're building — you can start on the left and grow into the
 right without rewriting your tools (`quickstart.to_langchain_tool()` bridges
 a governed `ToolRegistry` tool back into the simple path).
@@ -436,6 +476,105 @@ state = graph.invoke(
 )
 ```
 
+### 4. `Agent` (agent_foundry.core) — the same governed path, no LangGraph in the API
+
+`Agent` builds the exact graph above under the hood — same `AgentConfig`,
+same `build_agent_graph` — but the caller never imports `langgraph`, never
+builds the `{"messages": [...], "thread_id": ...}` invoke dict by hand, and
+never inspects `result["__interrupt__"]`:
+
+```python
+from agent_foundry import Agent, ExecutionContext
+
+def lookup_lead(lead_id: str) -> str:
+    """Look up a sales lead by id."""
+    return db.get(lead_id)
+
+agent = Agent(
+    "sales_agent", "You are a sales agent...",
+    tools=[lookup_lead],
+)
+
+result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"))
+print(result.content)
+```
+
+Multi-agent topologies (a specialist router, peer handoff, a shared
+blackboard, a debate, parallel fan-out, a deterministic DAG) are `Workflow`
+factories composing several `Agent`s' underlying `.config` — see
+`tests/test_core_agent.py` for one example per topology. `Agent(...)` itself
+only covers the single-agent shape (`workflow="react"`, the default); the
+`build_*_graph` functions below remain directly importable for anything
+`Agent`/`Workflow` doesn't cover yet.
+
+Pass `runtime="native"` for a second, genuinely framework-free implementation
+of the same think/act/critique loop (`core/native_engine.py` — a plain Python
+while-loop, no `StateGraph`, no `interrupt()`, no LangGraph import at all):
+
+```python
+agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead], runtime="native")
+result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"))
+```
+
+Same `Agent` surface (`run`/`resume`/`batch`/`as_tool`/`serve` all keep
+working unchanged), same RBAC/guardrails/budget/critique behavior, same
+`RunResult` shape — see `tests/test_native_engine.py`, which runs the same
+scenarios `test_core_agent.py` runs against `runtime="langgraph"` against
+this engine instead, to prove the two are actually interchangeable rather
+than just both existing. It covers the single-agent react loop only (not
+`self_verify`, not the multi-agent `Workflow` topologies, and multiple
+*simultaneously* pending tool approvals in one turn are resolved one
+`.resume()` call at a time rather than LangGraph's queued-multi-interrupt
+support) and keeps its own in-memory per-thread state (no `checkpointer=`
+option — same MemorySaver-equivalent, non-restart-durable default every
+`build_*_graph` already has).
+
+`Agent.start(message)` returns a `Run` instead of a bare `RunResult` — a
+formal lifecycle (`STARTED`/`RUNNING`/`WAITING_HUMAN`/`WAITING_EVENT`/
+`SUSPENDED`/`COMPLETED`/`FAILED`/`CANCELLED`) with `.pause()`/`.unpause()`/
+`.cancel()`/`.retry()`/`.fork()`/`.replay()`/`.wait_for_event()` — for
+long-running or supervised workflows where a bare `.run()`/`.resume()` isn't
+enough:
+
+```python
+run = agent.start("investigate this claim")
+if run.status == RunStatus.WAITING_HUMAN:
+    run.resume(approved=True)
+
+forked = run.fork()          # explore an alternative next step independently
+retried = run.retry()        # re-attempt the last turn as a fresh Run
+run.wait_for_event("claim.documents_uploaded", bus=event_bus)  # suspend until an event fires
+```
+
+`.fork()`/`.retry()` work identically on both engines (verified: LangGraph's
+`update_state()` *appends* onto its reducer-typed `messages` channel rather
+than replacing it, so both are built on seeding a brand-new thread, never
+truncating one in place — see `core/run.py`'s module docstring).
+`Agent.run()`/`.resume()` themselves are unchanged; `.start()` is a second,
+additive entry point. `WAITING_TOOL` is reserved but never produced — tool
+execution is synchronous in both engines, so there's no distinct "waiting on
+a tool" state. `tests/test_run_lifecycle.py` covers every transition on both
+engines.
+
+`run_eval(agent, cases)` (`core/evalgate.py`) is evaluation-as-release-gate —
+the `foundry eval` idea in the memo, as a Python API (no CLI exists here):
+
+```python
+from agent_foundry import EvalCase, run_eval
+
+cases = [EvalCase(input="find me a wedding outfit", expected_substring="wedding", expected_tool="catalog.search")]
+scorecard = run_eval(agent, cases, dataset_name="fashion-gold-v3")
+print(scorecard.render())
+ok, reasons = scorecard.passes({"task_success_rate_min": 0.9, "p95_latency_ms_max": 4000, "avg_cost_usd_max": 0.20})
+```
+
+Every metric is measured from a real `Agent.run()` call, not a mocked
+scorer: task success (substring match), tool accuracy (the right tool
+actually got called, via the same tool-call parsing `native_engine.py`
+reuses), an optional `KPI` (groundedness or anything else), P95 latency, and
+real per-case cost off `AgentConfig.budget`. `.compare_to(baseline)` reports
+per-metric deltas against a prior `Scorecard`. See `tests/test_evalgate.py`.
+
 Then pick a topology for how multiple agents (if any) cooperate — all built
 from the exact same `AgentConfig`/`think`/`act` primitives:
 
@@ -452,7 +591,7 @@ from the exact same `AgentConfig`/`think`/`act` primitives:
 Every builder accepts a real `checkpointer` (`SqliteSaver`/`PostgresSaver`)
 for restart-durable sessions — see `orchestration.py`'s module docstring.
 
-### 4. UI/UX — a minimal reference chat UI, not a polished product
+### 5. UI/UX — a minimal reference chat UI, not a polished product
 
 `serve.py`'s `build_http_app` serves any compiled graph behind a real browser
 chat UI at `GET /`, with human-in-the-loop approval wired to `POST /resume`.

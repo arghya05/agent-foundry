@@ -2,13 +2,14 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=\"langgraph\" (default) | \"native\"\n(no LangGraph in this surface)"]
         Quick["quickstart.py\nplug_and_play_agent()"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
         Channels["channels.py\nSlack / SMS / email / any surface"]
         A2A["a2a_bridge.py\nAgent2Agent protocol"]
     end
 
-    subgraph Loop["orchestration.py — the agent loop (LangGraph StateGraph)"]
+    subgraph Loop["orchestration.py — runtime=\"langgraph\" (LangGraph StateGraph)"]
         direction LR
         Think["think()\nprompt + context -> LLM"] --> Act["act()\ntool calls, RBAC-checked"]
         Act --> Think
@@ -20,16 +21,30 @@ flowchart TD
         Critique -- passes --> Final(["final answer"])
     end
 
+    subgraph NativeLoop["core/native_engine.py — runtime=\"native\" (plain Python, zero LangGraph)"]
+        direction LR
+        NThink["_think()\nsame prompt+context -> LLM"] --> NAct["_act()\nsame RBAC-checked tool calls"]
+        NAct --> NThink
+        NThink --> NCritique["_critique()\nsame KPI-scored gate"]
+        NCritique -- "escalate" --> NHITL(["pause: a plain dict flag,\nresume() continues the loop"])
+        NCritique -- passes --> NFinal(["final answer"])
+    end
+
     subgraph Model["LLM Gateway — Layer 05"]
+        ModelRouter["core/model_router.py\ncapability-based selection\n(ModelRequest -> routes[task])"]
         LLMG["llm_gateway.py\ntask -> model routing (cheap/default/hard)\nprovider failover, cost metering, prompt cache"]
+        ModelRouter --> LLMG
     end
 
     subgraph Tool["Tools Gateway — Layer 04"]
+        ToolDecorator["core/tool_decorator.py\n@tool(...) — real timeout + cache_ttl,\npermissions metadata"]
         ToolsG["tools_gateway.py\nregistry, RBAC scopes,\nresult cache, rate limiter,\nidempotency store"]
         MCP["mcp_tools.py — any MCP server"]
         HTTP["http_tools.py — any REST API"]
         AutoGen["autogen_bridge.py — AutoGen agent as a tool"]
+        CrewAI["crewai_bridge.py — CrewAI crew as a tool"]
         DataConn["data_connectors.py — SQL / warehouses"]
+        ToolDecorator --> ToolsG
     end
 
     subgraph Context["Context Layer — Layer 06"]
@@ -51,42 +66,61 @@ flowchart TD
     subgraph Measure["Eval, Observability & Optimization"]
         KPI["kpi.py — composable scoring functions"]
         Eval["eval.py — atomic / component / flow / overall"]
+        EvalGate["core/evalgate.py\nrun_eval() -> Scorecard\n.passes(thresholds) release gate"]
         Obs["observability.py — tracing, cost ledger, SLA dashboards"]
         Bench["benchmark.py — regression suite against a compiled graph"]
         Exp["experiments.py — A/B variant assignment + metrics"]
         Flags["feature_flags.py — on/off & % rollout"]
         Reinforce["reinforcement.py — eval signal -> prompt/policy/model"]
         Plan["planning.py — Objectives scored against KPIs"]
+        EvalGate --> KPI
     end
 
     subgraph Cross["Cross-cutting"]
-        Events["events.py — pub/sub event bus"]
+        ExecCtx["core/execution_context.py\nExecutionContext — run_id/thread_id/session_id/\nuser_id/tenant_id/agent_id/trace_id/permissions/budget"]
+        RunLifecycle["core/run.py\nRun — STARTED/RUNNING/WAITING_HUMAN/WAITING_EVENT/\nSUSPENDED/COMPLETED/FAILED/CANCELLED\npause/unpause/cancel/retry/fork/replay/wait_for_event"]
+        Registries["core/registries.py\nPromptRegistry · PolicyRegistry · EvalRegistry\n(named lookup -> Agent(instructions=/policy=/eval_harness=))"]
+        Events["events.py — pub/sub event bus\n(Agent.on(topic) wires an agent's own graph to it)"]
         Blackboard["blackboard.py — shared multi-agent workspace"]
         Version["versioning.py — rollback for prompts/policy docs"]
         I18n["i18n.py — locale-aware prompts & formatting"]
-        Batch["batch.py — batch & scheduled runs"]
+        Batch["batch.py — batch & scheduled runs\n(Agent.batch()/.schedule() delegate here)"]
         Scaffold["scaffold.py — generate a new agent's starting files"]
         Contracts["contracts.py — Identity, Policy, ToolSpec, LLMResponse…\nthe types every layer plugs into"]
     end
 
-    User --> Quick & Serve & Channels & A2A --> Loop
+    User --> Core & Quick & Serve & Channels & A2A
+    Quick & Serve & Channels & A2A --> Loop
+    Core --> Loop
+    Core -. "runtime=\"native\"" .-> NativeLoop
+    Core --> ExecCtx
+    Core -. "agent.start(msg)" .-> RunLifecycle
+    Core -. "run_eval(agent, cases)" .-> EvalGate
+    Registries -.-> Core
     Think --> LLMG
     Act --> ToolsG
-    ToolsG --> MCP & HTTP & AutoGen & DataConn
+    NThink --> LLMG
+    NAct --> ToolsG
+    ToolsG --> MCP & HTTP & AutoGen & CrewAI & DataConn
     Think --> Mem
+    NThink --> Mem
     Loop --> RT
+    NativeLoop --> RT
     Act --> GR
+    NAct --> GR
     Act --> Sec
     GR --> Policy
     Act -. "requires_approval" .-> Escalation
     ToolsG -. "sandboxed tools" .-> Sandbox
     Critique --> KPI --> Eval
+    NCritique --> KPI
     Loop --> Obs
     Loop -. "variant_assignment" .-> Exp
     Loop -. "gated behavior" .-> Flags
     Eval -. "closes the loop" .-> Reinforce
     Reinforce -. "scored against" .-> Plan
     Loop --> Events
+    Core -. "agent.on(topic)" .-> Events
     Loop -. "multi-agent" .-> Blackboard
     Contracts -.-> Loop
     Contracts -.-> ToolsG
