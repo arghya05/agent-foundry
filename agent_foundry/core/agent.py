@@ -1,0 +1,388 @@
+"""Core — Agent: the framework's public entry point, replacing direct calls to
+orchestration.build_*_graph. build_agent_graph itself is unchanged and still
+directly importable — _CompiledWorkflow below wraps whatever compiled graph
+it's given (LangGraph's, or native_engine._NativeGraph's) verbatim, it
+doesn't reimplement either one, so the existing orchestration test suite and
+every scaffold-generated/example agent that calls build_agent_graph directly
+keeps working.
+
+Agent(...) covers the single-AgentConfig topology (workflow="react", i.e.
+build_agent_graph's think/act loop). Supervisor/swarm/blackboard/debate/dag
+take multiple AgentConfigs (or, for dag, no AgentConfig at all) plus
+topology-specific arguments that don't fit a single Agent's constructor —
+those are Workflow's factories, each pulling the underlying AgentConfig out
+of the Agent instances passed in.
+
+`runtime="langgraph"` (default) or `runtime="native"` picks which
+WorkflowEngine actually runs that AgentConfig — native_engine.NativeEngine is
+a second, framework-free implementation of the same think/act/critique loop,
+proving core.protocols.WorkflowEngine is a real seam rather than a
+LangGraph-only abstraction. Both produce the same RunResult shape; Agent's
+own public methods below don't know or care which one is underneath.
+"""
+from __future__ import annotations
+
+import inspect
+from typing import Any, Callable, Iterator
+
+from langgraph.types import Command
+
+from ..batch import BatchReport, IntervalScheduler, run_batch
+from ..blackboard import Blackboard
+from ..contracts import Identity, Policy, ToolSpec
+from ..context import MemoryStore
+from ..eval import EvalHarness
+from ..events import EventBus, InMemoryEventBus, wire_event_driven
+from ..guardrails import GuardrailEngine
+from ..llm_gateway import AnthropicProvider, LLMGateway
+from ..observability import Tracer
+from ..orchestration import (
+    AgentConfig,
+    CritiqueConfig,
+    DAGStep,
+    agent_as_tool,
+    build_agent_graph,
+    build_blackboard_graph,
+    build_debate_graph,
+    build_dag_graph,
+    build_supervisor_graph,
+    build_swarm_graph,
+)
+from ..runtime import RunBudget, RunBudgetLike
+from ..tools_gateway import ToolRegistry
+from .execution_context import ExecutionContext
+from .native_engine import _NativeGraph
+from .protocols import Memory, Tool
+from .result import RunResult, result_from_graph_output
+
+
+def _toolspec_from_callable(fn: Callable[..., Any], *, name: str | None = None, description: str | None = None) -> ToolSpec:
+    """Plain-function -> ToolSpec, the governed-path equivalent of
+    quickstart.py's "type hints + docstring become schema" convention —
+    ToolSpec.parameters accepts this same loose {name: type} shorthand
+    (see tools_gateway.tool_json_schema). `name`/`description` override the
+    function's own __name__/__doc__ — used by tool_decorator.tool()'s
+    explicit name=/description= kwargs."""
+    type_names = {str: "string", int: "integer", float: "number", bool: "boolean"}
+    params = {p.name: type_names.get(p.annotation, "string") for p in inspect.signature(fn).parameters.values()}
+    doc_description = fn.__doc__.strip().splitlines()[0] if fn.__doc__ else fn.__name__
+    return ToolSpec(name=name or fn.__name__, description=description or doc_description, parameters=params, fn=fn)
+
+
+def _coerce_tools(tools: Any) -> ToolRegistry:
+    if tools is None:
+        return ToolRegistry()
+    if isinstance(tools, ToolRegistry):
+        return tools
+    registry = ToolRegistry()
+    for t in tools:
+        if isinstance(t, ToolSpec):
+            registry.register(t)
+        elif isinstance(t, Tool):
+            registry.register(ToolSpec(name=t.name, description=t.description, parameters=t.parameters, fn=t.fn))
+        else:
+            registry.register(_toolspec_from_callable(t))
+    return registry
+
+
+def _coerce_memory(memory: Any) -> MemoryStore | None:
+    if not memory:
+        return None
+    return memory if isinstance(memory, Memory) else MemoryStore()
+
+
+def _default_identity(name: str) -> Identity:
+    return Identity(id=f"{name}-agent", tenant_id="default")
+
+
+def _default_policy(tool_names: list[str]) -> Policy:
+    return Policy(allowed_tools=frozenset(tool_names))
+
+
+class _CompiledWorkflow:
+    """Shared run/stream/resume/batch/schedule/as_tool/serve surface over one
+    compiled LangGraph graph — the thing that actually removes
+    `graph.invoke({"messages": [...], "thread_id": ...}, {"configurable":
+    ...})` and `Command(resume={...})` from the public API. Used by both Agent
+    (the react/single topology) and every Workflow.* factory that shares
+    AgentState's messages+thread_id shape (supervisor/swarm/debate/blackboard)
+    — invoking/resuming/batching a compiled graph doesn't depend on how many
+    AgentConfigs built it, only on the state shape it expects.
+
+    `extra_state` seeds any state keys a topology's nodes require beyond
+    messages/thread_id but don't default via state.get(...) — e.g.
+    build_blackboard_graph's collaborate() node reads state["round"] directly.
+    """
+
+    def __init__(self, graph: Any, *, name: str = "agent", extra_state: dict[str, Any] | None = None) -> None:
+        self._graph = graph
+        self.name = name
+        self._extra_state = extra_state or {}
+        self._scheduler = IntervalScheduler()
+
+    @property
+    def graph(self) -> Any:
+        return self._graph
+
+    def _initial_state(self, message: str, thread_id: str) -> dict[str, Any]:
+        return {"messages": [{"role": "user", "content": message}], "thread_id": thread_id, **self._extra_state}
+
+    def run(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
+        context = context or ExecutionContext()
+        thread_id = context.resolved_thread_id()
+        raw = self._graph.invoke(self._initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}})
+        return result_from_graph_output(raw, thread_id=thread_id)
+
+    invoke = run  # alias for API parity with the memo's run()/invoke() — same call, not a distinct one
+
+    def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
+        # stream_mode="values": LangGraph's own default ("updates") yields
+        # per-node partial dicts keyed by node name (e.g. {"think": {...}}),
+        # not the full state — confirmed empirically, see
+        # tests/test_workflow_engine_protocol.py. "values" yields the full
+        # accumulated state after each step instead, matching what
+        # native_engine._NativeGraph.stream() already yields (and what
+        # result_from_graph_output()/.invoke() both expect) — the two
+        # engines actually agree on a chunk shape now, not just by accident.
+        context = context or ExecutionContext()
+        thread_id = context.resolved_thread_id()
+        yield from self._graph.stream(self._initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}}, stream_mode="values")
+
+    def resume(self, *, approved: bool, context: ExecutionContext) -> RunResult:
+        thread_id = context.resolved_thread_id()
+        raw = self._graph.invoke(Command(resume={"approved": approved}), {"configurable": {"thread_id": thread_id}})
+        return result_from_graph_output(raw, thread_id=thread_id)
+
+    def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
+        return run_batch(self._graph, items, **kw)
+
+    def schedule(self, message: str, *, every_seconds: float, context: ExecutionContext | None = None) -> str:
+        def job() -> None:
+            self.run(message, context=context)
+
+        return self._scheduler.schedule(job, every_seconds=every_seconds)
+
+    def cancel_schedule(self, handle: str) -> None:
+        self._scheduler.cancel(handle)
+
+    def as_tool(self, *, name: str, description: str, thread_prefix: str | None = None) -> ToolSpec:
+        return agent_as_tool(name=name, description=description, graph=self._graph, thread_prefix=thread_prefix)
+
+    def serve(self, **kw: Any) -> Any:
+        from ..serve import build_http_app
+
+        return build_http_app(self._graph, **kw)
+
+
+class _FanoutWorkflow:
+    """build_fanout_graph's state is items+messages+thread_id, not a single
+    message — dispatches N items concurrently rather than looping one
+    conversation, so it gets its own run(items) rather than being squeezed
+    into _CompiledWorkflow's run(message) shape."""
+
+    def __init__(self, graph: Any) -> None:
+        self._graph = graph
+
+    @property
+    def graph(self) -> Any:
+        return self._graph
+
+    def run(self, items: list[str], *, context: ExecutionContext | None = None) -> list[str]:
+        context = context or ExecutionContext()
+        thread_id = context.resolved_thread_id()
+        raw = self._graph.invoke({"items": items, "thread_id": thread_id}, {"configurable": {"thread_id": thread_id}})
+        return [m["content"] for m in raw.get("messages", [])]
+
+
+class _DagWorkflow:
+    """build_dag_graph's state is a results dict, not a conversation — no
+    messages/thread_id/content notion applies, so this exposes exactly what
+    the graph actually does: run(inputs) -> the accumulated results dict."""
+
+    def __init__(self, graph: Any) -> None:
+        self._graph = graph
+
+    @property
+    def graph(self) -> Any:
+        return self._graph
+
+    def run(self, inputs: dict[str, Any] | None = None, *, context: ExecutionContext | None = None) -> dict[str, Any]:
+        context = context or ExecutionContext()
+        thread_id = context.resolved_thread_id()
+        raw = self._graph.invoke({"results": inputs or {}}, {"configurable": {"thread_id": thread_id}})
+        return raw["results"]
+
+
+class Agent:
+    """Define an agent once; `workflow` picks which build_*_graph runs it —
+    LangGraph never appears in this class's public surface. For multi-agent
+    topologies (supervisor/swarm/blackboard/debate/fanout/dag), see Workflow,
+    which composes several Agents' underlying `.config`."""
+
+    def __init__(
+        self,
+        name: str,
+        instructions: str,
+        *,
+        model: str = "default",
+        tools: Any = None,
+        memory: Any = None,
+        policy: Policy | None = None,
+        identity: Identity | None = None,
+        workflow: str = "react",
+        runtime: str = "langgraph",
+        critique: CritiqueConfig | None = None,
+        user_id: str | Callable[[Any], str] | None = None,
+        llm: LLMGateway | None = None,
+        guardrails: Any = None,
+        eval_harness: EvalHarness | None = None,
+        tracer: Tracer | None = None,
+        budget: RunBudgetLike | None = None,
+        checkpointer: Any = None,
+        event_bus: EventBus | None = None,
+    ) -> None:
+        if workflow != "react":
+            raise ValueError(
+                f"Agent(workflow={workflow!r}) is not a single-AgentConfig topology — "
+                "use Workflow.supervisor/.swarm/.blackboard/.debate/.fanout/.dag instead"
+            )
+        if runtime not in ("langgraph", "native"):
+            raise ValueError(f"unknown runtime {runtime!r} — use 'langgraph' or 'native'")
+        if runtime == "native" and checkpointer is not None:
+            raise ValueError("runtime='native' keeps its own in-memory per-thread state and doesn't accept a checkpointer")
+        self.name = name
+        self.workflow = workflow
+        self.runtime = runtime
+        registry = _coerce_tools(tools)
+        resolved_policy = policy or _default_policy(registry.names())
+
+        self.config = AgentConfig(
+            system_prompt=instructions,
+            llm=llm or LLMGateway(provider=AnthropicProvider()),
+            tools=registry,
+            guardrails=guardrails or GuardrailEngine(resolved_policy),
+            eval_harness=eval_harness or EvalHarness(),
+            identity=identity or _default_identity(name),
+            policy=resolved_policy,
+            budget=budget or RunBudget(resolved_policy),
+            tracer=tracer or Tracer(f"{name}-agent"),
+            task=model,
+            memory=_coerce_memory(memory),
+            critique=critique,
+            user_id=user_id,
+        )
+        if runtime == "native":
+            graph: Any = _NativeGraph(self.config)
+        else:
+            graph = build_agent_graph(
+                system_prompt=self.config.system_prompt, llm=self.config.llm, tools=self.config.tools,
+                guardrails=self.config.guardrails, eval_harness=self.config.eval_harness, identity=self.config.identity,
+                policy=self.config.policy, budget=self.config.budget, tracer=self.config.tracer, task=self.config.task,
+                audit=self.config.audit, breaker=self.config.breaker, cost_ledger=self.config.cost_ledger,
+                memory=self.config.memory, context_engine=self.config.context_engine, step_timeout_s=self.config.step_timeout_s,
+                latency_budget=self.config.latency_budget, sla_tracker=self.config.sla_tracker, critique=self.config.critique,
+                user_id=self.config.user_id, checkpointer=checkpointer,
+            )
+        self._runner = _CompiledWorkflow(graph, name=name)
+        self.event_bus = event_bus or InMemoryEventBus()
+
+    @property
+    def graph(self) -> Any:
+        return self._runner.graph
+
+    def run(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
+        return self._runner.run(message, context=context)
+
+    invoke = run
+
+    def start(self, message: str, *, context: ExecutionContext | None = None) -> "Run":
+        """Like .run(), but returns a Run — a formal lifecycle
+        (STARTED/RUNNING/WAITING_HUMAN/WAITING_EVENT/SUSPENDED/COMPLETED/
+        FAILED/CANCELLED) with .pause()/.unpause()/.cancel()/.retry()/
+        .fork()/.replay()/.wait_for_event() on top of the same RunResult
+        .run()/.resume() already return. .run()/.resume() themselves are
+        unchanged — this is an additive second entry point, not a
+        replacement."""
+        from .run import Run
+
+        run = Run(agent=self, context=context or ExecutionContext())
+        run.run(message)
+        return run
+
+    def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
+        return self._runner.stream(message, context=context)
+
+    def resume(self, *, approved: bool, context: ExecutionContext) -> RunResult:
+        return self._runner.resume(approved=approved, context=context)
+
+    def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
+        return self._runner.batch(items, **kw)
+
+    def schedule(self, message: str, *, every_seconds: float, context: ExecutionContext | None = None) -> str:
+        return self._runner.schedule(message, every_seconds=every_seconds, context=context)
+
+    def cancel_schedule(self, handle: str) -> None:
+        self._runner.cancel_schedule(handle)
+
+    def as_tool(self, *, name: str | None = None, description: str = "", thread_prefix: str | None = None) -> ToolSpec:
+        return self._runner.as_tool(name=name or self.name, description=description, thread_prefix=thread_prefix)
+
+    def serve(self, **kw: Any) -> Any:
+        return self._runner.serve(**kw)
+
+    def on(
+        self, topic: str, *, thread_id_fn: Callable[[dict[str, Any]], str] | None = None,
+    ) -> Callable[[Callable[[dict[str, Any]], None]], Callable[[dict[str, Any]], None]]:
+        """`@agent.on("order.delayed")` — wires this agent's own graph to
+        respond to every event published to `topic` on `self.event_bus`
+        (events.wire_event_driven: the event dict becomes the triggered
+        turn's user message), and additionally subscribes the decorated
+        function itself as a plain handler (events.EventBus.subscribe) —
+        both run on every publish, decorator or not."""
+        wire_event_driven(graph=self.graph, bus=self.event_bus, topic=topic, thread_id_fn=thread_id_fn)
+
+        def decorator(handler: Callable[[dict[str, Any]], None]) -> Callable[[dict[str, Any]], None]:
+            self.event_bus.subscribe(topic, handler)
+            return handler
+
+        return decorator
+
+
+class Workflow:
+    """Factories for the multi-agent topologies that take several AgentConfigs
+    (or, for dag, none) plus topology-specific arguments — see the module
+    docstring for why these aren't Agent(...) constructor options."""
+
+    @staticmethod
+    def supervisor(*, prompt: str, agents: dict[str, Agent], llm: LLMGateway, task: str = "default", checkpointer: Any = None) -> _CompiledWorkflow:
+        graph = build_supervisor_graph(
+            supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task, checkpointer=checkpointer,
+        )
+        return _CompiledWorkflow(graph, name="supervisor")
+
+    @staticmethod
+    def swarm(*, agents: dict[str, Agent], entry: str, checkpointer: Any = None) -> _CompiledWorkflow:
+        graph = build_swarm_graph(agents={n: a.config for n, a in agents.items()}, entry=entry, checkpointer=checkpointer)
+        return _CompiledWorkflow(graph, name="swarm")
+
+    @staticmethod
+    def blackboard(*, agents: dict[str, Agent], blackboard: Blackboard, rounds: int = 2, checkpointer: Any = None) -> _CompiledWorkflow:
+        graph = build_blackboard_graph(
+            agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds, checkpointer=checkpointer,
+        )
+        return _CompiledWorkflow(graph, name="blackboard", extra_state={"round": 0})
+
+    @staticmethod
+    def debate(*, debaters: dict[str, Agent], judge: Agent, checkpointer: Any = None) -> _CompiledWorkflow:
+        graph = build_debate_graph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config, checkpointer=checkpointer)
+        return _CompiledWorkflow(graph, name="debate")
+
+    @staticmethod
+    def fanout(*, agent: Agent, checkpointer: Any = None) -> _FanoutWorkflow:
+        from ..orchestration import build_fanout_graph
+
+        return _FanoutWorkflow(build_fanout_graph(config=agent.config, checkpointer=checkpointer))
+
+    @staticmethod
+    def dag(*, steps: list[DAGStep], checkpointer: Any = None) -> _DagWorkflow:
+        return _DagWorkflow(build_dag_graph(steps, checkpointer=checkpointer))
