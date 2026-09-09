@@ -71,7 +71,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         if graph is None:
             raise SystemExit(f"{args.script!r} has no top-level `app` or `graph` for foundry to serve")
         from .serve import build_http_app
-        app = build_http_app(graph)
+        app = build_http_app(graph, allow_unauthenticated_demo=args.allow_unauthenticated_demo)
     uvicorn.run(app, host=args.host, port=args.port)
 
 
@@ -136,6 +136,8 @@ def main(argv: list[str] | None = None) -> None:
     p_serve.add_argument("script")
     p_serve.add_argument("--host", default="0.0.0.0")
     p_serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8080)))
+    p_serve.add_argument("--allow-unauthenticated-demo", action="store_true",
+                          help="opt into the unauthenticated demo behavior — the script's `app` (if it built one with its own auth already wired in) is used as-is regardless")
     p_serve.set_defaults(func=cmd_serve)
 
     p_inspect = sub.add_parser("inspect", help="show the installed version and which optional extras are available")

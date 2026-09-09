@@ -179,21 +179,30 @@ def invoke_graph_chat_turn(graph: Any, *, message: str, thread_id: str) -> ChatR
 
 def build_http_app(
     graph: Any, *, serve_demo_ui: bool = True, serve_chat_route: bool = True, serve_resume_route: bool = True,
-    auth: AuthResolver | None = None,
+    auth: AuthResolver | None = None, allow_unauthenticated_demo: bool = False,
 ) -> Any:
     """A real deployment surface: GET / (a working browser chat UI), POST /chat,
     POST /resume (approve/deny a paused destructive action), GET /health.
 
-    `auth`: when set, every /chat and /resume request must resolve to an
-    Identity via `auth.resolve(request.headers)` (401 if it doesn't) — the
-    client-supplied `thread_id` is then namespaced under that identity's
-    tenant_id before it ever reaches the graph, so one tenant can never
-    guess or collide with another tenant's thread_id. `auth=None` (default):
-    the original demo behavior — the client's thread_id is trusted verbatim,
-    fine for local development or a single-tenant deployment behind its own
-    gateway, NOT for a generic multi-tenant serving surface exposed
-    directly. See AuthResolver's own docstring for wiring in real JWT/OAuth
-    verification instead of the reference ApiKeyAuthResolver.
+    `auth`: every /chat and /resume request must resolve to an Identity via
+    `auth.resolve(request.headers)` (401 if it doesn't) — the client-
+    supplied `thread_id` is then namespaced under `{tenant_id}:{identity.id}:
+    {thread_id}` before it ever reaches the graph. Namespacing by tenant_id
+    ALONE would still let two different users of the SAME tenant collide on
+    the same client-chosen thread_id (Alice and Bob both picking "support"),
+    so identity.id is part of the namespace too — real, disjoint per-user
+    conversation isolation, not just per-tenant. See AuthResolver's own
+    docstring for wiring in real JWT/OAuth verification instead of the
+    reference ApiKeyAuthResolver.
+
+    Required unless `allow_unauthenticated_demo=True` — a governed serving
+    surface should not default to trusting a client-supplied identity, the
+    same "never trust the caller" posture the runtime already applies to a
+    model-supplied session_id/user_id. Pass `allow_unauthenticated_demo=True`
+    to explicitly opt into the old behavior (the client's thread_id trusted
+    verbatim, no auth at all) — fine for local development, a demo, or a
+    single-tenant deployment already sitting behind its own auth gateway;
+    the flag name is deliberately loud so it can't be set by accident.
 
     ChatRequest/ChatResponse are module-level, not nested in this function — with
     `from __future__ import annotations` active, a Pydantic model FastAPI can't
@@ -227,6 +236,13 @@ def build_http_app(
     stays a genuine batteries-included "point a browser at it and it works"
     surface for anything that has no frontend of its own (the framework's
     own quickstart/demo use)."""
+    if auth is None and not allow_unauthenticated_demo:
+        raise ValueError(
+            "build_http_app requires auth=<AuthResolver> for a governed deployment — "
+            "pass allow_unauthenticated_demo=True to explicitly opt into the unauthenticated "
+            "demo behavior (the client's thread_id trusted verbatim, no identity resolved)."
+        )
+
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import HTMLResponse
 
@@ -239,7 +255,11 @@ def build_http_app(
             identity = auth.resolve(request.headers)
         except AuthenticationError as e:
             raise HTTPException(status_code=401, detail=str(e)) from e
-        return f"{identity.tenant_id}:{request_thread_id}"
+        # tenant_id ALONE isn't enough — two different users of the same
+        # tenant could still collide on the same client-chosen thread_id
+        # (see this function's own docstring). identity.id makes the
+        # isolation per-USER, not merely per-tenant.
+        return f"{identity.tenant_id}:{identity.id}:{request_thread_id}"
 
     @app.get("/health")
     def health() -> dict[str, str]:

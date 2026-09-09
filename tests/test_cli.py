@@ -125,7 +125,7 @@ def test_cli_serve_builds_an_app_from_a_script_top_level_graph(monkeypatch):
             captured["app"] = app
 
         monkeypatch.setattr("uvicorn.run", fake_run)
-        cli.main(["serve", script, "--port", "9"])
+        cli.main(["serve", script, "--port", "9", "--allow-unauthenticated-demo"])
 
         assert captured["app"] is not None
         assert captured["app"].title  # a real FastAPI app, not a stub

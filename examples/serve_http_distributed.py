@@ -59,7 +59,10 @@ graph = build_agent_graph(
     cost_ledger=RedisCostLedger(redis_url=_REDIS_URL),
     tracer=Tracer("http"),
 )
-app = build_http_app(graph)
+# Same caveat as examples/serve_http.py: no authentication here, fine for
+# local development only. See agent_foundry.serve.AuthResolver/
+# ApiKeyAuthResolver for wiring in a real one before a public deployment.
+app = build_http_app(graph, allow_unauthenticated_demo=True)
 
 if __name__ == "__main__":
     import uvicorn

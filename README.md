@@ -1,5 +1,10 @@
 # Agent Foundry
 
+[![Tests](https://github.com/arghya05/agent-foundry/actions/workflows/test.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/test.yml)
+[![Package build](https://github.com/arghya05/agent-foundry/actions/workflows/build.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/build.yml)
+[![Security](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+
 Built by **Arghya Mukherjee**, CTO at Algonomy — a reference architecture for
 taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
@@ -16,7 +21,7 @@ the same `think`/`act` building blocks wired differently.
 > **36 modules** · **two interchangeable single-agent execution engines**
 > (LangGraph and native Python — advanced multi-agent topologies currently
 > use LangGraph only) · **7 multi-agent topologies** · a formal run
-> lifecycle and eval-as-release-gate on one shared core · **372 tests
+> lifecycle and eval-as-release-gate on one shared core · **381 tests
 > passing** · MCP / A2A / AutoGen / CrewAI protocol interop built in
 
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·

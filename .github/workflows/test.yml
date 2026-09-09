@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # `all` pulls in every optional integration (openai/mcp/redis/rag/serve/
+      # autogen/a2a/cedar/otel/schema) so the suite exercises as much real
+      # code as this runner can support — anything still unavailable here
+      # (a live opa/vault binary, a reachable redis-server, npx) is already
+      # designed to skip cleanly (pytest.importorskip / skipif), not fail.
+      - name: Install agent-foundry with all extras
+        run: pip install -e ".[all,test]"
+
+      - name: Run test suite with coverage
+        run: pytest -q --cov=agent_foundry --cov-report=term-missing

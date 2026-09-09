@@ -41,7 +41,11 @@ graph = build_agent_graph(
     llm=LLMGateway(provider=AnthropicProvider()), tools=tools, guardrails=GuardrailEngine(policy),
     eval_harness=EvalHarness(), identity=identity, policy=policy, budget=RunBudget(policy), tracer=Tracer("http"),
 )
-app = build_http_app(graph)
+# This example runs with no authentication — fine for local development,
+# NOT for a real deployment exposed directly. Swap allow_unauthenticated_demo
+# for a real `auth=<AuthResolver>` (see agent_foundry.serve.AuthResolver /
+# ApiKeyAuthResolver) before putting this behind a public URL.
+app = build_http_app(graph, allow_unauthenticated_demo=True)
 
 if __name__ == "__main__":
     import uvicorn

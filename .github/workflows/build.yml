@@ -1,0 +1,27 @@
+name: Package build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist + wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Install the built wheel and verify the CLI entry point works
+        run: |
+          pip install dist/*.whl
+          foundry --help
+          python -c "import agent_foundry; print(agent_foundry.__version__)"

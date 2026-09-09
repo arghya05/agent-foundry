@@ -21,7 +21,7 @@ from conftest import ScriptedProvider
 def test_serve_health_and_chat_round_trip(runtime):
     provider = ScriptedProvider(["hello from serve"])
     agent = Agent("chatty", "Chat.", runtime=runtime, llm=LLMGateway(provider=provider))
-    app = agent.serve()
+    app = agent.serve(allow_unauthenticated_demo=True)
     client = TestClient(app)
 
     health = client.get("/health")
@@ -40,7 +40,7 @@ def test_serve_chat_then_resume_round_trip_for_a_paused_turn(runtime):
     critique = CritiqueConfig(kpi=kpi, context=lambda state, draft: {"score": 0.02}, escalate_threshold=0.05)
     provider = ScriptedProvider(["an ambiguous answer"])
     agent = Agent("advisor", "Answer.", runtime=runtime, llm=LLMGateway(provider=provider), critique=critique)
-    app = agent.serve()
+    app = agent.serve(allow_unauthenticated_demo=True)
     client = TestClient(app)
     thread_id = f"serve-resume-{runtime}"
 
@@ -68,7 +68,7 @@ def test_serve_budget_exceeded_becomes_http_429(runtime):
             return LLMResponse(text="hi", model=model, input_tokens=1, output_tokens=1, cost_usd=1.0)
 
     agent = Agent("pricey", "Answer.", runtime=runtime, policy=policy, budget=RunBudget(policy), llm=LLMGateway(provider=ExpensiveProvider()))
-    app = agent.serve()
+    app = agent.serve(allow_unauthenticated_demo=True)
     client = TestClient(app)
 
     resp = client.post("/chat", json={"message": "hi", "thread_id": f"serve-budget-{runtime}"})

@@ -1,0 +1,39 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a newly-disclosed CVE in a dependency gets caught even on
+    # a week with no code changes at all — a push/PR-only trigger wouldn't.
+    - cron: "0 6 * * 1"
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install with every optional extra, for a real dependency audit
+        run: pip install -e ".[all]"
+
+      # PYSEC-2026-311 / CVE-2026-45830 / CVE-2026-45833 / CVE-2026-45831:
+      # open, unfixed CVEs in chromadb 1.5.9 (the current latest release as
+      # of this writing — verified via `pip index versions chromadb`, no
+      # patched version exists yet). Tracked and excluded explicitly here,
+      # not silently — revisit and drop this --ignore-vuln list once a fix
+      # ships. Everything else installed by `[all]` must still pass clean.
+      - name: pip-audit — known-vulnerability scan of installed dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          pip-audit \
+            --ignore-vuln PYSEC-2026-311 \
+            --ignore-vuln CVE-2026-45830 \
+            --ignore-vuln CVE-2026-45833 \
+            --ignore-vuln CVE-2026-45831

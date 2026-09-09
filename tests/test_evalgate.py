@@ -87,6 +87,105 @@ def test_run_eval_records_an_error_without_crashing_the_whole_run():
     assert scorecard.task_success_rate == 0.0
 
 
+def issue_refund(order_id: str, amount_usd: float) -> str:
+    """Refund an order."""
+    return f"refunded ${amount_usd} for {order_id}"
+
+
+def test_run_eval_expected_tool_sequence_passes_when_the_order_matches():
+    provider = ScriptedProvider([
+        'CALL lookup_order {"order_id": "A100"}',
+        'CALL issue_refund {"order_id": "A100", "amount_usd": 20}',
+        "Refund processed.",
+    ])
+    agent = Agent("shopper", "Help.", tools=[lookup_order, issue_refund], llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="refund A100", expected_tool_sequence=["lookup_order", "issue_refund"])]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 1.0
+    assert scorecard.cases[0].trajectory_errors == []
+
+
+def test_run_eval_expected_tool_sequence_flags_the_wrong_order():
+    provider = ScriptedProvider([
+        'CALL issue_refund {"order_id": "A100", "amount_usd": 20}',
+        'CALL lookup_order {"order_id": "A100"}',
+        "done",
+    ])
+    agent = Agent("shopper", "Help.", tools=[lookup_order, issue_refund], llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="refund A100", expected_tool_sequence=["lookup_order", "issue_refund"])]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 0.0
+    assert "expected tool sequence" in scorecard.cases[0].trajectory_errors[0]
+
+
+def test_run_eval_expected_args_flags_a_mismatched_argument():
+    provider = ScriptedProvider(['CALL issue_refund {"order_id": "WRONG", "amount_usd": 20}', "done"])
+    agent = Agent("shopper", "Help.", tools=[issue_refund], llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="refund A100", expected_args={"issue_refund": {"order_id": "A100"}})]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 0.0
+    assert "unexpected args" in scorecard.cases[0].trajectory_errors[0]
+
+
+def test_run_eval_forbidden_tools_flags_a_call_that_should_never_happen():
+    provider = ScriptedProvider(['CALL issue_refund {"order_id": "A100", "amount_usd": 20}', "done"])
+    agent = Agent("shopper", "Help.", tools=[issue_refund], llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="just look this up, don't refund", forbidden_tools=frozenset({"issue_refund"}))]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 0.0
+    assert "forbidden tools" in scorecard.cases[0].trajectory_errors[0]
+
+
+def test_run_eval_max_tool_calls_flags_too_many_calls():
+    provider = ScriptedProvider([
+        'CALL lookup_order {"order_id": "A100"}',
+        'CALL lookup_order {"order_id": "A100"}',
+        "done",
+    ])
+    agent = Agent("shopper", "Help.", tools=[lookup_order], llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="status of A100?", max_tool_calls=1)]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 0.0
+    assert "exceeds max_tool_calls" in scorecard.cases[0].trajectory_errors[0]
+
+
+def test_run_eval_must_request_approval_flags_a_turn_that_never_paused():
+    from agent_foundry.contracts import Policy
+
+    provider = ScriptedProvider(['CALL issue_refund {"order_id": "A100", "amount_usd": 20}', "done"])
+    policy = Policy(allowed_tools=frozenset({"issue_refund"}))  # no requires_approval configured
+    agent = Agent("shopper", "Help.", tools=[issue_refund], policy=policy, llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="refund A100", must_request_approval=True)]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 0.0
+    assert "expected an approval request" in scorecard.cases[0].trajectory_errors[0]
+
+
+def test_run_eval_trajectory_accuracy_rate_is_unaffected_when_no_case_declares_expectations():
+    """Matches tool_accuracy_rate's own convention: 1.0 (not counted
+    against the release gate), not 0.0, when nothing declared a
+    trajectory expectation at all."""
+    provider = ScriptedProvider(["a reply"])
+    agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
+    cases = [EvalCase(input="hi")]
+
+    scorecard = run_eval(agent, cases)
+
+    assert scorecard.trajectory_accuracy_rate == 1.0
+
+
 def test_scorecard_passes_respects_thresholds():
     provider = ScriptedProvider(["yes wedding outfit found", "totally unrelated"])
     agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
