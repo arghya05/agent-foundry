@@ -189,6 +189,49 @@ def test_chat_endpoint_namespaces_by_user_within_the_same_tenant_too():
     assert bob_reply.json()["status"] == "ok"
 
 
+def _wire_transfer_graph():
+    def send_wire(amount_usd):
+        return f"sent ${amount_usd}"
+
+    class Provider:
+        def complete(self, messages, *, model, tools=None, **kw):
+            last = messages[-1]
+            if last["role"] == "user" and "send" in str(last["content"]).lower():
+                return LLMResponse(text='CALL send_wire {"amount_usd": 500}', model=model, input_tokens=1, output_tokens=1, cost_usd=0.0)
+            tool_msg = next((m for m in messages if m["role"] == "tool"), None)
+            return LLMResponse(text=tool_msg["content"] if tool_msg else "no reply", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0)
+
+    identity = Identity(id="service-account", tenant_id="acme")  # the AGENT's own static identity — no roles at all
+    policy = Policy(allowed_tools=frozenset({"send_wire"}))
+    tools = ToolRegistry()
+    tools.register(ToolSpec("send_wire", "wire transfer", {"amount_usd": "number"}, send_wire, scopes=frozenset({"wire.send"})))
+    return build_agent_graph(system_prompt="sys", llm=LLMGateway(provider=Provider()), tools=tools,
+        guardrails=GuardrailEngine(policy), eval_harness=EvalHarness(), identity=identity, policy=policy,
+        budget=RunBudget(policy), tracer=Tracer("serve-identity-test"))
+
+
+def test_chat_endpoint_pdp_check_uses_the_authenticated_caller_not_the_graphs_static_identity():
+    """The deeper regression: serve.py's auth fix only namespaced
+    conversation state — the resolved identity never actually reached
+    AgentConfig's authorization decisions, which always saw the graph's
+    own static, build-time identity (here: service-account, with no
+    scopes at all) no matter who authenticated over HTTP. Bob authenticates
+    with the wire.send scope and must succeed; Alice authenticates with
+    none and must be denied — using the SAME shared graph."""
+    from agent_foundry.serve import ApiKeyAuthResolver
+
+    bob = Identity(id="bob", tenant_id="acme", roles=("wire.send",))
+    alice = Identity(id="alice", tenant_id="acme", roles=())
+    app = build_http_app(_wire_transfer_graph(), auth=ApiKeyAuthResolver(identities={"bob-key": bob, "alice-key": alice}))
+    client = TestClient(app)
+
+    bob_reply = client.post("/chat", json={"thread_id": "t1", "message": "send $500"}, headers={"Authorization": "Bearer bob-key"})
+    assert bob_reply.json()["reply"] == "sent $500"
+
+    alice_reply = client.post("/chat", json={"thread_id": "t1", "message": "send $500"}, headers={"Authorization": "Bearer alice-key"})
+    assert "wire.send" in alice_reply.json()["reply"]
+
+
 def test_build_http_app_refuses_to_build_without_auth_or_an_explicit_opt_out():
     """A governed serving surface should not default to trusting a
     client-supplied identity — auth=None now requires an explicit,

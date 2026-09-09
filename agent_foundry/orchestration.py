@@ -19,9 +19,13 @@ and wiring a StateGraph however your use case needs — hierarchical
 delegation, parallel fan-out, a supervisor of supervisors. Nothing about
 these primitives assumes there's only one agent in the graph.
 
-Tool-calling convention (kept deliberately simple, no vendor tool-schema
-lock-in): the model is instructed to reply with exactly
-`CALL <tool_name> {"arg": "value"}` when it wants to invoke a tool.
+Tool-calling: real provider-native structured tool calling (Anthropic/OpenAI
+tool_use blocks, translated to/from the provider-agnostic ToolCall shape in
+llm_gateway.py) is the primary path — see _get_all_tool_calls, which reads
+LLMResponse.tool_calls first. The `CALL <tool_name> {"arg": "value"}` text
+convention is the fallback for a Provider with no native tool-calling at
+all (or a test's ScriptedProvider), parsed by the same _get_all_tool_calls
+only when a response carries no native tool_calls.
 
 Checkpointer durability: every build_*_graph() below defaults to LangGraph's
 MemorySaver — in-process only, every thread's state is gone on restart. This
@@ -87,6 +91,18 @@ class AgentState(TypedDict):
     # reasoning as critique_retries.
     critique_last_score: float | None
     thread_id: str
+    # The AUTHENTICATED caller for this turn, when Agent.run()/.stream() was
+    # given an ExecutionContext with user_id/tenant_id/permissions set (see
+    # core/agent.py's _request_identity_dict) — {"id", "tenant_id", "roles"}.
+    # Read via _resolve_identity(config, state), which falls back to
+    # config.identity (the AGENT's own static, graph-build-time identity)
+    # when absent. MUST be declared here, not just written/read via
+    # state.get(...) — LangGraph derives its recognized channels from this
+    # TypedDict's own fields, so an undeclared key in an invoke() input dict
+    # is silently dropped rather than reaching any node (found live: this
+    # exact omission made the LangGraph engine ignore a per-request identity
+    # that native_engine's plain-dict state had no trouble carrying).
+    request_identity: dict[str, Any] | None
 
 
 @dataclass
@@ -264,7 +280,22 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
         prompt = config.system_prompt
         if config.context_engine is not None and last_user is not None:
             # Full retrieve -> rank -> filter -> compress -> budget pipeline.
-            built = config.context_engine.build(session_id, last_user["content"])
+            # tenant_id/roles come from the per-REQUEST identity when one
+            # was resolved (state["request_identity"] — see
+            # _resolve_identity) so one shared ContextEngine serving many
+            # enterprise tenants retrieves THIS caller's knowledge base,
+            # not whichever tenant_id the ContextEngine happened to be
+            # constructed with. tenant_id stays None (ContextEngine's own
+            # configured default) when no per-request identity exists —
+            # config.identity.tenant_id is the AGENT's own static service
+            # identity, not necessarily the right override when there's no
+            # actual per-request caller to reflect.
+            request_identity = _resolve_identity(config, state)
+            has_request_identity = state.get("request_identity") is not None
+            built = config.context_engine.build(
+                session_id, last_user["content"], roles=frozenset(request_identity.roles),
+                tenant_id=request_identity.tenant_id if has_request_identity else None,
+            )
             if built:
                 prompt = config.system_prompt + "\n\nRelevant context:\n" + built
         elif config.memory is not None and last_user is not None:
@@ -328,6 +359,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
     def act(state: AgentState) -> dict:
         session_id = state.get("thread_id") or config.tracer.thread_id
+        identity = _resolve_identity(config, state)
         resolved_user_id = (config.user_id(state) if callable(config.user_id) else config.user_id) if config.user_id is not None else None
         calls = _get_all_tool_calls(state["messages"][-1])
         if not calls:
@@ -361,7 +393,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             destructive = spec is not None and spec.destructive
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
-            gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+            gr = config.pdp.decide(tool_name, args, identity=identity, policy=config.policy,
                                     destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
@@ -369,7 +401,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                                     data_classification=spec.data_classification if spec is not None else "internal")
             if not gr.allowed and gr.reason and "approval" in gr.reason:
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
-                config.audit.record(identity=config.identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
+                config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
                 if not decision.get("approved"):
                     config.eval_harness.record("component", tool_name, "approval", 0.0, reason="denied by reviewer", session_id=session_id)
                     results.append(tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False))
@@ -383,7 +415,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 try:
                     idem_key = _default_idempotency_key(session_id, tool_call_id)
                     timeout = _tool_timeout(config, spec)
-                    invoke = (lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy, idempotency_key=k))
+                    invoke = (lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=identity, policy=config.policy, idempotency_key=k))
                     result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
                 except PermissionDenied as e:
                     config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
@@ -392,7 +424,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 span["attributes"].update(ok=result.ok, latency_ms=result.latency_ms)
 
             config.breaker.record(tool_name, result.ok)
-            config.audit.record(identity=config.identity, action="tool_call", tool=tool_name, ok=result.ok)
+            config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
             config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
                                         session_id=session_id, **({"reason": result.error} if not result.ok else {}))
             if config.memory is not None and result.ok:
@@ -557,7 +589,7 @@ def make_critique_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 "threshold": config.critique.escalate_threshold, "draft_reply": draft,
             })
             approved = bool(decision.get("approved"))
-            config.audit.record(identity=config.identity, action="critique_review", tool=result.name, score=result.value, approved=approved)
+            config.audit.record(identity=_resolve_identity(config, state), action="critique_review", tool=result.name, score=result.value, approved=approved)
             if not approved:
                 update = {"messages": [{"role": "assistant", "content": config.critique.fallback_message}]}
             _finalize_turn(config, session_id, outcome="completed_with_review")
@@ -1083,3 +1115,27 @@ def _tool_timeout(config: AgentConfig, spec: ToolSpec | None) -> float | None:
     if spec is not None and spec.timeout_s is not None:
         return spec.timeout_s
     return config.step_timeout_s
+
+
+def _resolve_identity(config: AgentConfig, state: dict) -> Identity:
+    """The identity used for THIS turn's authorization (PDP), tool
+    invocation (cache tenant-scoping, PermissionDenied), and audit
+    decisions — prefers a per-request identity carried in state
+    (state["request_identity"], seeded from the ExecutionContext an
+    Agent.run()/.stream()/.resume() caller passed in — see core/agent.py's
+    _identity_dict_from_context) over config.identity.
+
+    Without this, EVERY caller of a shared Agent/graph instance is
+    authorized as the exact same static, graph-build-time identity — an
+    HTTP layer that correctly authenticates Alice (role=support_agent) and
+    Bob (role=admin) as different people (see serve.py's AuthResolver) had
+    no way to make that distinction reach the PDP's scope/data-
+    classification checks, which only ever saw config.identity.roles.
+
+    Falls back to config.identity when no per-request identity was set —
+    unchanged behavior for every existing caller that doesn't populate
+    ExecutionContext.user_id/tenant_id/permissions."""
+    raw = state.get("request_identity")
+    if raw is None:
+        return config.identity
+    return Identity(id=raw["id"], tenant_id=raw["tenant_id"], roles=tuple(raw.get("roles", ())))

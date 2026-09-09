@@ -4,6 +4,7 @@ the @tool decorator, and Agent.on() event triggers.
 """
 from __future__ import annotations
 
+import concurrent.futures
 import time
 
 import pytest
@@ -143,12 +144,21 @@ def test_tool_decorator_builds_a_callable_toolspec_with_permissions_metadata():
 
 
 def test_tool_decorator_enforces_a_real_timeout():
+    """Regression, found live by CI's Python 3.10 matrix job (not caught on
+    a newer local interpreter): concurrent.futures.TimeoutError and the
+    builtin TimeoutError are the SAME object from Python 3.11 onward, but
+    are distinct, unrelated exception classes on 3.10 — this package's own
+    stated minimum (pyproject.toml requires-python >=3.10). with_timeout()
+    (runtime.py) raises concurrent.futures.TimeoutError specifically (see
+    test_sandbox.py/test_runtime.py, which already expect that one) — this
+    test asserting the builtin TimeoutError only ever passed by coincidence
+    on 3.11+."""
     @tool(timeout=0.05)
     def slow() -> str:
         time.sleep(0.3)
         return "too slow"
 
-    with pytest.raises(TimeoutError):
+    with pytest.raises(concurrent.futures.TimeoutError):
         slow.fn()
 
 

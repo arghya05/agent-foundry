@@ -169,6 +169,29 @@ def test_context_engine_filters_out_a_chunk_the_caller_lacks_the_role_for():
     assert "confidential" in built_with_hr_role
 
 
+def test_context_engine_build_tenant_id_override_serves_the_right_tenants_knowledge_base():
+    """Regression: ContextEngine.tenant_id was static instance config —
+    fine for one graph per tenant, wrong for one shared agent deployment
+    serving 100 enterprise tenants (they'd all retrieve whichever tenant's
+    knowledge base the ContextEngine happened to be constructed with). The
+    per-call `tenant_id` override must retrieve the ACTUAL calling
+    tenant's knowledge, not the engine's own default."""
+    knowledge = InMemoryKnowledgeStore()
+    knowledge.upsert(tenant_id="acme", knowledge_base_id="kb", document_id="d1", chunk_id="c1", text="Acme's secret roadmap")
+    knowledge.upsert(tenant_id="globex", knowledge_base_id="kb", document_id="d2", chunk_id="c1", text="Globex's secret roadmap")
+
+    # Constructed with "acme" as the default tenant_id.
+    engine = ContextEngine(memory=MemoryStore(), knowledge=knowledge, tenant_id="acme", knowledge_base_id="kb")
+
+    default_built = engine.build("t1", "secret roadmap")
+    assert "Acme's secret roadmap" in default_built
+
+    # A per-request caller from globex must see GLOBEX's knowledge, not acme's.
+    globex_built = engine.build("t1", "secret roadmap", tenant_id="globex")
+    assert "Globex's secret roadmap" in globex_built
+    assert "Acme's secret roadmap" not in globex_built
+
+
 def test_chroma_vector_store_ids_never_collide_across_a_simulated_restart():
     """Regression: the previous self._next_id counter started at 0 in every
     NEW instance — a fresh process re-attaching to the same persistent

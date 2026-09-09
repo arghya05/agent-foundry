@@ -139,7 +139,14 @@ def with_retry(fn: Callable[[], T], *, attempts: int = 3, backoff_s: float = 0.5
 
 
 def with_timeout(fn: Callable[[], T], *, seconds: float) -> T:
-    """Runs fn on a worker thread and raises concurrent.futures.TimeoutError past `seconds`."""
+    """Runs fn on a worker thread and raises concurrent.futures.TimeoutError
+    past `seconds`. Deliberately that exception, not the builtin
+    TimeoutError — they're the SAME object from Python 3.11 onward, but
+    distinct, unrelated classes on 3.10 (this package's stated minimum,
+    see pyproject.toml's requires-python). A caller catching
+    concurrent.futures.TimeoutError specifically (or `except TimeoutError`
+    on 3.11+, where it's an alias) gets the exact same exception on every
+    supported version this way."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
         return ex.submit(fn).result(timeout=seconds)
 

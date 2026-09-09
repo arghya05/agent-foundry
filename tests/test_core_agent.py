@@ -36,6 +36,45 @@ def test_agent_run_round_trip_with_tool_use():
     assert result.awaiting_approval is False
 
 
+@pytest.mark.parametrize("runtime", ["langgraph", "native"])
+def test_execution_context_identity_flows_into_the_pdp_scope_check(runtime):
+    """Regression: AgentConfig.identity is fixed at graph-build time — every
+    caller of a shared Agent was authorized as that SAME static identity,
+    no matter who actually authenticated (e.g. via serve.py's AuthResolver).
+    ExecutionContext.user_id/tenant_id/permissions must reach the PDP's
+    scope check per-request, on both engines."""
+    from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    tool = ToolSpec("send_wire", "send a wire transfer", {"amount_usd": "number"}, send_wire, scopes=frozenset({"wire.send"}))
+    policy = Policy(allowed_tools=frozenset({"send_wire"}))
+
+    def call_tool(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 500})])
+
+    def final(messages, model):
+        tool_msg = next(m for m in messages if m["role"] == "tool")
+        return tool_msg["content"]  # echo the tool result back as the reply, so the test can inspect it
+
+    provider = ScriptedProvider([call_tool, final, call_tool, final])
+    agent = Agent("bank", "Handle wires.", runtime=runtime, tools=[tool], policy=policy, llm=LLMGateway(provider=provider))
+
+    # Bob authenticated with the wire.send scope — the tool call succeeds.
+    bob_context = ExecutionContext(thread_id=f"bob-{runtime}", user_id="bob", tenant_id="acme", permissions=frozenset({"wire.send"}))
+    bob_result = agent.run("send $500", context=bob_context)
+    assert bob_result.content == "sent $500"
+
+    # Alice authenticated with NO scopes at all — same shared Agent, same
+    # static config.identity, but a DIFFERENT per-request identity — must
+    # be denied.
+    alice_context = ExecutionContext(thread_id=f"alice-{runtime}", user_id="alice", tenant_id="acme", permissions=frozenset())
+    alice_result = agent.run("send $500", context=alice_context)
+    assert "wire.send" in alice_result.content
+
+
 def test_agent_run_generates_a_thread_id_when_no_context_given():
     provider = ScriptedProvider(["hello"])
     agent = Agent("greeter", "Say hi.", llm=LLMGateway(provider=provider))

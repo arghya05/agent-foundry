@@ -198,6 +198,20 @@ class ToolRegistry:
         return [tool_json_schema(self._tools[name]) for name in self.list_for(policy)]
 
     def invoke(self, name: str, args: dict, *, identity: Identity, policy: Policy, idempotency_key: str | None = None) -> ToolResult:
+        """Checks policy.allowed_tools, then validates/caches/rate-limits/
+        executes/retries — but NOT the richer PDP checks (ToolSpec.scopes,
+        data_classification, requires_confirmation, egress, an external
+        OPA/Cedar PolicyEngine). Those live one layer up, in
+        policy_engine.PolicyDecisionPoint, which orchestration.make_act_node
+        and native_engine._act ALWAYS call before reaching this method — go
+        through an Agent/build_agent_graph, not this method directly, for
+        that governance to actually apply. Calling ToolRegistry.invoke()
+        directly (bypassing the act node) is a real gap, not a hypothetical
+        one: nothing here stops it. Kept as a public, direct-callable method
+        rather than folded into a separate enforcement wrapper for now — the
+        registry/executor split is a real improvement worth doing, but is a
+        larger, separately-scoped redesign (every existing direct caller of
+        .invoke(), tests included, would need to move), not a quick fix."""
         if name not in policy.allowed_tools:
             raise PermissionDenied(f"{identity.id} is not permitted to call {name!r}")
         if idempotency_key is not None and self.idempotency_store is not None:

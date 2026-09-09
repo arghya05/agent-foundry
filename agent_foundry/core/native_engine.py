@@ -41,8 +41,8 @@ from typing import Any, Iterator
 
 from ..guardrails import screen_tool_output
 from ..orchestration import (
-    CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _finalize_turn, _get_all_tool_calls, _tool_param_names,
-    _tool_timeout,
+    CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _finalize_turn, _get_all_tool_calls, _resolve_identity,
+    _tool_param_names, _tool_timeout,
 )
 from ..runtime import with_timeout
 from ..tools_gateway import PermissionDenied
@@ -96,9 +96,16 @@ class NativeEngine:
                 thread_id, {"messages": [], "thread_id": thread_id, "critique_retries": 0, "critique_last_score": None, "_pending": None},
             )
 
-    def run(self, config: AgentConfig, message: str, *, thread_id: str) -> dict[str, Any]:
+    def run(self, config: AgentConfig, message: str, *, thread_id: str, request_identity: dict[str, Any] | None = None) -> dict[str, Any]:
         with self._lock_for(thread_id):
             state = self._state_for(thread_id)
+            # Only overwrite when THIS call actually carries one — a thread
+            # continuing across turns must not have an earlier turn's
+            # resolved identity silently reset to "none" just because a
+            # later turn's caller didn't repeat it (see _resolve_identity's
+            # own docstring for why this matters).
+            if request_identity is not None:
+                state["request_identity"] = request_identity
             state["messages"].append({"role": "user", "content": message})
             return self._drive(config, state, thread_id)
 
@@ -186,7 +193,15 @@ class NativeEngine:
 
         prompt = config.system_prompt
         if config.context_engine is not None and last_user is not None:
-            built = config.context_engine.build(session_id, last_user["content"])
+            # Same per-request tenant/roles reasoning as orchestration.py's
+            # make_think_node — see its own comment for why tenant_id stays
+            # None absent an actual per-request identity.
+            request_identity = _resolve_identity(config, state)
+            has_request_identity = state.get("request_identity") is not None
+            built = config.context_engine.build(
+                session_id, last_user["content"], roles=frozenset(request_identity.roles),
+                tenant_id=request_identity.tenant_id if has_request_identity else None,
+            )
             if built:
                 prompt = config.system_prompt + "\n\nRelevant context:\n" + built
         elif config.memory is not None and last_user is not None:
@@ -232,6 +247,7 @@ class NativeEngine:
         self, config: AgentConfig, state: dict[str, Any], thread_id: str, *, resume: tuple[str, str | None, bool] | None = None,
     ) -> dict[str, Any] | None:
         session_id = thread_id
+        identity = _resolve_identity(config, state)
         resolved_user_id = (config.user_id(state) if callable(config.user_id) else config.user_id) if config.user_id is not None else None
         calls = _get_all_tool_calls(state["messages"][-1])
         if not calls:
@@ -253,7 +269,7 @@ class NativeEngine:
             destructive = spec is not None and spec.destructive
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
-            gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+            gr = config.pdp.decide(tool_name, args, identity=identity, policy=config.policy,
                                     destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
@@ -267,7 +283,7 @@ class NativeEngine:
                     state["_pending"] = pending
                     return self._raw(state, interrupt=pending)
                 approved = resume[2]
-                config.audit.record(identity=config.identity, action="approval_decision", tool=tool_name, approved=approved)
+                config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=approved)
                 if not approved:
                     config.eval_harness.record("component", tool_name, "approval", 0.0, reason="denied by reviewer", session_id=session_id)
                     results.append(_tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False))
@@ -281,7 +297,7 @@ class NativeEngine:
                 try:
                     idem_key = _default_idempotency_key(session_id, tool_call_id)
                     timeout = _tool_timeout(config, spec)
-                    invoke = lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy, idempotency_key=k)
+                    invoke = lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=identity, policy=config.policy, idempotency_key=k)
                     result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
                 except PermissionDenied as e:
                     config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
@@ -290,7 +306,7 @@ class NativeEngine:
                 span["attributes"].update(ok=result.ok, latency_ms=result.latency_ms)
 
             config.breaker.record(tool_name, result.ok)
-            config.audit.record(identity=config.identity, action="tool_call", tool=tool_name, ok=result.ok)
+            config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
             config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
                                         session_id=session_id, **({"reason": result.error} if not result.ok else {}))
             if config.memory is not None and result.ok:
@@ -392,7 +408,8 @@ class _NativeGraph:
             decision = {k: v for k, v in resume_payload.items() if k != "approved"}
             return self._engine.resume(self._config, approved=bool(resume_payload.get("approved")), decision=decision or None, thread_id=thread_id)
         message = state_or_command["messages"][-1]["content"]
-        return self._engine.run(self._config, message, thread_id=thread_id)
+        request_identity = state_or_command.get("request_identity")
+        return self._engine.run(self._config, message, thread_id=thread_id, request_identity=request_identity)
 
     def stream(self, state_or_command: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
         """One chunk only — this engine has no per-node incremental

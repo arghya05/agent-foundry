@@ -148,7 +148,7 @@ def chat_response_from_result(result: dict) -> ChatResponse:
     return ChatResponse(status="ok", reply=result["messages"][-1]["content"])
 
 
-def invoke_graph_chat_turn(graph: Any, *, message: str, thread_id: str) -> ChatResponse:
+def invoke_graph_chat_turn(graph: Any, *, message: str, thread_id: str, identity: Identity | None = None) -> ChatResponse:
     """graph.invoke() for one chat turn, plus response shaping — the one
     place runtime.BudgetExceeded (a RunBudget/LatencyBudget ceiling —
     cost, step count, or cumulative session wall-clock time) becomes a
@@ -162,16 +162,24 @@ def invoke_graph_chat_turn(graph: Any, *, message: str, thread_id: str) -> ChatR
     LatencyBudget. Both build_http_app's own /chat below and any caller that
     registers its own (serve_chat_route=False, e.g. healthcare/backend/
     app.py's role-aware chat) should invoke through this rather than calling
-    graph.invoke() directly."""
+    graph.invoke() directly.
+
+    `identity`: the AUTHENTICATED caller (from AuthResolver.resolve(), not
+    the thread_id-namespacing alone) — seeded into state["request_identity"]
+    so orchestration._resolve_identity picks it up for the PDP/tool-
+    invocation/audit decisions THIS turn makes, instead of those decisions
+    always seeing AgentConfig's static, graph-build-time identity no
+    matter who the real caller is. None (default, when build_http_app's
+    own `auth` isn't configured): unchanged behavior."""
     from fastapi import HTTPException
 
     from .runtime import BudgetExceeded
 
+    state: dict[str, Any] = {"messages": [{"role": "user", "content": message}], "thread_id": thread_id}
+    if identity is not None:
+        state["request_identity"] = {"id": identity.id, "tenant_id": identity.tenant_id, "roles": tuple(identity.roles)}
     try:
-        result = graph.invoke(
-            {"messages": [{"role": "user", "content": message}], "thread_id": thread_id},
-            {"configurable": {"thread_id": thread_id}},
-        )
+        result = graph.invoke(state, {"configurable": {"thread_id": thread_id}})
     except BudgetExceeded as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
     return chat_response_from_result(result)
@@ -248,13 +256,17 @@ def build_http_app(
 
     app = FastAPI()
 
-    def _resolve_thread_id(request_thread_id: str, request: Request) -> str:
+    def _resolve_caller(request: Request) -> Identity | None:
         if auth is None:
-            return request_thread_id
+            return None
         try:
-            identity = auth.resolve(request.headers)
+            return auth.resolve(request.headers)
         except AuthenticationError as e:
             raise HTTPException(status_code=401, detail=str(e)) from e
+
+    def _namespaced_thread_id(request_thread_id: str, identity: Identity | None) -> str:
+        if identity is None:
+            return request_thread_id
         # tenant_id ALONE isn't enough — two different users of the same
         # tenant could still collide on the same client-chosen thread_id
         # (see this function's own docstring). identity.id makes the
@@ -273,8 +285,9 @@ def build_http_app(
     if serve_chat_route:
         @app.post("/chat", response_model=ChatResponse)
         def chat(req: ChatRequest, request: Request) -> ChatResponse:
-            thread_id = _resolve_thread_id(req.thread_id, request)
-            return invoke_graph_chat_turn(graph, message=req.message, thread_id=thread_id)
+            identity = _resolve_caller(request)
+            thread_id = _namespaced_thread_id(req.thread_id, identity)
+            return invoke_graph_chat_turn(graph, message=req.message, thread_id=thread_id, identity=identity)
 
     if serve_resume_route:
         @app.post("/resume", response_model=ChatResponse)
@@ -283,7 +296,8 @@ def build_http_app(
 
             from .runtime import BudgetExceeded
 
-            thread_id = _resolve_thread_id(req.thread_id, request)
+            identity = _resolve_caller(request)
+            thread_id = _namespaced_thread_id(req.thread_id, identity)
             try:
                 result = graph.invoke(Command(resume={"approved": req.approved}), {"configurable": {"thread_id": thread_id}})
             except BudgetExceeded as e:  # same as invoke_graph_chat_turn — see its docstring

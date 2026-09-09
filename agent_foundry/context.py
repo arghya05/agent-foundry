@@ -386,14 +386,20 @@ class ContextEngine:
     tenant_id: str = ""
     knowledge_base_id: str = ""
 
-    def retrieve_knowledge(self, query: str, *, k: int = 8, roles: frozenset[str] = frozenset()) -> list[RetrievedChunk]:
+    def retrieve_knowledge(self, query: str, *, k: int = 8, roles: frozenset[str] = frozenset(), tenant_id: str | None = None) -> list[RetrievedChunk]:
         """Retrieves from `knowledge` (a no-op when it's None) and drops any
         chunk whose `permissions` tag set is non-empty but doesn't overlap
         the caller's own `roles` — an empty permissions set means
-        unrestricted, matching RetrievedChunk's own docstring."""
+        unrestricted, matching RetrievedChunk's own docstring.
+
+        `tenant_id` overrides `self.tenant_id` for THIS call — one shared
+        ContextEngine instance serving 100 enterprise tenants needs the
+        actual calling tenant per request, not one tenant baked in at
+        construction time. None (default): falls back to `self.tenant_id`,
+        correct for the common one-ContextEngine-per-tenant deployment."""
         if self.knowledge is None:
             return []
-        chunks = self.knowledge.search(tenant_id=self.tenant_id, knowledge_base_id=self.knowledge_base_id, query=query, k=k)
+        chunks = self.knowledge.search(tenant_id=tenant_id or self.tenant_id, knowledge_base_id=self.knowledge_base_id, query=query, k=k)
         return [c for c in chunks if not c.permissions or (roles & c.permissions)]
 
     def retrieve(self, thread_id: str, query: str, *, k: int = 8) -> list[str]:
@@ -438,10 +444,10 @@ class ContextEngine:
         max_chars = int(self.max_tokens * self.chars_per_token)
         return text if len(text) <= max_chars else text[:max_chars].rsplit("\n", 1)[0]
 
-    def build(self, thread_id: str, query: str, *, k: int = 8, roles: frozenset[str] = frozenset()) -> str:
+    def build(self, thread_id: str, query: str, *, k: int = 8, roles: frozenset[str] = frozenset(), tenant_id: str | None = None) -> str:
         passages = self.retrieve(thread_id, query, k=k)
         passages = self.rank(query, passages)
         passages = self.filter(passages)
         passages = self.compress(passages)
-        knowledge_passages = self.compress([f"[{c.source}] {c.text}" for c in self.retrieve_knowledge(query, k=k, roles=roles)])
+        knowledge_passages = self.compress([f"[{c.source}] {c.text}" for c in self.retrieve_knowledge(query, k=k, roles=roles, tenant_id=tenant_id)])
         return self.budget(self.assemble(passages + knowledge_passages))

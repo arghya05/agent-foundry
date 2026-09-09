@@ -102,6 +102,18 @@ def _default_identity(name: str) -> Identity:
     return Identity(id=f"{name}-agent", tenant_id="default")
 
 
+def _request_identity_dict(context: ExecutionContext) -> dict[str, Any] | None:
+    """Derives the per-request identity orchestration._resolve_identity
+    reads back out of state["request_identity"] — None when the caller's
+    ExecutionContext didn't populate user_id/tenant_id/permissions at all
+    (the default for every existing caller, unchanged behavior). A plain
+    dict, not an Identity object, so it survives any checkpointer that
+    needs JSON-serializable state, not just the default in-memory one."""
+    if context.user_id is None and context.tenant_id is None and not context.permissions:
+        return None
+    return {"id": context.user_id or "unknown", "tenant_id": context.tenant_id or "", "roles": tuple(context.permissions)}
+
+
 def _default_policy(tool_names: list[str]) -> Policy:
     return Policy(allowed_tools=frozenset(tool_names))
 
@@ -131,13 +143,21 @@ class _CompiledWorkflow:
     def graph(self) -> Any:
         return self._graph
 
-    def _initial_state(self, message: str, thread_id: str) -> dict[str, Any]:
-        return {"messages": [{"role": "user", "content": message}], "thread_id": thread_id, **self._extra_state}
+    def _initial_state(self, message: str, thread_id: str, *, identity: dict[str, Any] | None = None) -> dict[str, Any]:
+        state = {"messages": [{"role": "user", "content": message}], "thread_id": thread_id, **self._extra_state}
+        # Only included when there actually IS one — see
+        # _request_identity_dict's own reasoning, mirrored in
+        # NativeEngine.run(): omitting the key on a continuing thread must
+        # not reset an earlier turn's resolved identity to "none".
+        if identity is not None:
+            state["request_identity"] = identity
+        return state
 
     def run(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
         context = context or ExecutionContext()
         thread_id = context.resolved_thread_id()
-        raw = self._graph.invoke(self._initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}})
+        state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
+        raw = self._graph.invoke(state, {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
     invoke = run  # alias for API parity with the memo's run()/invoke() — same call, not a distinct one
@@ -153,7 +173,8 @@ class _CompiledWorkflow:
         # engines actually agree on a chunk shape now, not just by accident.
         context = context or ExecutionContext()
         thread_id = context.resolved_thread_id()
-        yield from self._graph.stream(self._initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}}, stream_mode="values")
+        state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
+        yield from self._graph.stream(state, {"configurable": {"thread_id": thread_id}}, stream_mode="values")
 
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         # `decision` layers richer resume payloads (an event's data, a
