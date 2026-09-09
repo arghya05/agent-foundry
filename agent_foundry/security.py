@@ -19,8 +19,20 @@ from .contracts import Identity, ToolSpec
 
 
 def manifest_hash(spec: ToolSpec) -> str:
-    """Fingerprints a tool's name, description and signature so drift is detectable."""
-    src = f"{spec.name}:{spec.description}:{inspect.signature(spec.fn)}"
+    """Fingerprints a tool's name, description, signature, AND (when available)
+    its actual source — hashing the signature alone would leave the fingerprint
+    unchanged if only a function's BODY changed (e.g. `def refund(order_id):`
+    keeps the exact same signature no matter what the body does), which is
+    exactly the supply-chain drift this registry exists to catch. Falls back to
+    signature-only when the source genuinely isn't retrievable (a dynamically
+    built closure, a builtin, a lambda passed via exec/eval) — inspect.getsource
+    raises OSError/TypeError there, not something to hide from a caller by
+    pretending drift-detection covers it when it doesn't."""
+    try:
+        body = inspect.getsource(spec.fn)
+    except (OSError, TypeError):
+        body = ""
+    src = f"{spec.name}:{spec.description}:{inspect.signature(spec.fn)}:{body}"
     return hashlib.sha256(src.encode()).hexdigest()[:16]
 
 

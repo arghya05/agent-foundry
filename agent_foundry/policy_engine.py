@@ -9,11 +9,57 @@ from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+from .contracts import GuardrailResult, Identity, Policy
+
+if TYPE_CHECKING:
+    from .guardrails import GuardrailChecks
+    from .security import EgressPolicy
 
 
 class PolicyEngine(Protocol):
     def allow(self, input: dict[str, Any]) -> bool: ...
+
+
+@dataclass
+class PolicyDecisionPoint:
+    """The single mandatory call site the review asked for, instead of
+    Policy.allowed_tools/EgressPolicy/an external PolicyEngine being loosely
+    related utilities a caller has to remember to wire together itself.
+    Composes (in order) the deterministic action guardrail, an optional
+    external PolicyEngine (OPAPolicyEngine/CedarPolicyEngine above), and an
+    optional EgressPolicy host allowlist — the same delegate-don't-replace
+    composition guardrails.LLMGuardrails.check_action already uses for
+    GuardrailEngine. Each piece stays independently usable/testable; this is
+    just the thing that calls all of them for one tool-call decision.
+
+    Wire it in via AgentConfig.pdp — make_act_node calls `.decide(...)`
+    instead of `config.guardrails.check_action(...)` only when it's set, so
+    every existing caller that doesn't configure a PDP keeps its exact
+    current behavior."""
+
+    guardrails: "GuardrailChecks"
+    policy_engine: PolicyEngine | None = None
+    egress: "EgressPolicy | None" = None
+
+    def decide(
+        self, tool_name: str, args: dict[str, Any], *, identity: Identity, policy: Policy,
+        destructive: bool = False, cost_so_far: float = 0.0, host: str | None = None,
+    ) -> GuardrailResult:
+        gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
+        if not gr.allowed:
+            return gr
+        if self.policy_engine is not None:
+            allowed = self.policy_engine.allow({
+                "identity_id": identity.id, "tool": tool_name, "allowed_tools": list(policy.allowed_tools),
+                "cost_so_far": cost_so_far, "max_cost": policy.max_cost_usd_per_thread,
+            })
+            if not allowed:
+                return GuardrailResult(False, f"{tool_name!r} denied by external policy engine", "action")
+        if self.egress is not None and host is not None and not self.egress.check(tool_name, host):
+            return GuardrailResult(False, f"{tool_name!r} denied: {host!r} not in egress allowlist for this tool", "action")
+        return GuardrailResult(True, stage="action")
 
 
 @dataclass

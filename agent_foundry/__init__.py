@@ -34,10 +34,13 @@ from .core.result import RunResult
 from .core.run import Run, RunStatus
 from .core.tool_decorator import tool
 
+__version__ = "0.1.0"
+
 __all__ = [
     "Agent", "Workflow", "ExecutionContext", "RunResult", "tool",
     "PromptRegistry", "PolicyRegistry", "EvalRegistry",
     "ModelRouter", "ModelRequest", "ModelCapabilities", "apply_route",
     "Run", "RunStatus",
     "run_eval", "EvalCase", "Scorecard", "CaseResult",
+    "__version__",
 ]

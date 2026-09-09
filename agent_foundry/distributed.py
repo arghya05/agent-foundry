@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
+from dataclasses import asdict
 from typing import Any
 
-from .contracts import Policy
+from .contracts import Policy, ToolResult
 from .runtime import BudgetExceeded
 
 _DEFAULT_THREAD = "__default__"
@@ -126,15 +128,15 @@ class RedisToolCache:
         self._prefix = key_prefix
         self._r = redis_lib.Redis.from_url(redis_url, decode_responses=True)
 
-    def _key(self, name: str, args: dict) -> str:
-        return f"{self._prefix}:{name}:{json.dumps(args, sort_keys=True)}"
+    def _key(self, name: str, args: dict, tenant: str | None) -> str:
+        return f"{self._prefix}:{tenant}:{name}:{json.dumps(args, sort_keys=True, default=str)}"
 
-    def get(self, name: str, args: dict) -> Any:
-        raw = self._r.get(self._key(name, args))
+    def get(self, name: str, args: dict, *, tenant: str | None = None) -> Any:
+        raw = self._r.get(self._key(name, args, tenant))
         return None if raw is None else json.loads(raw)
 
-    def set(self, name: str, args: dict, result: Any) -> None:
-        self._r.set(self._key(name, args), json.dumps(result), ex=int(self.ttl_s) or 1)
+    def set(self, name: str, args: dict, result: Any, *, tenant: str | None = None) -> None:
+        self._r.set(self._key(name, args, tenant), json.dumps(result), ex=int(self.ttl_s) or 1)
 
 
 class RedisSLATracker:
@@ -234,3 +236,67 @@ class RedisCostLedger:
     def by_tenant(self) -> dict[str, float]:
         raw = self._r.hgetall(f"{self._prefix}:by_tenant")
         return {k: float(v) for k, v in raw.items()}
+
+
+class RedisIdempotencyStore:
+    """IdempotencyStore (tools_gateway.py) — same fleet-safety story as every
+    other class in this module, for ToolRegistry.idempotency_store. A
+    replayed/resumed destructive tool call (see orchestration.py's
+    _default_idempotency_key — every native tool call now derives one
+    automatically) must be recognized as already-executed no matter which
+    replica handles the retry, not just the one that originally ran it.
+    Exact same get/set contract as InMemoryIdempotencyStore — a real
+    drop-in, not an upgrade to it."""
+
+    def __init__(self, ttl_s: float = 3600.0, *, redis_url: str = "redis://localhost:6379/0", key_prefix: str = "agent_foundry:idempotency"):
+        import redis as redis_lib
+
+        self.ttl_s = ttl_s
+        self._prefix = key_prefix
+        self._r = redis_lib.Redis.from_url(redis_url, decode_responses=True)
+
+    def get(self, key: str) -> ToolResult | None:
+        raw = self._r.get(f"{self._prefix}:{key}")
+        return None if raw is None else ToolResult(**json.loads(raw))
+
+    def set(self, key: str, result: ToolResult) -> None:
+        self._r.set(f"{self._prefix}:{key}", json.dumps(asdict(result)), ex=int(self.ttl_s) or 1)
+
+
+# release() must only remove a lease THIS caller's token still owns — a
+# plain DEL would let a replica release a lease that already expired and
+# was re-acquired by a different replica in the meantime.
+_LEASE_RELEASE_LUA = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+    return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
+
+
+class RedisLease:
+    """A minimal distributed lock with a TTL — the fleet-safety primitive a
+    replica needs before driving a paused/resumable run (or any other
+    exactly-once-across-the-fleet step) forward, so a second replica
+    handling the same event/webhook/resume can't run it concurrently.
+    acquire() is atomic (SET NX EX): it only succeeds if the key is
+    currently unheld, returning a per-holder token on success or None if
+    someone else already holds it. release() only removes a lease this
+    exact token owns (a Lua check-and-delete), so a replica can never
+    release — or accidentally steal back — a lease it doesn't currently
+    hold."""
+
+    def __init__(self, *, redis_url: str = "redis://localhost:6379/0", key_prefix: str = "agent_foundry:lease"):
+        import redis as redis_lib
+
+        self._prefix = key_prefix
+        self._r = redis_lib.Redis.from_url(redis_url, decode_responses=True)
+        self._release_script = self._r.register_script(_LEASE_RELEASE_LUA)
+
+    def acquire(self, key: str, *, ttl_s: float = 30.0) -> str | None:
+        token = uuid.uuid4().hex
+        ok = self._r.set(f"{self._prefix}:{key}", token, nx=True, ex=int(ttl_s) or 1)
+        return token if ok else None
+
+    def release(self, key: str, token: str) -> None:
+        self._release_script(keys=[f"{self._prefix}:{key}"], args=[token])

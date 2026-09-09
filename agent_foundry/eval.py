@@ -39,6 +39,66 @@ class EvalHarness:
         return {level: self.score_for(level) for level in _LEVELS}
 
 
+_TOOL_METRICS = ("success", "approval", "permission", "action_guardrail")
+
+
+@dataclass
+class TrajectoryReport:
+    """One session's execution trajectory — tool choice/sequence, whether a
+    failure got recovered from, guardrail interventions, critique scores,
+    and how the turn ultimately resolved. Aggregated purely from EvalRecords
+    the framework already writes (see make_think_node/make_act_node/
+    make_critique_node/_finalize_turn's own .record() calls in
+    orchestration.py) — no new instrumentation needed. Cost/latency
+    deliberately stay OUT of this report: AgentConfig.cost_ledger/
+    .sla_tracker already own that data, and duplicating it into eval
+    records would just be a second, driftable copy of the same numbers."""
+
+    session_id: str
+    tool_calls: list[str] = field(default_factory=list)  # in call order, including denied/failed attempts
+    tools_used: set[str] = field(default_factory=set)
+    tool_success_rate: float = 1.0
+    recovered_tool_failures: list[str] = field(default_factory=list)  # tool names that failed, then later succeeded
+    guardrail_blocks: list[str] = field(default_factory=list)  # e.g. "input_guardrail", "output_guardrail"
+    critique_scores: list[tuple[str, float]] = field(default_factory=list)  # (kpi_name, score), in order
+    outcome: str | None = None  # the flow-level metric (_finalize_turn's "completed"/etc.) if the turn finished
+
+
+def trajectory_report(harness: "EvalHarness", session_id: str) -> TrajectoryReport:
+    """Walks harness.records for one session_id and aggregates them into a
+    TrajectoryReport. Records are matched by `detail["session_id"]` (every
+    atomic/component record carries it) OR by being the flow-level record
+    for this session (_finalize_turn's `record("flow", session_id, ...)`,
+    which has no session_id in `detail` since `unit` already IS the
+    session_id)."""
+    report = TrajectoryReport(session_id=session_id)
+    scoped = [r for r in harness.records if r.detail.get("session_id") == session_id or (r.level == "flow" and r.unit == session_id)]
+
+    last_ok: dict[str, bool] = {}  # tool name -> most-recently-seen outcome, in record order
+    tool_attempts = 0
+    tool_successes = 0
+    for r in scoped:
+        if r.level == "component" and r.metric in _TOOL_METRICS:
+            report.tool_calls.append(r.unit)
+            report.tools_used.add(r.unit)
+            ok = r.metric == "success" and r.score == 1.0
+            tool_attempts += 1
+            tool_successes += 1 if ok else 0
+            if r.unit in last_ok and not last_ok[r.unit] and ok:
+                report.recovered_tool_failures.append(r.unit)
+            last_ok[r.unit] = ok
+        elif r.level == "atomic" and r.unit in ("input_guardrail", "output_guardrail") and r.score == 0.0:
+            report.guardrail_blocks.append(r.unit)
+        elif r.level == "atomic" and r.unit == "critique":
+            report.critique_scores.append((r.metric, r.score))
+        elif r.level == "flow" and r.unit == session_id:
+            report.outcome = r.metric
+
+    if tool_attempts:
+        report.tool_success_rate = tool_successes / tool_attempts
+    return report
+
+
 @dataclass
 class JSONLEvalSink:
     """Writes each record as one JSON line to a file instead of holding it in

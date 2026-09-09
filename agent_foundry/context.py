@@ -57,16 +57,124 @@ class ChromaVectorStore:
         client = chromadb.PersistentClient(path=path) if path else chromadb.EphemeralClient()
         kw = {"embedding_function": embedding_function} if embedding_function is not None else {}
         self._collection = client.get_or_create_collection(collection_name, **kw)
-        self._next_id = 0
 
     def upsert(self, thread_id: str, text: str, metadata: dict) -> None:
-        self._next_id += 1
-        self._collection.add(ids=[f"{thread_id}-{self._next_id}"], documents=[text], metadatas=[{**metadata, "thread_id": thread_id}])
+        import uuid
+
+        # A process-local counter (the previous `self._next_id`) resets to 0
+        # on every restart — with a PERSISTENT collection (path=...), a fresh
+        # process re-issuing id "1" collides with whatever a prior process
+        # already stored under that same id. A uuid has no such restart state.
+        self._collection.add(ids=[f"{thread_id}-{uuid.uuid4().hex}"], documents=[text], metadatas=[{**metadata, "thread_id": thread_id}])
 
     def search(self, thread_id: str, query: str, k: int = 4) -> list[str]:
         result = self._collection.query(query_texts=[query], n_results=k, where={"thread_id": thread_id})
         docs = result.get("documents") or []
         return docs[0] if docs else []
+
+
+# ---- Enterprise knowledge (RAG) — deliberately NOT the same store as conversation memory ----
+#
+# VectorStore/InMemoryVectorStore/ChromaVectorStore above are correct for
+# conversation memory (thread_id-scoped, one session's own history). Enterprise
+# knowledge has a completely different lifetime/ownership/ACL shape — a shared
+# knowledge base outlives any one session, is scoped to a tenant + KB +
+# document + chunk, and individual chunks carry access-control tags — so it
+# gets its own protocol/reference implementations instead of overloading
+# VectorStore's thread_id namespace for something it was never designed for.
+
+@dataclass
+class RetrievedChunk:
+    """A knowledge-base search hit — richer than VectorStore.search()'s plain
+    `list[str]` specifically so a caller gets citations (source/document_id/
+    chunk_id), a relevance score, and permissions to filter on, not just text."""
+
+    text: str
+    source: str
+    document_id: str
+    chunk_id: str
+    score: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+    permissions: frozenset[str] = field(default_factory=frozenset)  # role tags allowed to see this chunk; empty = unrestricted
+
+
+class KnowledgeStore(Protocol):
+    def upsert(self, *, tenant_id: str, knowledge_base_id: str, document_id: str, chunk_id: str, text: str,
+               metadata: dict[str, Any] | None = None, permissions: frozenset[str] = frozenset()) -> None: ...
+    def search(self, *, tenant_id: str, knowledge_base_id: str, query: str, k: int = 4) -> list[RetrievedChunk]: ...
+
+
+@dataclass
+class InMemoryKnowledgeStore:
+    """Keyword-overlap reference implementation, same zero-dependency posture
+    as InMemoryVectorStore — namespaced by (tenant_id, knowledge_base_id), not
+    thread_id."""
+
+    _chunks: dict[tuple[str, str], list[RetrievedChunk]] = field(default_factory=dict)
+
+    def upsert(self, *, tenant_id: str, knowledge_base_id: str, document_id: str, chunk_id: str, text: str,
+               metadata: dict[str, Any] | None = None, permissions: frozenset[str] = frozenset()) -> None:
+        self._chunks.setdefault((tenant_id, knowledge_base_id), []).append(
+            RetrievedChunk(text=text, source=document_id, document_id=document_id, chunk_id=chunk_id,
+                           metadata=metadata or {}, permissions=permissions)
+        )
+
+    def search(self, *, tenant_id: str, knowledge_base_id: str, query: str, k: int = 4) -> list[RetrievedChunk]:
+        terms = set(query.lower().split())
+
+        def overlap(chunk: RetrievedChunk) -> int:
+            return len(terms & set(chunk.text.lower().split()))
+
+        candidates = self._chunks.get((tenant_id, knowledge_base_id), [])
+        ranked = sorted(candidates, key=overlap, reverse=True)[:k]
+        return [
+            RetrievedChunk(text=c.text, source=c.source, document_id=c.document_id, chunk_id=c.chunk_id,
+                           score=float(overlap(c)), metadata=c.metadata, permissions=c.permissions)
+            for c in ranked
+        ]
+
+
+class ChromaKnowledgeStore:
+    """The KnowledgeStore counterpart to ChromaVectorStore — same embedded
+    ChromaDB engine, namespaced by (tenant_id, knowledge_base_id) instead of
+    thread_id, and returning RetrievedChunk (citations/ACL) instead of plain
+    strings. Requires `pip install chromadb`."""
+
+    def __init__(self, *, path: str | None = None, embedding_function: Any = None, collection_name: str = "agent_foundry_knowledge") -> None:
+        import chromadb
+
+        client = chromadb.PersistentClient(path=path) if path else chromadb.EphemeralClient()
+        kw = {"embedding_function": embedding_function} if embedding_function is not None else {}
+        self._collection = client.get_or_create_collection(collection_name, **kw)
+
+    @staticmethod
+    def _ns(tenant_id: str, knowledge_base_id: str) -> str:
+        return f"{tenant_id}:{knowledge_base_id}"
+
+    def upsert(self, *, tenant_id: str, knowledge_base_id: str, document_id: str, chunk_id: str, text: str,
+               metadata: dict[str, Any] | None = None, permissions: frozenset[str] = frozenset()) -> None:
+        import uuid
+
+        full_id = f"{self._ns(tenant_id, knowledge_base_id)}-{uuid.uuid4().hex}"
+        meta = {
+            **(metadata or {}), "ns": self._ns(tenant_id, knowledge_base_id),
+            "document_id": document_id, "chunk_id": chunk_id, "permissions": ",".join(sorted(permissions)),
+        }
+        self._collection.add(ids=[full_id], documents=[text], metadatas=[meta])
+
+    def search(self, *, tenant_id: str, knowledge_base_id: str, query: str, k: int = 4) -> list[RetrievedChunk]:
+        result = self._collection.query(query_texts=[query], n_results=k, where={"ns": self._ns(tenant_id, knowledge_base_id)})
+        docs = (result.get("documents") or [[]])[0]
+        metas = (result.get("metadatas") or [[]])[0]
+        distances = (result.get("distances") or [[0.0] * len(docs)])[0]
+        chunks = []
+        for text, meta, distance in zip(docs, metas, distances):
+            perms = frozenset(p for p in (meta.get("permissions") or "").split(",") if p)
+            chunks.append(RetrievedChunk(
+                text=text, source=meta.get("document_id", ""), document_id=meta.get("document_id", ""),
+                chunk_id=meta.get("chunk_id", ""), score=1.0 - distance, metadata=meta, permissions=perms,
+            ))
+        return chunks
 
 
 def retrieval_tool(memory: "MemoryStore") -> ToolSpec:
@@ -271,6 +379,22 @@ class ContextEngine:
     memory: MemoryStore
     max_tokens: int = 2000
     chars_per_token: float = 4.0  # rough, dependency-free estimate
+    # Optional enterprise-knowledge retrieval, additive to `memory`'s
+    # conversation-scoped semantic search above — see KnowledgeStore's own
+    # module comment for why the two are kept as separate abstractions.
+    knowledge: KnowledgeStore | None = None
+    tenant_id: str = ""
+    knowledge_base_id: str = ""
+
+    def retrieve_knowledge(self, query: str, *, k: int = 8, roles: frozenset[str] = frozenset()) -> list[RetrievedChunk]:
+        """Retrieves from `knowledge` (a no-op when it's None) and drops any
+        chunk whose `permissions` tag set is non-empty but doesn't overlap
+        the caller's own `roles` — an empty permissions set means
+        unrestricted, matching RetrievedChunk's own docstring."""
+        if self.knowledge is None:
+            return []
+        chunks = self.knowledge.search(tenant_id=self.tenant_id, knowledge_base_id=self.knowledge_base_id, query=query, k=k)
+        return [c for c in chunks if not c.permissions or (roles & c.permissions)]
 
     def retrieve(self, thread_id: str, query: str, *, k: int = 8) -> list[str]:
         return self.memory.semantic.search(thread_id, query, k=k)
@@ -314,9 +438,10 @@ class ContextEngine:
         max_chars = int(self.max_tokens * self.chars_per_token)
         return text if len(text) <= max_chars else text[:max_chars].rsplit("\n", 1)[0]
 
-    def build(self, thread_id: str, query: str, *, k: int = 8) -> str:
+    def build(self, thread_id: str, query: str, *, k: int = 8, roles: frozenset[str] = frozenset()) -> str:
         passages = self.retrieve(thread_id, query, k=k)
         passages = self.rank(query, passages)
         passages = self.filter(passages)
         passages = self.compress(passages)
-        return self.budget(self.assemble(passages))
+        knowledge_passages = self.compress([f"[{c.source}] {c.text}" for c in self.retrieve_knowledge(query, k=k, roles=roles)])
+        return self.budget(self.assemble(passages + knowledge_passages))

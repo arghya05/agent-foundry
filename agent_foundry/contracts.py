@@ -60,6 +60,18 @@ class ToolSpec:
     parameters: dict[str, Any]  # JSON schema
     fn: Callable[..., Any]
     destructive: bool = False  # True => goes through the action guardrail / HITL
+    # Everything below is additive (all defaulted) — existing positional/keyword
+    # construction (`ToolSpec(name, description, parameters, fn)` or with
+    # `destructive=`) is unaffected.
+    version: str = "1.0.0"
+    scopes: frozenset[str] = field(default_factory=frozenset)
+    requires_confirmation: bool = False
+    cacheable: bool = True  # only consulted by ToolRegistry.invoke() when NOT destructive — see tools_gateway.py
+    idempotent: bool = False
+    timeout_s: float | None = None  # per-tool override of AgentConfig.step_timeout_s
+    max_retries: int = 0
+    data_classification: str = "internal"  # public | internal | confidential | restricted
+    output_schema: dict[str, Any] | None = None
 
 
 @dataclass

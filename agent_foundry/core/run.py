@@ -92,12 +92,12 @@ class Run:
             self.error = str(e)
             raise
 
-    def resume(self, *, approved: bool) -> RunResult:
+    def resume(self, *, approved: bool, decision: dict[str, Any] | None = None) -> RunResult:
         if self.status != RunStatus.WAITING_HUMAN:
             raise RuntimeError(f"run {self.run_id!r} has nothing to resume (status={self.status.value})")
         self.status = RunStatus.RUNNING
         try:
-            return self._apply(self.agent.resume(approved=approved, context=self.context))
+            return self._apply(self.agent.resume(approved=approved, decision=decision, context=self.context))
         except Exception as e:
             self.status = RunStatus.FAILED
             self.error = str(e)

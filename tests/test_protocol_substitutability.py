@@ -249,13 +249,13 @@ class FakeToolCache:
         self.gets = 0
         self.sets = 0
 
-    def get(self, name: str, args: dict):
+    def get(self, name: str, args: dict, *, tenant: str | None = None):
         self.gets += 1
-        return self._store.get((name, tuple(sorted(args.items()))))
+        return self._store.get((tenant, name, tuple(sorted(args.items()))))
 
-    def set(self, name: str, args: dict, result) -> None:
+    def set(self, name: str, args: dict, result, *, tenant: str | None = None) -> None:
         self.sets += 1
-        self._store[(name, tuple(sorted(args.items())))] = result
+        self._store[(tenant, name, tuple(sorted(args.items())))] = result
 
 
 def test_tool_cache_like_fake_is_a_real_drop_in_and_actually_prevents_a_repeat_call(identity, policy):

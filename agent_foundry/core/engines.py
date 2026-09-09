@@ -28,9 +28,17 @@ def _invoke(compiled: Any, *, message: str, context: ExecutionContext) -> RunRes
     return result_from_graph_output(raw, thread_id=thread_id)
 
 
-def _invoke_resume(compiled: Any, *, approved: bool, context: ExecutionContext) -> RunResult:
+def _invoke_resume(compiled: Any, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
     thread_id = context.resolved_thread_id()
-    raw = compiled.invoke(Command(resume={"approved": approved}), {"configurable": {"thread_id": thread_id}})
+    # `approved` stays the default so every existing caller (resume(approved=...))
+    # is untouched; `decision` layers in richer payloads (clarification
+    # answers, an external event's data, a payment confirmation id) for
+    # HITL/event resumes beyond a plain yes/no — both make_act_node's tool-
+    # approval interrupt() and make_critique_node's escalation interrupt()
+    # only ever read `.get("approved")` off this dict, so extra keys are
+    # additive and never break either.
+    payload = {"approved": approved, **(decision or {})}
+    raw = compiled.invoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
     return result_from_graph_output(raw, thread_id=thread_id)
 
 
@@ -57,8 +65,8 @@ class LangGraphWorkflowEngine:
             {"configurable": {"thread_id": thread_id}}, stream_mode="values",
         )
 
-    def resume(self, compiled: Any, *, approved: bool, context: ExecutionContext) -> RunResult:
-        return _invoke_resume(compiled, approved=approved, context=context)
+    def resume(self, compiled: Any, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        return _invoke_resume(compiled, approved=approved, decision=decision, context=context)
 
 
 class NativeWorkflowEngine:
@@ -82,5 +90,5 @@ class NativeWorkflowEngine:
             {"configurable": {"thread_id": thread_id}}, stream_mode="values",
         )
 
-    def resume(self, compiled: Any, *, approved: bool, context: ExecutionContext) -> RunResult:
-        return _invoke_resume(compiled, approved=approved, context=context)
+    def resume(self, compiled: Any, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        return _invoke_resume(compiled, approved=approved, decision=decision, context=context)

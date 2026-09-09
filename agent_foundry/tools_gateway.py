@@ -5,6 +5,7 @@ RBAC/policy scopes at call time regardless of what the tool does.
 """
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -39,38 +40,74 @@ def tool_json_schema(spec: ToolSpec) -> dict[str, Any]:
     return {"name": spec.name, "description": spec.description, "parameters": schema}
 
 
+_SCHEMA_TYPES: dict[str, type | tuple[type, ...]] = {
+    "string": str, "number": (int, float), "integer": int, "boolean": bool, "array": list, "object": dict,
+}
+
+
+def _validate_args(spec: ToolSpec, args: dict[str, Any]) -> str | None:
+    """A real validation/coercion boundary between a model's tool-call args
+    and spec.fn(**args) — the schema in tool_json_schema() is exposed to the
+    model, but until now nothing checked the model actually followed it, so
+    a missing/mistyped argument surfaced as a raw exception from inside the
+    tool body instead of a clear, structured denial. Deliberately not a full
+    JSON Schema validator (no $ref/oneOf/pattern/etc.) — just enough to catch
+    a missing required field or a grossly wrong type before fn() runs.
+    Returns None when args pass, else a human-readable reason."""
+    schema = tool_json_schema(spec)["parameters"]
+    properties = schema.get("properties", {})
+    for required in schema.get("required", []):
+        if required not in args:
+            return f"missing required argument {required!r}"
+    for arg_name, value in args.items():
+        expected = properties.get(arg_name, {}).get("type")
+        py_type = _SCHEMA_TYPES.get(expected)
+        if py_type is not None and not isinstance(value, py_type):
+            return f"argument {arg_name!r} expected type {expected!r}, got {type(value).__name__}"
+    return None
+
+
 class ToolCacheLike(Protocol):
     """Same swappable-interface posture as runtime.RunBudgetLike — a cache
     is only useful across a fleet if every replica shares it (a Redis-
     backed cache, e.g.); ToolCache's in-process dict means N replicas each
-    independently re-execute the same call at least once."""
+    independently re-execute the same call at least once. `tenant` is
+    optional (defaults to None) so a cache that doesn't need multi-tenant
+    isolation can ignore it — ToolRegistry.invoke() always passes
+    identity.tenant_id, closing the gap where two tenants sharing one
+    registry/cache could otherwise read each other's cached tool results."""
 
-    def get(self, name: str, args: dict) -> Any: ...
-    def set(self, name: str, args: dict, result: Any) -> None: ...
+    def get(self, name: str, args: dict, *, tenant: str | None = None) -> Any: ...
+    def set(self, name: str, args: dict, result: Any, *, tenant: str | None = None) -> None: ...
 
 
 @dataclass
 class ToolCache:
-    """Exact-match result cache keyed by (tool name, args) — same shape as
-    llm_gateway.PromptCache, one per ToolRegistry. Skip caching tools with side
-    effects (a refund) by simply not calling set() for them, or wrap invoke()
-    with a per-tool allowlist if you want that automatic."""
+    """Exact-match result cache keyed by (tenant, tool name, args) — same
+    key shape as distributed.RedisToolCache. Skip caching tools with side
+    effects (a refund) by setting ToolSpec.destructive=True — ToolRegistry.
+    invoke() never calls set() for a destructive tool, cache configured or
+    not — or ToolSpec.cacheable=False for a non-destructive tool that still
+    shouldn't be cached (e.g. "get current time")."""
 
     ttl_s: float = 60.0
-    _store: dict[tuple, tuple[float, Any]] = field(default_factory=dict)
+    _store: dict[str, tuple[float, Any]] = field(default_factory=dict)
 
-    def _key(self, name: str, args: dict) -> tuple:
-        return (name, tuple(sorted(args.items())))
+    def _key(self, name: str, args: dict, tenant: str | None) -> str:
+        # json.dumps (not the previous tuple(sorted(args.items()))) so a
+        # list/dict-valued arg doesn't crash on being used as a dict key —
+        # found live: any tool taking e.g. a list argument.
+        return f"{tenant}:{name}:{json.dumps(args, sort_keys=True, default=str)}"
 
-    def get(self, name: str, args: dict) -> Any:
-        hit = self._store.get(self._key(name, args))
+    def get(self, name: str, args: dict, *, tenant: str | None = None) -> Any:
+        hit = self._store.get(self._key(name, args, tenant))
         if hit is None:
             return None
         ts, result = hit
         return None if time.time() - ts > self.ttl_s else result
 
-    def set(self, name: str, args: dict, result: Any) -> None:
-        self._store[self._key(name, args)] = (time.time(), result)
+    def set(self, name: str, args: dict, result: Any, *, tenant: str | None = None) -> None:
+        self._store[self._key(name, args, tenant)] = (time.time(), result)
 
 
 class IdempotencyStore(Protocol):
@@ -136,20 +173,27 @@ class ToolRegistry:
             if cached is not None:
                 return cached
         if self.cache is not None:
-            cached = self.cache.get(name, args)
+            cached = self.cache.get(name, args, tenant=identity.tenant_id)
             if cached is not None:
                 return ToolResult(tool=name, ok=True, output=cached, latency_ms=0.0)
         if self.rate_limiter is not None and not self.rate_limiter.allow(name):
             return ToolResult(tool=name, ok=False, error=str(RateLimitExceeded(f"rate limit exceeded for tool {name!r}")))
         spec = self.get(name)
+        invalid = _validate_args(spec, args)
+        if invalid is not None:
+            return ToolResult(tool=name, ok=False, error=f"invalid arguments for {name!r}: {invalid}")
         start = time.time()
-        try:
-            output = spec.fn(**args)
-            if self.cache is not None:
-                self.cache.set(name, args, output)
-            result = ToolResult(tool=name, ok=True, output=output, latency_ms=(time.time() - start) * 1000)
-            if idempotency_key is not None and self.idempotency_store is not None:
-                self.idempotency_store.set(idempotency_key, result)
-            return result
-        except Exception as e:
-            return ToolResult(tool=name, ok=False, error=str(e), latency_ms=(time.time() - start) * 1000)
+        attempt = 0
+        while True:
+            try:
+                output = spec.fn(**args)
+                if self.cache is not None and spec.cacheable and not spec.destructive:
+                    self.cache.set(name, args, output, tenant=identity.tenant_id)
+                result = ToolResult(tool=name, ok=True, output=output, latency_ms=(time.time() - start) * 1000)
+                if idempotency_key is not None and self.idempotency_store is not None:
+                    self.idempotency_store.set(idempotency_key, result)
+                return result
+            except Exception as e:
+                if attempt >= spec.max_retries:
+                    return ToolResult(tool=name, ok=False, error=str(e), latency_ms=(time.time() - start) * 1000)
+                attempt += 1

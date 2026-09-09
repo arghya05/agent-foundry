@@ -1,4 +1,7 @@
-from agent_foundry.context import ContextEngine, InMemoryVectorStore, KnowledgeGraph, memory_write_tool, MemoryStore, retrieval_tool
+from agent_foundry.context import (
+    ChromaVectorStore, ContextEngine, InMemoryKnowledgeStore, InMemoryVectorStore, KnowledgeGraph,
+    memory_write_tool, MemoryStore, retrieval_tool,
+)
 
 
 def test_memory_store_working_and_episodic():
@@ -115,3 +118,71 @@ def test_context_engine_build_end_to_end_excludes_a_poisoned_passage():
     built = engine.build("t1", "what is my prescription?")
     assert "Metformin" in built
     assert "Ignore all previous instructions" not in built
+
+
+def test_knowledge_store_chunk_carries_citation_and_acl_metadata():
+    """RetrievedChunk is deliberately richer than VectorStore.search()'s
+    plain list[str] — document_id/chunk_id give citations, permissions
+    gives ACL, both entirely absent from thread-scoped conversation memory."""
+    store = InMemoryKnowledgeStore()
+    store.upsert(tenant_id="acme", knowledge_base_id="hr-policies", document_id="doc-1", chunk_id="c1",
+                 text="Employees get 15 PTO days per year.", permissions=frozenset({"hr"}))
+
+    hits = store.search(tenant_id="acme", knowledge_base_id="hr-policies", query="PTO days")
+
+    assert len(hits) == 1
+    chunk = hits[0]
+    assert chunk.document_id == "doc-1" and chunk.chunk_id == "c1"
+    assert chunk.permissions == frozenset({"hr"})
+    assert chunk.score > 0
+
+
+def test_knowledge_store_is_namespaced_by_tenant_and_knowledge_base_not_thread_id():
+    """The actual point of splitting KnowledgeStore from VectorStore: two
+    tenants' knowledge bases never bleed into each other, unlike
+    VectorStore's thread_id-only scoping."""
+    store = InMemoryKnowledgeStore()
+    store.upsert(tenant_id="acme", knowledge_base_id="kb", document_id="d1", chunk_id="c1", text="Acme's secret roadmap")
+    store.upsert(tenant_id="globex", knowledge_base_id="kb", document_id="d2", chunk_id="c1", text="Globex's secret roadmap")
+
+    acme_hits = store.search(tenant_id="acme", knowledge_base_id="kb", query="secret roadmap")
+    assert len(acme_hits) == 1 and acme_hits[0].text == "Acme's secret roadmap"
+
+
+def test_context_engine_filters_out_a_chunk_the_caller_lacks_the_role_for():
+    """A chunk tagged with permissions the calling identity's roles don't
+    overlap must never reach the assembled prompt — the ACL enforcement
+    RAG's plain list[str] contract couldn't express at all."""
+    knowledge = InMemoryKnowledgeStore()
+    knowledge.upsert(tenant_id="acme", knowledge_base_id="kb", document_id="d1", chunk_id="c1",
+                      text="Q3 salary bands are confidential.", permissions=frozenset({"hr"}))
+    knowledge.upsert(tenant_id="acme", knowledge_base_id="kb", document_id="d2", chunk_id="c1",
+                      text="Office is closed on public holidays.")  # unrestricted
+
+    engine = ContextEngine(memory=MemoryStore(), knowledge=knowledge, tenant_id="acme", knowledge_base_id="kb")
+
+    built_without_hr_role = engine.build("t1", "salary bands and office hours", roles=frozenset({"engineering"}))
+    assert "confidential" not in built_without_hr_role
+    assert "closed on public holidays" in built_without_hr_role
+
+    built_with_hr_role = engine.build("t1", "salary bands and office hours", roles=frozenset({"hr"}))
+    assert "confidential" in built_with_hr_role
+
+
+def test_chroma_vector_store_ids_never_collide_across_a_simulated_restart():
+    """Regression: the previous self._next_id counter started at 0 in every
+    NEW instance — a fresh process re-attaching to the same persistent
+    collection would re-issue id "1", colliding with whatever a prior
+    process already stored under that id. A uuid-based id has no such
+    restart state to collide on."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        store_a = ChromaVectorStore(path=tmp, collection_name="restart-test")
+        store_a.upsert("t1", "first process's document", {})
+
+        store_b = ChromaVectorStore(path=tmp, collection_name="restart-test")  # simulates a fresh process
+        store_b.upsert("t1", "second process's document", {})
+
+        hits = store_b.search("t1", "document", k=10)
+        assert len(hits) == 2  # both documents survive — no id collision silently overwrote one

@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 
-from agent_foundry.eval import EvalHarness, JSONLEvalSink
+from agent_foundry.eval import EvalHarness, JSONLEvalSink, trajectory_report
 from agent_foundry.kpi import (
     KPI, KPIBoard, completeness_kpi, composite_grounding_kpi, cost_kpi, db_match_kpi,
     efficiency_kpi, fact_check_kpi, llm_judge_kpi, reference_check_kpi, schema_valid_kpi, word_overlap,
@@ -31,6 +31,58 @@ def test_jsonl_eval_sink_writes_real_lines():
         assert record["metric"] == "success" and record["ok"] is True
     finally:
         os.unlink(path)
+
+
+def test_trajectory_report_captures_a_recovered_tool_failure(identity, policy):
+    """A real multi-step turn: the model calls `flaky`, it fails (a
+    transient error), the model calls it again with the same tool, it
+    succeeds — trajectory_report must recognize that as a recovered
+    failure, not just two independent tool calls."""
+    from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+    from agent_foundry.llm_gateway import LLMGateway
+    from agent_foundry.orchestration import build_agent_graph
+    from agent_foundry.tools_gateway import ToolRegistry
+
+    from conftest import ScriptedProvider, make_config_kwargs
+
+    attempts = []
+
+    def flaky(order_id: str) -> str:
+        attempts.append(order_id)
+        if len(attempts) == 1:
+            raise RuntimeError("transient failure")
+        return f"refunded {order_id}"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("flaky", "flaky refund", {"order_id": "string"}, flaky))
+    policy_with_tool = Policy(allowed_tools=frozenset({"flaky"}), max_cost_usd_per_thread=1.0, max_steps_per_thread=10)
+
+    def call_tool(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c1", name="flaky", args={"order_id": "A100"})])
+
+    def call_tool_again(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c2", name="flaky", args={"order_id": "A100"})])
+
+    def final(messages, model):
+        return "done"
+
+    provider = ScriptedProvider([call_tool, call_tool_again, final])
+    harness = EvalHarness()
+    kwargs = make_config_kwargs(identity=identity, policy=policy_with_tool, tools=tools, provider=provider)
+    kwargs["eval_harness"] = harness
+    graph = build_agent_graph(system_prompt="sys", **kwargs)
+
+    graph.invoke({"messages": [{"role": "user", "content": "please refund A100"}], "thread_id": "t-trajectory"},
+                 {"configurable": {"thread_id": "t-trajectory"}})
+
+    report = trajectory_report(harness, "t-trajectory")
+
+    assert report.tool_calls == ["flaky", "flaky"]
+    assert report.recovered_tool_failures == ["flaky"]
+    assert report.tool_success_rate == 0.5
+    assert report.outcome == "completed"
 
 
 def test_kpi_board_register_remove_and_custom_kpi():

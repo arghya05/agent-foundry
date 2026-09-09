@@ -39,7 +39,11 @@ import time
 from dataclasses import dataclass
 from typing import Any, Iterator
 
-from ..orchestration import CLARIFY_PREFIX, AgentConfig, _finalize_turn, _get_all_tool_calls, _tool_param_names
+from ..guardrails import screen_tool_output
+from ..orchestration import (
+    CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _finalize_turn, _get_all_tool_calls, _tool_param_names,
+    _tool_timeout,
+)
 from ..runtime import with_timeout
 from ..tools_gateway import PermissionDenied
 
@@ -98,7 +102,13 @@ class NativeEngine:
             state["messages"].append({"role": "user", "content": message})
             return self._drive(config, state, thread_id)
 
-    def resume(self, config: AgentConfig, *, approved: bool, thread_id: str) -> dict[str, Any]:
+    def resume(self, config: AgentConfig, *, approved: bool, decision: dict[str, Any] | None = None, thread_id: str) -> dict[str, Any]:
+        # `decision` is accepted for signature parity with the LangGraph
+        # engine's WorkflowEngine.resume (core/engines.py) — like
+        # orchestration.py's own make_act_node/make_critique_node, the
+        # built-in resume logic here only ever reads `approved` off it;
+        # extra keys are for a caller's OWN downstream use, not consumed
+        # by this fixed node logic on either engine.
         with self._lock_for(thread_id):
             return self._resume_locked(config, approved=approved, thread_id=thread_id)
 
@@ -239,8 +249,13 @@ class NativeEngine:
                 results.append(_tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False))
                 continue
 
-            destructive = config.tools.has(tool_name) and config.tools.get(tool_name).destructive
-            gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
+            spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
+            destructive = spec is not None and spec.destructive
+            if config.pdp is not None:
+                gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+                                        destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id))
+            else:
+                gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
             needs_approval = not gr.allowed and bool(gr.reason) and "approval" in gr.reason
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id
@@ -261,8 +276,10 @@ class NativeEngine:
 
             with config.tracer.span("native.act", tool=tool_name) as span:
                 try:
-                    invoke = lambda tn=tool_name, a=args: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy)
-                    result = with_timeout(invoke, seconds=config.step_timeout_s) if config.step_timeout_s else invoke()
+                    idem_key = _default_idempotency_key(session_id, tool_call_id)
+                    timeout = _tool_timeout(config, spec)
+                    invoke = lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy, idempotency_key=k)
+                    result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
                 except PermissionDenied as e:
                     config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
                     results.append(_tool_msg(str(e), tool_call_id=tool_call_id, ok=False))
@@ -275,7 +292,8 @@ class NativeEngine:
                                         session_id=session_id, **({"reason": result.error} if not result.ok else {}))
             if config.memory is not None and result.ok:
                 config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
-            results.append(_tool_msg(result.output if result.ok else result.error, tool_call_id=tool_call_id, ok=result.ok))
+            output = screen_tool_output(result.output) if result.ok else result.error
+            results.append(_tool_msg(output, tool_call_id=tool_call_id, ok=result.ok))
 
         state["messages"].extend(results)
         return None
@@ -368,7 +386,8 @@ class _NativeGraph:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state_or_command, "resume", None)
         if resume_payload is not None:
-            return self._engine.resume(self._config, approved=bool(resume_payload.get("approved")), thread_id=thread_id)
+            decision = {k: v for k, v in resume_payload.items() if k != "approved"}
+            return self._engine.resume(self._config, approved=bool(resume_payload.get("approved")), decision=decision or None, thread_id=thread_id)
         message = state_or_command["messages"][-1]["content"]
         return self._engine.run(self._config, message, thread_id=thread_id)
 

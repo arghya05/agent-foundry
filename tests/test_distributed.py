@@ -30,8 +30,11 @@ except Exception:
 
 pytestmark = pytest.mark.skipif(not _REDIS_UP, reason=f"no Redis reachable at {REDIS_URL}")
 
-from agent_foundry.contracts import Policy, ToolSpec
-from agent_foundry.distributed import RedisCostLedger, RedisRateLimiter, RedisRunBudget, RedisSLATracker, RedisToolCache
+from agent_foundry.contracts import Policy, ToolResult, ToolSpec
+from agent_foundry.distributed import (
+    RedisCostLedger, RedisIdempotencyStore, RedisLease, RedisRateLimiter, RedisRunBudget, RedisSLATracker,
+    RedisToolCache,
+)
 from agent_foundry.orchestration import build_agent_graph
 from agent_foundry.runtime import BudgetExceeded
 from agent_foundry.tools_gateway import ToolRegistry
@@ -139,3 +142,54 @@ def test_redis_cost_ledger_shares_totals_across_two_separate_instances():
 
     assert instance_a.total_cost_usd() == pytest.approx(0.08)  # sees both instances' writes
     assert instance_b.by_tenant() == pytest.approx({"acme": 0.08})
+
+
+def test_redis_idempotency_store_round_trips_across_two_separate_instances():
+    """A retried destructive tool call landing on a DIFFERENT replica than
+    the one that originally executed it must still see the cached result —
+    an in-process InMemoryIdempotencyStore could never prove this."""
+    prefix = _prefix()
+    instance_a = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+    instance_b = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+
+    assert instance_b.get("refund-A100") is None
+    result = ToolResult(tool="issue_refund", ok=True, output="refunded A100", latency_ms=12.5)
+    instance_a.set("refund-A100", result)
+
+    seen = instance_b.get("refund-A100")
+    assert seen is not None and seen.output == "refunded A100" and seen.ok is True
+
+
+def test_redis_lease_prevents_a_second_concurrent_acquire():
+    """The fleet-safety primitive for guarding a paused/resumable run: once
+    one replica holds the lease, a second replica's acquire() on the SAME
+    key must fail until it's released."""
+    prefix = _prefix()
+    instance_a = RedisLease(redis_url=REDIS_URL, key_prefix=prefix)
+    instance_b = RedisLease(redis_url=REDIS_URL, key_prefix=prefix)
+
+    token_a = instance_a.acquire("run-42", ttl_s=30.0)
+    assert token_a is not None
+
+    token_b = instance_b.acquire("run-42", ttl_s=30.0)
+    assert token_b is None  # instance_a still holds it
+
+    instance_a.release("run-42", token_a)
+    token_b_retry = instance_b.acquire("run-42", ttl_s=30.0)
+    assert token_b_retry is not None  # free after release
+
+
+def test_redis_lease_release_with_the_wrong_token_is_a_no_op():
+    """A replica must never be able to release a lease it doesn't actually
+    hold — e.g. after its own lease already expired and a different
+    replica re-acquired it under a new token."""
+    prefix = _prefix()
+    lease = RedisLease(redis_url=REDIS_URL, key_prefix=prefix)
+
+    real_token = lease.acquire("run-99", ttl_s=30.0)
+    assert real_token is not None
+
+    lease.release("run-99", "not-the-real-token")  # wrong token -> no-op
+
+    still_held = lease.acquire("run-99", ttl_s=30.0)  # a real second acquire attempt must still fail
+    assert still_held is None

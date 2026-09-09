@@ -60,6 +60,61 @@ def test_agent_resume_after_critique_escalation():
     assert resumed.content == "a truly ambiguous answer"
 
 
+def test_agent_rejects_a_memory_of_the_wrong_type_instead_of_silently_substituting_one():
+    """Regression: Agent(memory=<wrong type>) used to silently create a
+    fresh MemoryStore() instead of erroring — any real memory the caller
+    thought they configured was quietly dropped with no explanation."""
+    provider = ScriptedProvider(["hi"])
+    with pytest.raises(TypeError, match="memory"):
+        Agent("greeter", "Say hi.", llm=LLMGateway(provider=provider), memory={"not": "a memory store"})
+
+
+def test_agent_resume_merges_decision_into_the_resume_payload():
+    """resume() widened from approved-only to accept a richer `decision`
+    dict (a clarification answer, an event's data, a payment confirmation
+    id) for HITL/event resumes beyond plain yes/no. Proven directly against
+    the Command payload LangGraph actually receives, since orchestration.py's
+    own built-in interrupt() consumers only ever read .get("approved") off it
+    — the extra keys are for a caller's own downstream use."""
+    from agent_foundry.core.agent import _CompiledWorkflow
+    from agent_foundry.core.execution_context import ExecutionContext as ExecCtx
+
+    captured = {}
+
+    class FakeGraph:
+        def invoke(self, command, run_config):
+            captured["resume"] = command.resume
+            return {"messages": [{"role": "assistant", "content": "ok"}], "thread_id": run_config["configurable"]["thread_id"]}
+
+    runner = _CompiledWorkflow(FakeGraph(), name="fake")
+    runner.resume(approved=True, decision={"payment_id": "pay_123"}, context=ExecCtx(thread_id="t-decision"))
+
+    assert captured["resume"] == {"approved": True, "payment_id": "pay_123"}
+
+
+def test_native_engine_resume_accepts_a_decision_kwarg_for_signature_parity():
+    """Same widened resume() signature on the native runtime — accepted for
+    parity with the LangGraph engine (core.protocols.WorkflowEngine), even
+    though NativeEngine's own fixed tool-approval logic only reads
+    `approved` off it, exactly like orchestration.py's built-in nodes do."""
+    provider = ScriptedProvider(['CALL issue_refund {"order_id": "A100"}', "done"])
+    from agent_foundry.contracts import Policy
+
+    def issue_refund(order_id: str) -> str:
+        """Refund an order."""
+        return f"refunded {order_id}"
+
+    policy = Policy(allowed_tools=frozenset({"issue_refund"}), requires_approval=frozenset({"issue_refund"}))
+    agent = Agent("refunds", "Handle refunds.", runtime="native", tools=[issue_refund], policy=policy, llm=LLMGateway(provider=provider))
+    context = ExecutionContext(thread_id="t-native-decision")
+
+    paused = agent.run("refund A100", context=context)
+    assert paused.awaiting_approval is True
+
+    resumed = agent.resume(approved=True, decision={"note": "approved by manager"}, context=context)
+    assert resumed.content == "done"
+
+
 def test_agent_batch():
     provider = ScriptedProvider(["reply one", "reply two"])
     agent = Agent("batcher", "Reply briefly.", llm=LLMGateway(provider=provider))
@@ -127,8 +182,11 @@ def test_workflow_blackboard_accumulates_contributions_across_rounds():
 
 def test_workflow_debate_judge_synthesizes_from_both_debaters():
     def judge_reply(messages, model):
-        system = messages[0]["content"]
-        assert "Buy" in system and "Sell" in system
+        # judge_node routes through build_agent_graph (see
+        # orchestration._run_governed_turn) — the candidate transcript
+        # arrives as the user turn, not hand-embedded in the system message.
+        user_turn = messages[-1]["content"]
+        assert "Buy" in user_turn and "Sell" in user_turn
         return "Verdict: Hold."
 
     optimist = Agent("optimist", "bullish", llm=LLMGateway(provider=ScriptedProvider(["Buy — strong fundamentals."])))

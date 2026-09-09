@@ -38,7 +38,7 @@ import json
 import operator
 import time
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Callable, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Callable, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
@@ -49,7 +49,7 @@ from .blackboard import Blackboard, parse_post
 from .context import ContextEngine, MemoryStore
 from .contracts import AgentRole, Identity, Policy, ToolSpec
 from .eval import EvalHarness
-from .guardrails import GuardrailEngine
+from .guardrails import GuardrailEngine, screen_tool_output
 from .kpi import KPI
 from .llm_gateway import LLMGateway
 from .observability import CostLedgerLike, Tracer
@@ -63,6 +63,9 @@ from .runtime import (
 )
 from .security import AuditLog
 from .tools_gateway import PermissionDenied, ToolRegistry
+
+if TYPE_CHECKING:
+    from .policy_engine import PolicyDecisionPoint
 
 
 class AgentState(TypedDict):
@@ -191,6 +194,13 @@ class AgentConfig:
     # overriding whatever the model supplied — a model should never be
     # trusted to name which real user's profile it's updating.
     user_id: str | Callable[[AgentState], str] | None = None
+    # Optional mandatory Policy Decision Point (policy_engine.PolicyDecisionPoint)
+    # — when set, make_act_node calls config.pdp.decide(...) instead of
+    # config.guardrails.check_action(...) directly, composing in an external
+    # PolicyEngine (OPA/Cedar) and/or EgressPolicy check too. None (default):
+    # unchanged behavior — every existing caller that doesn't set this sees
+    # the exact same check_action-only gate it always has.
+    pdp: "PolicyDecisionPoint | None" = None
 
 
 def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
@@ -343,8 +353,13 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 results.append(tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False))
                 continue
 
-            destructive = config.tools.has(tool_name) and config.tools.get(tool_name).destructive
-            gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
+            spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
+            destructive = spec is not None and spec.destructive
+            if config.pdp is not None:
+                gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+                                        destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id))
+            else:
+                gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
             if not gr.allowed and gr.reason and "approval" in gr.reason:
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
                 config.audit.record(identity=config.identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
@@ -359,8 +374,10 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
             with config.tracer.span("orchestration.act", tool=tool_name) as span:
                 try:
-                    invoke = (lambda tn=tool_name, a=args: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy))
-                    result = with_timeout(invoke, seconds=config.step_timeout_s) if config.step_timeout_s else invoke()
+                    idem_key = _default_idempotency_key(session_id, tool_call_id)
+                    timeout = _tool_timeout(config, spec)
+                    invoke = (lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=config.identity, policy=config.policy, idempotency_key=k))
+                    result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
                 except PermissionDenied as e:
                     config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
                     results.append(tool_msg(str(e), tool_call_id=tool_call_id, ok=False))
@@ -373,7 +390,8 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                                         session_id=session_id, **({"reason": result.error} if not result.ok else {}))
             if config.memory is not None and result.ok:
                 config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
-            results.append(tool_msg(result.output if result.ok else result.error, tool_call_id=tool_call_id, ok=result.ok))
+            output = screen_tool_output(result.output) if result.ok else result.error
+            results.append(tool_msg(output, tool_call_id=tool_call_id, ok=result.ok))
 
         return {"messages": results}
 
@@ -751,7 +769,19 @@ def build_supervisor_graph(
     for name, config in agents.items():
         graph.add_node(f"{name}_think", make_think_node(config))
         graph.add_node(f"{name}_act", make_act_node(config))
-        graph.add_conditional_edges(f"{name}_think", make_router(config), {"act": f"{name}_act", END: END})
+        mapping = {"act": f"{name}_act", END: END}
+        if config.critique is not None:
+            # Same wiring build_agent_graph does for a single agent — without
+            # it, make_router(config) can return "critique" for a specialist
+            # that has one configured, and this mapping has no such key
+            # (found live: an unhandled route crashes the graph at runtime).
+            graph.add_node(f"{name}_critique", make_critique_node(config))
+            if config.critique.max_retries > 0:
+                graph.add_conditional_edges(f"{name}_critique", make_critique_router(config), {"think": f"{name}_think", END: END})
+            else:
+                graph.add_edge(f"{name}_critique", END)
+            mapping["critique"] = f"{name}_critique"
+        graph.add_conditional_edges(f"{name}_think", make_router(config), mapping)
         graph.add_edge(f"{name}_act", f"{name}_think")
     graph.set_entry_point("supervisor")
     return graph.compile(checkpointer=checkpointer or MemorySaver())
@@ -768,6 +798,15 @@ def build_swarm_graph(*, agents: dict[str, AgentConfig], entry: str, checkpointe
         graph.add_node(f"{name}_think", make_think_node(config))
         graph.add_node(f"{name}_act", make_act_node(config))
         mapping = {"act": f"{name}_act", END: END, **{peer: f"{peer}_think" for peer in others}}
+        if config.critique is not None:
+            # Same latent bug as build_supervisor_graph — make_swarm_router
+            # falls back to make_router(config), which can return "critique".
+            graph.add_node(f"{name}_critique", make_critique_node(config))
+            if config.critique.max_retries > 0:
+                graph.add_conditional_edges(f"{name}_critique", make_critique_router(config), {"think": f"{name}_think", END: END})
+            else:
+                graph.add_edge(f"{name}_critique", END)
+            mapping["critique"] = f"{name}_critique"
         graph.add_conditional_edges(f"{name}_think", make_swarm_router(config, others), mapping)
         graph.add_edge(f"{name}_act", f"{name}_think")
     graph.set_entry_point(f"{entry}_think")
@@ -788,6 +827,15 @@ def build_fanout_graph(*, config: AgentConfig, checkpointer: BaseCheckpointSaver
     complex as it can be": one specialist applied to N inputs at once, instead of
     N specialists applied to one input (build_supervisor_graph/build_swarm_graph).
     """
+    if config.critique is not None:
+        # See the "critique deliberately NOT wired in" comment below — fail
+        # loud at build time instead of a router returning an unmapped
+        # "critique" label deep inside a LangGraph invoke() call.
+        raise ValueError(
+            "build_fanout_graph doesn't support AgentConfig.critique — concurrent "
+            "Send-dispatched workers would race on AgentState's shared, non-Annotated "
+            "critique_retries channel. Use build_agent_graph directly per item instead."
+        )
 
     def dispatch(state: FanoutState) -> list[Send]:
         return [
@@ -797,9 +845,47 @@ def build_fanout_graph(*, config: AgentConfig, checkpointer: BaseCheckpointSaver
 
     graph = StateGraph(FanoutState)
     graph.add_node("worker", make_think_node(config))
+    graph.add_node("worker_act", make_act_node(config))
     graph.set_conditional_entry_point(dispatch, ["worker"])
-    graph.add_edge("worker", END)
+    # Previously an unconditional worker -> END edge, so a tool call from a
+    # fanned-out worker was never executed (make_router wasn't even called).
+    # critique is deliberately NOT wired in here, unlike build_supervisor_graph/
+    # build_swarm_graph above: AgentState.critique_retries is a plain
+    # (non-Annotated, overwrite) channel, and every Send-dispatched worker
+    # shares this one graph's state — concurrent workers in the same superstep
+    # writing that field would hit LangGraph's "can received only one value per
+    # step" error (see AgentState's own docstring). A fan-out worker with
+    # critique configured should still use build_agent_graph directly instead.
+    graph.add_conditional_edges("worker", make_router(config), {"act": "worker_act", END: END})
+    graph.add_edge("worker_act", "worker")
     return graph.compile(checkpointer=checkpointer or MemorySaver())
+
+
+def _run_governed_turn(config: AgentConfig, messages: list[dict], *, thread_id: str) -> str:
+    """Runs `messages` (ending in a role="user" turn) through config's OWN
+    governed single-agent graph (build_agent_graph) on a fresh, ephemeral
+    graph instance — the guardrail/tool/critique-covered replacement for a
+    bare config.llm.complete(...) call. Used by build_blackboard_graph and
+    build_debate_graph below, neither of which used to run a specialist's
+    turn through anything but a raw completion — no input/output guardrails,
+    no tool exposure, no critique gate, unlike every other topology in this
+    module. `thread_id` should be stable across repeated calls for the same
+    agent (not re-randomized per call) so config.budget's per-thread cost/step
+    ceiling actually accumulates across rounds instead of resetting each time
+    — the graph object itself is rebuilt fresh each call (cheap: it's just
+    node/edge wiring, no LLM call), only budget/tracing state is expected to
+    persist, and it does, since config.budget/config.tracer are the same
+    shared objects every call."""
+    graph = build_agent_graph(
+        system_prompt=config.system_prompt, llm=config.llm, tools=config.tools, guardrails=config.guardrails,
+        eval_harness=config.eval_harness, identity=config.identity, policy=config.policy, budget=config.budget,
+        tracer=config.tracer, task=config.task, audit=config.audit, breaker=config.breaker,
+        cost_ledger=config.cost_ledger, memory=config.memory, context_engine=config.context_engine,
+        step_timeout_s=config.step_timeout_s, latency_budget=config.latency_budget, sla_tracker=config.sla_tracker,
+        critique=config.critique, user_id=config.user_id,
+    )
+    result = graph.invoke({"messages": list(messages), "thread_id": thread_id}, {"configurable": {"thread_id": thread_id}})
+    return result["messages"][-1]["content"]
 
 
 class BlackboardState(TypedDict):
@@ -816,16 +902,14 @@ def build_blackboard_graph(*, agents: dict[str, AgentConfig], blackboard: Blackb
     mutable Blackboard isn't given concurrent writers within a round)."""
 
     def collaborate(state: BlackboardState) -> dict:
+        parent_thread = state.get("thread_id") or "blackboard"
         for name, config in agents.items():
             prompt = (
-                f"{config.system_prompt}\n\nShared blackboard:\n{blackboard.render()}"
+                f"Shared blackboard:\n{blackboard.render()}"
                 "\n\nContribute with exactly: POST <fact|hypothesis|evidence|task|contradiction|question>: <text>"
             )
-            with config.tracer.span("orchestration.blackboard", agent=name) as span:
-                resp = config.llm.complete([{"role": "system", "content": prompt}, *state["messages"]], task=config.task)
-                config.budget.spend(resp.cost_usd, thread_id=state.get("thread_id") or config.tracer.thread_id)
-                span["attributes"].update(cost_usd=resp.cost_usd)
-            parsed = parse_post(resp.text)
+            text = _run_governed_turn(config, [*state["messages"], {"role": "user", "content": prompt}], thread_id=f"{parent_thread}-{name}")
+            parsed = parse_post(text)
             if parsed:
                 blackboard.post(*parsed)
                 config.eval_harness.record("component", name, "posted", 1.0, section=parsed[0])
@@ -849,26 +933,20 @@ def build_debate_graph(*, debaters: dict[str, AgentConfig], judge: AgentConfig, 
 
     def debate(state: AgentState) -> dict:
         results = []
-        session_id = state.get("thread_id")
+        parent_thread = state.get("thread_id") or "debate"
         for name, config in debaters.items():
-            with config.tracer.span("orchestration.debate", agent=name) as span:
-                resp = config.llm.complete([{"role": "system", "content": config.system_prompt}, *state["messages"]], task=config.task)
-                config.budget.spend(resp.cost_usd, thread_id=session_id or config.tracer.thread_id)
-                span["attributes"].update(cost_usd=resp.cost_usd)
-            results.append((name, resp.text))
+            text = _run_governed_turn(config, list(state["messages"]), thread_id=f"{parent_thread}-{name}")
+            results.append((name, text))
             config.eval_harness.record("component", name, "answered", 1.0)
         return {"messages": [{"role": "assistant", "content": f"[{name}] {text}"} for name, text in results]}
 
     def judge_node(state: AgentState) -> dict:
         session_id = state.get("thread_id") or judge.tracer.thread_id
         transcript = "\n".join(f"- {m['content']}" for m in state["messages"] if m["role"] == "assistant")
-        prompt = f"{judge.system_prompt}\n\nCandidate answers:\n{transcript}\n\nReply with the single best final answer."
-        with judge.tracer.span("orchestration.judge") as span:
-            resp = judge.llm.complete([{"role": "system", "content": prompt}, *state["messages"]], task=judge.task)
-            judge.budget.spend(resp.cost_usd, thread_id=session_id)
-            span["attributes"].update(cost_usd=resp.cost_usd)
+        prompt = f"Candidate answers:\n{transcript}\n\nReply with the single best final answer."
+        text = _run_governed_turn(judge, [{"role": "user", "content": prompt}], thread_id=f"{session_id}-judge")
         judge.eval_harness.record("flow", session_id, "judged", 1.0)
-        return {"messages": [{"role": "assistant", "content": resp.text}]}
+        return {"messages": [{"role": "assistant", "content": text}]}
 
     graph = StateGraph(AgentState)
     graph.add_node("debate", debate)
@@ -976,3 +1054,24 @@ def _tool_param_names(spec: ToolSpec) -> set[str]:
     if params.get("type") == "object":
         return set(params.get("properties", {}))
     return set(params)
+
+
+def _default_idempotency_key(session_id: str, tool_call_id: str | None) -> str | None:
+    """Auto-derives an idempotency key from the provider-issued tool_call_id
+    (always present for real native tool-calling — see _get_all_tool_calls;
+    None for the text "CALL <tool> {...}" convention fallback, which has no
+    such id to correlate against) so a retried/replayed act() step protects a
+    destructive tool call BY DEFAULT, not only when a caller explicitly
+    passes idempotency_key= to ToolRegistry.invoke() themselves. Safe no-op
+    when no idempotency_store is configured (ToolRegistry.invoke()'s own
+    guard) — this is purely additive."""
+    return f"{session_id}:{tool_call_id}" if tool_call_id else None
+
+
+def _tool_timeout(config: AgentConfig, spec: ToolSpec | None) -> float | None:
+    """A tool's own ToolSpec.timeout_s overrides AgentConfig.step_timeout_s
+    when set — the per-tool ceiling the review's ToolSpec redesign asked
+    for, without discarding the existing agent-wide default."""
+    if spec is not None and spec.timeout_s is not None:
+        return spec.timeout_s
+    return config.step_timeout_s

@@ -86,9 +86,16 @@ def _coerce_tools(tools: Any) -> ToolRegistry:
 
 
 def _coerce_memory(memory: Any) -> MemoryStore | None:
+    """Regression: a caller passing the wrong type here used to get a
+    silently substituted, brand-new MemoryStore() — any real memory they
+    thought they configured was quietly dropped, with no error to explain
+    why their agent "forgot everything." Now it fails loudly, naming what
+    was actually passed."""
     if not memory:
         return None
-    return memory if isinstance(memory, Memory) else MemoryStore()
+    if isinstance(memory, Memory):
+        return memory
+    raise TypeError(f"memory= must be a MemoryStore (or satisfy the Memory protocol), got {type(memory).__name__}")
 
 
 def _default_identity(name: str) -> Identity:
@@ -148,9 +155,14 @@ class _CompiledWorkflow:
         thread_id = context.resolved_thread_id()
         yield from self._graph.stream(self._initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}}, stream_mode="values")
 
-    def resume(self, *, approved: bool, context: ExecutionContext) -> RunResult:
+    def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        # `decision` layers richer resume payloads (an event's data, a
+        # clarification answer, a payment confirmation id) on top of the
+        # plain approved/denied case — see core/engines.py's _invoke_resume
+        # for why extra keys are always safe to add here.
         thread_id = context.resolved_thread_id()
-        raw = self._graph.invoke(Command(resume={"approved": approved}), {"configurable": {"thread_id": thread_id}})
+        payload = {"approved": approved, **(decision or {})}
+        raw = self._graph.invoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
     def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
@@ -312,8 +324,8 @@ class Agent:
     def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
         return self._runner.stream(message, context=context)
 
-    def resume(self, *, approved: bool, context: ExecutionContext) -> RunResult:
-        return self._runner.resume(approved=approved, context=context)
+    def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        return self._runner.resume(approved=approved, decision=decision, context=context)
 
     def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
         return self._runner.batch(items, **kw)

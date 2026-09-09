@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-foundry"
+version = "0.1.0"
+description = "A vendor-neutral, governed runtime for building and operating enterprise agents."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.6",
+    "anthropic>=0.40",
+    "cryptography>=42.0",
+]
+
+# Extras mirror exactly what requirements-test.txt/requirements-distributed.txt
+# already declared as optional — no new dependencies introduced here, just
+# organized as pip extras instead of one flat test-requirements file.
+[project.optional-dependencies]
+openai = ["openai>=1.40"]
+mcp = ["mcp>=1.0"]
+redis = ["redis>=5.0"]
+rag = ["chromadb>=0.5"]
+serve = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "sse-starlette>=2.1"]
+autogen = ["autogen-agentchat>=0.4", "autogen-ext[openai]>=0.4"]
+a2a = ["a2a-sdk>=0.2"]
+cedar = ["cedarpy>=1.1"]
+otel = ["opentelemetry-sdk>=1.25"]
+test = ["pytest>=8.0", "httpx>=0.27", "jsonschema>=4.20"]
+all = ["agent-foundry[openai,mcp,redis,rag,serve,autogen,a2a,cedar,otel]"]
+
+[project.scripts]
+foundry = "agent_foundry.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agent_foundry*"]

@@ -21,6 +21,75 @@ def test_tool_manifest_registry_detects_drift():
     assert not reg.verify(drifted)
 
 
+def test_manifest_hash_detects_a_body_change_with_an_unchanged_signature():
+    """Regression: manifest_hash used to hash name:description:signature
+    only — changing ONLY a function's body (same name/description/params)
+    left the fingerprint unchanged, defeating the supply-chain check for
+    exactly the case that matters (the implementation, not the interface)."""
+    def refund_v1(order_id: str) -> str:
+        return f"refunded {order_id}"
+
+    def refund_v2(order_id: str) -> str:
+        return f"refunded {order_id} TWICE"  # same signature, different body
+
+    spec_v1 = ToolSpec("refund", "Refund an order", {"order_id": "string"}, refund_v1)
+    spec_v2 = ToolSpec("refund", "Refund an order", {"order_id": "string"}, refund_v2)
+
+    assert manifest_hash(spec_v1) != manifest_hash(spec_v2)
+
+
+def test_manifest_hash_falls_back_to_signature_only_when_source_is_unavailable():
+    """A dynamically built callable (no retrievable source) must not raise —
+    manifest_hash falls back to name:description:signature, same as before
+    this fix existed."""
+    fn = eval("lambda order_id: order_id")  # noqa: S307 — test-only, source not retrievable from a string eval
+    spec = ToolSpec("lookup_order", "Look up an order", {}, fn)
+    assert manifest_hash(spec)  # doesn't raise
+
+
+def test_policy_decision_point_denies_a_disallowed_host_even_though_the_guardrail_alone_allows_it():
+    """The mandatory Policy Decision Point the review asked for: composes
+    the deterministic action guardrail with an EgressPolicy host allowlist
+    in ONE call, instead of a caller having to remember to check both
+    separately. GuardrailEngine.check_action alone has no notion of hosts
+    at all — it would allow this call; PolicyDecisionPoint.decide() must not."""
+    from agent_foundry.contracts import AutonomyLevel, Policy
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+
+    identity = Identity(id="agent-1", tenant_id="acme")
+    policy = Policy(allowed_tools=frozenset({"fetch_weather"}), autonomy=AutonomyLevel.L4_POLICY_BOUND)
+    egress = EgressPolicy(allowed_hosts={"fetch_weather": frozenset({"api.weather.com"})})
+    pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy), egress=egress)
+
+    allowed = pdp.decide("fetch_weather", {"host": "api.weather.com"}, identity=identity, policy=policy, host="api.weather.com")
+    denied = pdp.decide("fetch_weather", {"host": "evil.example.com"}, identity=identity, policy=policy, host="evil.example.com")
+
+    assert allowed.allowed
+    assert not denied.allowed and "egress" in denied.reason
+
+
+def test_policy_decision_point_composes_an_external_policy_engine():
+    """Same composition, for the OPA/Cedar PolicyEngine slot instead of
+    EgressPolicy — a PDP wired with a policy_engine that denies everything
+    must deny even a tool_action the guardrail alone would allow."""
+    from agent_foundry.contracts import AutonomyLevel, Policy
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+
+    class DenyAll:
+        def allow(self, input):
+            return False
+
+    identity = Identity(id="agent-1", tenant_id="acme")
+    policy = Policy(allowed_tools=frozenset({"lookup_order"}), autonomy=AutonomyLevel.L4_POLICY_BOUND)
+    pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy), policy_engine=DenyAll())
+
+    result = pdp.decide("lookup_order", {"order_id": "A100"}, identity=identity, policy=policy)
+
+    assert not result.allowed and "external policy engine" in result.reason
+
+
 def test_egress_policy_allowlist():
     policy = EgressPolicy(allowed_hosts={"weather_tool": frozenset({"api.weather.com"})})
     assert policy.check("weather_tool", "api.weather.com")

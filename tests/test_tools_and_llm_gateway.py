@@ -35,6 +35,107 @@ def test_tool_registry_rate_limit_denies_past_burst(identity, policy, lookup_ord
     assert ok.ok and not denied.ok
 
 
+def test_tool_cache_key_survives_list_and_dict_valued_args(identity):
+    """Regression: the cache key used to be (name, tuple(sorted(args.items()))),
+    which crashes with `TypeError: unhashable type` the moment any arg value is
+    a list or dict — now it's a json.dumps-based string key instead."""
+    tools = ToolRegistry(cache=ToolCache(ttl_s=60))
+    spec = ToolSpec("search", "search", {"filters": "object", "tags": "array"}, lambda filters, tags: "ok")
+    tools.register(spec)
+    p = Policy(allowed_tools=frozenset({"search"}))
+
+    result = tools.invoke("search", {"filters": {"status": "open"}, "tags": ["a", "b"]}, identity=identity, policy=p)
+    assert result.ok and result.output == "ok"
+
+
+def test_tool_cache_is_isolated_per_tenant():
+    """Regression: the cache key used to be (tool, args) only — no tenant —
+    so two tenants sharing a registry/cache could read each other's cached
+    tool results for a tenant-specific tool. Proven here by two identities
+    with the same tenant_id getting a cache hit, and a different tenant_id
+    NOT getting one, even though the tool call and args are identical."""
+    from agent_foundry.contracts import Identity
+
+    calls = []
+
+    def get_account(customer_id: str) -> str:
+        calls.append(customer_id)
+        return f"account for {customer_id}"
+
+    tools = ToolRegistry(cache=ToolCache(ttl_s=60))
+    tools.register(ToolSpec("get_account", "get account", {"customer_id": "string"}, get_account))
+    p = Policy(allowed_tools=frozenset({"get_account"}))
+
+    tenant_a_1 = Identity(id="a1", tenant_id="tenant-a")
+    tenant_a_2 = Identity(id="a2", tenant_id="tenant-a")
+    tenant_b = Identity(id="b1", tenant_id="tenant-b")
+
+    tools.invoke("get_account", {"customer_id": "123"}, identity=tenant_a_1, policy=p)
+    tools.invoke("get_account", {"customer_id": "123"}, identity=tenant_a_2, policy=p)  # same tenant -> cache hit
+    tools.invoke("get_account", {"customer_id": "123"}, identity=tenant_b, policy=p)  # different tenant -> real call
+
+    assert calls == ["123", "123"]  # tenant-a shared the cache; tenant-b did not
+
+
+def test_destructive_tool_is_never_cached_even_on_success(identity):
+    """Regression: successful results used to be cached unconditionally,
+    even for a destructive tool (a refund) — the module's own comment
+    already warned side-effecting operations shouldn't be cached, but
+    nothing actually enforced that."""
+    calls = []
+
+    def issue_refund(order_id: str) -> str:
+        calls.append(order_id)
+        return f"refunded {order_id}"
+
+    tools = ToolRegistry(cache=ToolCache(ttl_s=60))
+    tools.register(ToolSpec("issue_refund", "refund", {"order_id": "string"}, issue_refund, destructive=True))
+    p = Policy(allowed_tools=frozenset({"issue_refund"}))
+
+    tools.invoke("issue_refund", {"order_id": "A100"}, identity=identity, policy=p)
+    tools.invoke("issue_refund", {"order_id": "A100"}, identity=identity, policy=p)
+
+    assert calls == ["A100", "A100"]  # never served from cache
+
+
+def test_tool_invoke_rejects_missing_required_argument_without_raising_inside_fn(identity):
+    """Regression: args from the model were passed straight to spec.fn(**args)
+    with no validation boundary — a missing/mistyped argument surfaced as a
+    raw exception from inside the tool body. Now it's a clean, structured
+    ToolResult(ok=False) instead."""
+    tools = ToolRegistry()
+    tools.register(ToolSpec("lookup_order", "Look up an order", {"order_id": "string"}, lambda order_id: f"order {order_id}"))
+    p = Policy(allowed_tools=frozenset({"lookup_order"}))
+
+    result = tools.invoke("lookup_order", {}, identity=identity, policy=p)
+
+    assert not result.ok and "missing required argument" in result.error
+
+
+def test_tool_invoke_retries_up_to_max_retries_on_failure():
+    """ToolSpec.max_retries lets a flaky tool call be retried automatically
+    inside ToolRegistry.invoke() instead of always failing on the first
+    transient error."""
+    from agent_foundry.contracts import Identity
+
+    attempts = []
+
+    def flaky(order_id: str) -> str:
+        attempts.append(order_id)
+        if len(attempts) < 3:
+            raise RuntimeError("transient")
+        return "ok"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("flaky", "flaky", {"order_id": "string"}, flaky, max_retries=2))
+    identity = Identity(id="t", tenant_id="acme")
+    p = Policy(allowed_tools=frozenset({"flaky"}))
+
+    result = tools.invoke("flaky", {"order_id": "A100"}, identity=identity, policy=p)
+
+    assert result.ok and result.output == "ok" and len(attempts) == 3
+
+
 def test_tool_json_schema_is_provider_agnostic():
     spec = ToolSpec("lookup_order", "Look up an order", {"order_id": "string"}, lambda order_id: "x")
     schema = tool_json_schema(spec)
