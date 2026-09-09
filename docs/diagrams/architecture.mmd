@@ -2,14 +2,14 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
-        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=\"langgraph\" (default) | \"native\"\n(no LangGraph in this surface)"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=langgraph (default) or native\n(no LangGraph in this surface)"]
         Quick["quickstart.py\nplug_and_play_agent()"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
         Channels["channels.py\nSlack / SMS / email / any surface"]
         A2A["a2a_bridge.py\nAgent2Agent protocol"]
     end
 
-    subgraph Loop["orchestration.py — runtime=\"langgraph\" (LangGraph StateGraph)"]
+    subgraph Loop["orchestration.py — runtime=langgraph (LangGraph StateGraph)"]
         direction LR
         Think["think()\nprompt + context -> LLM"] --> Act["act()\ntool calls, RBAC-checked"]
         Act --> Think
@@ -21,7 +21,7 @@ flowchart TD
         Critique -- passes --> Final(["final answer"])
     end
 
-    subgraph NativeLoop["core/native_engine.py — runtime=\"native\" (plain Python, zero LangGraph)"]
+    subgraph NativeLoop["core/native_engine.py — runtime=native (plain Python, zero LangGraph)"]
         direction LR
         NThink["_think()\nsame prompt+context -> LLM"] --> NAct["_act()\nsame RBAC-checked tool calls"]
         NAct --> NThink
@@ -92,7 +92,7 @@ flowchart TD
     User --> Core & Quick & Serve & Channels & A2A
     Quick & Serve & Channels & A2A --> Loop
     Core --> Loop
-    Core -. "runtime=\"native\"" .-> NativeLoop
+    Core -. "runtime=native" .-> NativeLoop
     Core --> ExecCtx
     Core -. "agent.start(msg)" .-> RunLifecycle
     Core -. "run_eval(agent, cases)" .-> EvalGate
