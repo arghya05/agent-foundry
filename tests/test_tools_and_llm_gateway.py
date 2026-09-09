@@ -2,7 +2,7 @@ import pytest
 
 from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
 from agent_foundry.llm_gateway import (
-    LLMGateway, MultiProvider, PromptCache, RateLimitExceeded,
+    LLMGateway, MultiProvider, PricingRegistry, PromptCache, RateLimitExceeded,
 )
 from agent_foundry.runtime import RateLimiter
 from agent_foundry.tools_gateway import PermissionDenied, ToolCache, ToolRegistry, tool_json_schema
@@ -102,14 +102,16 @@ def test_tool_invoke_rejects_missing_required_argument_without_raising_inside_fn
     """Regression: args from the model were passed straight to spec.fn(**args)
     with no validation boundary — a missing/mistyped argument surfaced as a
     raw exception from inside the tool body. Now it's a clean, structured
-    ToolResult(ok=False) instead."""
+    ToolResult(ok=False) instead. The exact wording depends on whether real
+    `jsonschema` is installed (preferred when available) or the dependency-
+    free fallback runs — both must name the missing argument."""
     tools = ToolRegistry()
     tools.register(ToolSpec("lookup_order", "Look up an order", {"order_id": "string"}, lambda order_id: f"order {order_id}"))
     p = Policy(allowed_tools=frozenset({"lookup_order"}))
 
     result = tools.invoke("lookup_order", {}, identity=identity, policy=p)
 
-    assert not result.ok and "missing required argument" in result.error
+    assert not result.ok and "order_id" in result.error
 
 
 def test_tool_invoke_retries_up_to_max_retries_on_failure():
@@ -134,6 +136,37 @@ def test_tool_invoke_retries_up_to_max_retries_on_failure():
     result = tools.invoke("flaky", {"order_id": "A100"}, identity=identity, policy=p)
 
     assert result.ok and result.output == "ok" and len(attempts) == 3
+
+
+def test_tool_invoke_rejects_output_that_violates_its_declared_output_schema(identity):
+    """Regression: ToolSpec.output_schema was pure metadata — nothing ever
+    checked a tool's actual return value against it. A tool that returns a
+    string when it declared an object output_schema must now fail cleanly."""
+    tools = ToolRegistry()
+    tools.register(ToolSpec(
+        "lookup_order", "Look up an order", {"order_id": "string"},
+        lambda order_id: "not an object",  # violates the schema below
+        output_schema={"type": "object", "properties": {"status": {"type": "string"}}, "required": ["status"]},
+    ))
+    p = Policy(allowed_tools=frozenset({"lookup_order"}))
+
+    result = tools.invoke("lookup_order", {"order_id": "A100"}, identity=identity, policy=p)
+
+    assert not result.ok and "output_schema" in result.error
+
+
+def test_tool_invoke_accepts_output_that_matches_its_declared_output_schema(identity):
+    tools = ToolRegistry()
+    tools.register(ToolSpec(
+        "lookup_order", "Look up an order", {"order_id": "string"},
+        lambda order_id: {"status": "shipped"},
+        output_schema={"type": "object", "properties": {"status": {"type": "string"}}, "required": ["status"]},
+    ))
+    p = Policy(allowed_tools=frozenset({"lookup_order"}))
+
+    result = tools.invoke("lookup_order", {"order_id": "A100"}, identity=identity, policy=p)
+
+    assert result.ok and result.output == {"status": "shipped"}
 
 
 def test_tool_json_schema_is_provider_agnostic():
@@ -204,6 +237,32 @@ def test_multiprovider_dispatches_by_model_name():
     assert mp.complete([], model="model-b").text == "from-b"
 
 
+def test_pricing_registry_estimates_an_unknown_model_instead_of_metering_zero():
+    """Regression: unlisted models used to silently cost $0 (a real spend
+    of $22 recorded as $0 against a budget ceiling). Default policy
+    ("estimate") must charge a real, non-zero amount instead."""
+    registry = PricingRegistry(rates={"known-model": (1.0, 2.0)})
+
+    known_cost = registry.calculate("known-model", input_tokens=1_000_000, output_tokens=1_000_000)
+    assert known_cost == 3.0  # 1M*$1 + 1M*$2, exact registered rate
+
+    unknown_cost = registry.calculate("mystery-model", input_tokens=1_000_000, output_tokens=1_000_000)
+    assert unknown_cost > 0.0  # never silently $0 for an unlisted model
+
+
+def test_pricing_registry_block_policy_raises_on_an_unlisted_model():
+    from agent_foundry.llm_gateway import UnknownPricingError
+
+    registry = PricingRegistry(unknown_model_policy="block")
+    with pytest.raises(UnknownPricingError):
+        registry.calculate("mystery-model", input_tokens=100, output_tokens=100)
+
+
+def test_pricing_registry_allow_policy_preserves_the_original_zero_cost_behavior():
+    registry = PricingRegistry(unknown_model_policy="allow")
+    assert registry.calculate("mystery-model", input_tokens=1_000_000, output_tokens=1_000_000) == 0.0
+
+
 def test_anthropic_and_openai_translate_the_same_generic_tool_schema():
     """The correctness fix: the SAME provider-agnostic schema from
     tool_json_schema() must translate correctly for both vendor wire formats."""
@@ -213,6 +272,7 @@ def test_anthropic_and_openai_translate_the_same_generic_tool_schema():
     generic = tool_json_schema(spec)
 
     ap = AnthropicProvider.__new__(AnthropicProvider)
+    ap.pricing = PricingRegistry()
     captured_a = {}
     class FakeBlock:
         type = "text"; text = "ok"
@@ -230,6 +290,7 @@ def test_anthropic_and_openai_translate_the_same_generic_tool_schema():
     assert captured_a["tools"][0]["input_schema"] == generic["parameters"]
 
     op = OpenAIProvider.__new__(OpenAIProvider)
+    op.pricing = PricingRegistry()
     captured_o = {}
     class FakeMsg:
         content = "ok"; tool_calls = None
@@ -264,6 +325,7 @@ def test_anthropic_provider_omits_system_key_entirely_when_no_system_message():
     from agent_foundry.llm_gateway import AnthropicProvider
 
     ap = AnthropicProvider.__new__(AnthropicProvider)
+    ap.pricing = PricingRegistry()
     captured = {}
     class FakeBlock:
         type = "text"; text = "ok"
@@ -289,6 +351,7 @@ def test_anthropic_provider_still_sends_system_when_present():
     from agent_foundry.llm_gateway import AnthropicProvider
 
     ap = AnthropicProvider.__new__(AnthropicProvider)
+    ap.pricing = PricingRegistry()
     captured = {}
     class FakeBlock:
         type = "text"; text = "ok"

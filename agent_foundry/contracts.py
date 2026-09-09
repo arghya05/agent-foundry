@@ -72,6 +72,13 @@ class ToolSpec:
     max_retries: int = 0
     data_classification: str = "internal"  # public | internal | confidential | restricted
     output_schema: dict[str, Any] | None = None
+    # The hosts THIS tool is declared to reach, known at registration time
+    # (e.g. http_tool() derives it from its own URL template) — not derived
+    # from a specific call's args, which vary per call and have no
+    # generically reliable "this is the host" field. Checked against
+    # policy_engine.PolicyDecisionPoint's egress policy on every call; empty
+    # (default) means this tool has no egress dimension for the PDP to check.
+    egress_hosts: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass

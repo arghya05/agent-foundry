@@ -293,7 +293,7 @@ class Agent:
                 audit=self.config.audit, breaker=self.config.breaker, cost_ledger=self.config.cost_ledger,
                 memory=self.config.memory, context_engine=self.config.context_engine, step_timeout_s=self.config.step_timeout_s,
                 latency_budget=self.config.latency_budget, sla_tracker=self.config.sla_tracker, critique=self.config.critique,
-                user_id=self.config.user_id, checkpointer=checkpointer,
+                user_id=self.config.user_id, pdp=self.config.pdp, checkpointer=checkpointer,
             )
         self._runner = _CompiledWorkflow(graph, name=name)
         self.event_bus = event_bus or InMemoryEventBus()

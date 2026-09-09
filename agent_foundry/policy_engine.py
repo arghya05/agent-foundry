@@ -34,10 +34,10 @@ class PolicyDecisionPoint:
     GuardrailEngine. Each piece stays independently usable/testable; this is
     just the thing that calls all of them for one tool-call decision.
 
-    Wire it in via AgentConfig.pdp — make_act_node calls `.decide(...)`
-    instead of `config.guardrails.check_action(...)` only when it's set, so
-    every existing caller that doesn't configure a PDP keeps its exact
-    current behavior."""
+    Wire it in via AgentConfig.pdp — make_act_node/native_engine._act ALWAYS
+    call `.decide(...)`, never `config.guardrails.check_action(...)`
+    directly (AgentConfig.__post_init__ guarantees `pdp` is never None), so
+    this is a real invariant, not an opt-in a caller could forget."""
 
     guardrails: "GuardrailChecks"
     policy_engine: PolicyEngine | None = None
@@ -45,7 +45,7 @@ class PolicyDecisionPoint:
 
     def decide(
         self, tool_name: str, args: dict[str, Any], *, identity: Identity, policy: Policy,
-        destructive: bool = False, cost_so_far: float = 0.0, host: str | None = None,
+        destructive: bool = False, cost_so_far: float = 0.0, hosts: frozenset[str] = frozenset(),
     ) -> GuardrailResult:
         gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
         if not gr.allowed:
@@ -57,8 +57,14 @@ class PolicyDecisionPoint:
             })
             if not allowed:
                 return GuardrailResult(False, f"{tool_name!r} denied by external policy engine", "action")
-        if self.egress is not None and host is not None and not self.egress.check(tool_name, host):
-            return GuardrailResult(False, f"{tool_name!r} denied: {host!r} not in egress allowlist for this tool", "action")
+        if self.egress is not None:
+            # `hosts` comes from ToolSpec.egress_hosts (the tool's OWN
+            # declared destinations, known at registration time — see
+            # http_tool()) — not derived from `args`, which vary per call
+            # and have no generically reliable "this is the host" field.
+            for host in hosts:
+                if not self.egress.check(tool_name, host):
+                    return GuardrailResult(False, f"{tool_name!r} denied: {host!r} not in egress allowlist for this tool", "action")
         return GuardrailResult(True, stage="action")
 
 

@@ -45,4 +45,10 @@ def http_tool(
             except json.JSONDecodeError:
                 return body
 
-    return ToolSpec(name=name, description=description, parameters={}, fn=call)
+    # `url`'s host is known at REGISTRATION time (it's a fixed template —
+    # only path {placeholders} vary per call, never the host itself), so the
+    # PDP's egress check can be wired in automatically here instead of
+    # requiring every http_tool() caller to configure it separately.
+    host = urllib.parse.urlparse(url).hostname
+    return ToolSpec(name=name, description=description, parameters={}, fn=call,
+                     egress_hosts=frozenset({host}) if host else frozenset())

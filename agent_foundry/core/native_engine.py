@@ -251,11 +251,11 @@ class NativeEngine:
 
             spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
             destructive = spec is not None and spec.destructive
-            if config.pdp is not None:
-                gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
-                                        destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id))
-            else:
-                gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
+            # Every tool call goes through the PDP, no bypass — AgentConfig.
+            # __post_init__ guarantees config.pdp is never None.
+            gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+                                    destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
+                                    hosts=spec.egress_hosts if spec is not None else frozenset())
             needs_approval = not gr.allowed and bool(gr.reason) and "approval" in gr.reason
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id

@@ -215,6 +215,99 @@ def test_tool_result_containing_a_planted_instruction_is_wrapped_as_untrusted(id
     _invoke(graph, "t-trust-boundary", "status of A100?")
 
 
+def test_agent_config_always_has_a_pdp_even_when_none_was_given(identity, policy):
+    """Regression: AgentConfig.pdp used to be a genuinely optional field —
+    make_act_node branched on `if config.pdp is not None`, so a caller who
+    never configured one still got the OLD check_action-only gate, not the
+    PDP. __post_init__ must always construct one wrapping this config's own
+    guardrails, so config.pdp is never None and the branch can't exist."""
+    config = AgentConfig(**make_config_kwargs(identity=identity, policy=policy, tools=ToolRegistry(), provider=ScriptedProvider([])), system_prompt="sys")
+    assert config.pdp is not None
+    assert config.pdp.guardrails is config.guardrails
+
+
+def test_pdp_egress_check_denies_a_tool_call_to_a_host_outside_the_allowlist(identity):
+    """End-to-end: make_act_node now passes ToolSpec.egress_hosts through to
+    config.pdp.decide(hosts=...) on every call — previously the PDP's own
+    egress check existed but had no way to see what host a call was
+    actually reaching, so it could never fire for an ordinary tool call."""
+    from agent_foundry.contracts import Policy
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+    from agent_foundry.security import EgressPolicy
+
+    def fetch(order_id: str) -> str:
+        return f"order {order_id}"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("fetch_order", "fetch an order", {"order_id": "string"}, fetch,
+                             egress_hosts=frozenset({"partner.example.com"})))
+    policy_with_tool = Policy(allowed_tools=frozenset({"fetch_order"}), max_cost_usd_per_thread=1.0, max_steps_per_thread=10)
+
+    def call_tool(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c1", name="fetch_order", args={"order_id": "A100"})])
+
+    def final(messages, model):
+        tool_msg = next(m for m in messages if m["role"] == "tool")
+        assert tool_msg["ok"] is False
+        assert "egress allowlist" in tool_msg["content"]
+        return "done"
+
+    provider = ScriptedProvider([call_tool, final])
+    kwargs = make_config_kwargs(identity=identity, policy=policy_with_tool, tools=tools, provider=provider)
+    # A different host allowed for this tool — "partner.example.com" isn't in it.
+    kwargs["pdp"] = PolicyDecisionPoint(guardrails=kwargs["guardrails"],
+                                         egress=EgressPolicy(allowed_hosts={"fetch_order": frozenset({"other-host.example.com"})}))
+    graph = build_agent_graph(system_prompt="sys", **kwargs)
+    _invoke(graph, "t-egress", "fetch A100")
+
+
+def test_pdp_survives_a_blackboard_governed_turn_rebuild(identity):
+    """Regression: _run_governed_turn() (blackboard/debate) rebuilds a
+    fresh graph via build_agent_graph() from an existing AgentConfig — it
+    used to drop config.pdp entirely, silently replacing a caller's custom
+    PDP (egress/OPA/Cedar) with a bare default. Proven the same way as the
+    direct test above, but routed through build_blackboard_graph this time."""
+    from agent_foundry.contracts import Policy
+    from agent_foundry.eval import EvalHarness
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.llm_gateway import LLMGateway
+    from agent_foundry.observability import Tracer
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+    from agent_foundry.runtime import RunBudget
+    from agent_foundry.security import EgressPolicy
+
+    def fetch(order_id: str) -> str:
+        return f"order {order_id}"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("fetch_order", "fetch an order", {"order_id": "string"}, fetch,
+                             egress_hosts=frozenset({"partner.example.com"})))
+    p = Policy(allowed_tools=frozenset({"fetch_order"}))
+    guardrails = GuardrailEngine(p)
+
+    def call_tool(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c1", name="fetch_order", args={"order_id": "A100"})])
+
+    def final(messages, model):
+        tool_msg = next(m for m in messages if m["role"] == "tool")
+        assert tool_msg["ok"] is False
+        assert "egress allowlist" in tool_msg["content"]
+        return "POST fact: denied"
+
+    provider = ScriptedProvider([call_tool, final])
+    config = AgentConfig(
+        system_prompt="researcher", llm=LLMGateway(provider=provider), tools=tools, guardrails=guardrails,
+        eval_harness=EvalHarness(), identity=identity, policy=p, budget=RunBudget(p), tracer=Tracer("bb-pdp-test"),
+        pdp=PolicyDecisionPoint(guardrails=guardrails, egress=EgressPolicy(allowed_hosts={"fetch_order": frozenset({"other-host.example.com"})})),
+    )
+
+    bb = Blackboard()
+    graph = build_blackboard_graph(agents={"researcher": config}, blackboard=bb, rounds=1)
+    graph.invoke({"messages": [{"role": "user", "content": "assess"}], "thread_id": "bb-pdp-test", "round": 0}, {"configurable": {"thread_id": "bb-pdp-test"}})
+
+
 def test_native_tool_call_is_idempotent_by_default_when_a_store_is_configured(identity, policy):
     """Regression: idempotency existed (ToolRegistry.invoke(idempotency_key=))
     but normal orchestration never supplied one — so it wasn't part of

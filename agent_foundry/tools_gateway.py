@@ -45,26 +45,58 @@ _SCHEMA_TYPES: dict[str, type | tuple[type, ...]] = {
 }
 
 
+def _validate_basic(schema: dict[str, Any], value: Any) -> str | None:
+    """Dependency-free fallback: required keys present, basic type match.
+    Not a full JSON Schema implementation (no $ref/oneOf/pattern/etc.) —
+    real Draft 2020-12 validation happens automatically once `jsonschema`
+    is installed (_validate_against_schema below lazily prefers it, same
+    optional-dependency posture as chromadb/redis/cedarpy elsewhere in this
+    package)."""
+    expected_type = schema.get("type")
+    if expected_type == "object":
+        if not isinstance(value, dict):
+            return f"expected an object, got {type(value).__name__}"
+        properties = schema.get("properties", {})
+        for required in schema.get("required", []):
+            if required not in value:
+                return f"missing required argument {required!r}"
+        for key, sub_value in value.items():
+            sub_type = properties.get(key, {}).get("type")
+            py_type = _SCHEMA_TYPES.get(sub_type)
+            if py_type is not None and not isinstance(sub_value, py_type):
+                return f"argument {key!r} expected type {sub_type!r}, got {type(sub_value).__name__}"
+        return None
+    py_type = _SCHEMA_TYPES.get(expected_type)
+    if py_type is not None and not isinstance(value, py_type):
+        return f"expected type {expected_type!r}, got {type(value).__name__}"
+    return None
+
+
+def _validate_against_schema(schema: dict[str, Any], value: Any) -> str | None:
+    """The one validation boundary used for both a tool call's input args
+    (against tool_json_schema(spec)["parameters"]) and its declared
+    ToolSpec.output_schema — until now the schema shown to the model was
+    never actually checked against what the model (for args) or the tool
+    (for output) produced. Returns None when `value` passes, else a
+    human-readable reason."""
+    try:
+        import jsonschema
+    except ImportError:
+        return _validate_basic(schema, value)
+    try:
+        jsonschema.validate(value, schema)
+        return None
+    except jsonschema.exceptions.ValidationError as e:
+        return e.message
+
+
 def _validate_args(spec: ToolSpec, args: dict[str, Any]) -> str | None:
     """A real validation/coercion boundary between a model's tool-call args
     and spec.fn(**args) — the schema in tool_json_schema() is exposed to the
     model, but until now nothing checked the model actually followed it, so
     a missing/mistyped argument surfaced as a raw exception from inside the
-    tool body instead of a clear, structured denial. Deliberately not a full
-    JSON Schema validator (no $ref/oneOf/pattern/etc.) — just enough to catch
-    a missing required field or a grossly wrong type before fn() runs.
-    Returns None when args pass, else a human-readable reason."""
-    schema = tool_json_schema(spec)["parameters"]
-    properties = schema.get("properties", {})
-    for required in schema.get("required", []):
-        if required not in args:
-            return f"missing required argument {required!r}"
-    for arg_name, value in args.items():
-        expected = properties.get(arg_name, {}).get("type")
-        py_type = _SCHEMA_TYPES.get(expected)
-        if py_type is not None and not isinstance(value, py_type):
-            return f"argument {arg_name!r} expected type {expected!r}, got {type(value).__name__}"
-    return None
+    tool body instead of a clear, structured denial."""
+    return _validate_against_schema(tool_json_schema(spec)["parameters"], args)
 
 
 class ToolCacheLike(Protocol):
@@ -187,6 +219,16 @@ class ToolRegistry:
         while True:
             try:
                 output = spec.fn(**args)
+                if spec.output_schema is not None:
+                    # Same validation boundary as input args, applied to
+                    # what the tool actually returned — previously
+                    # ToolSpec.output_schema was pure metadata, never
+                    # checked against anything. A schema-violating output
+                    # is treated like any other execution failure (retried
+                    # up to spec.max_retries, same as an exception).
+                    invalid_output = _validate_against_schema(spec.output_schema, output)
+                    if invalid_output is not None:
+                        raise ValueError(f"tool {name!r} returned output that doesn't match its declared output_schema: {invalid_output}")
                 if self.cache is not None and spec.cacheable and not spec.destructive:
                     self.cache.set(name, args, output, tenant=identity.tenant_id)
                 result = ToolResult(tool=name, ok=True, output=output, latency_ms=(time.time() - start) * 1000)

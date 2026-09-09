@@ -62,8 +62,8 @@ def test_policy_decision_point_denies_a_disallowed_host_even_though_the_guardrai
     egress = EgressPolicy(allowed_hosts={"fetch_weather": frozenset({"api.weather.com"})})
     pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy), egress=egress)
 
-    allowed = pdp.decide("fetch_weather", {"host": "api.weather.com"}, identity=identity, policy=policy, host="api.weather.com")
-    denied = pdp.decide("fetch_weather", {"host": "evil.example.com"}, identity=identity, policy=policy, host="evil.example.com")
+    allowed = pdp.decide("fetch_weather", {}, identity=identity, policy=policy, hosts=frozenset({"api.weather.com"}))
+    denied = pdp.decide("fetch_weather", {}, identity=identity, policy=policy, hosts=frozenset({"evil.example.com"}))
 
     assert allowed.allowed
     assert not denied.allowed and "egress" in denied.reason

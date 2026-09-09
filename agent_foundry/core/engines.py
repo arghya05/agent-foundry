@@ -52,7 +52,7 @@ class LangGraphWorkflowEngine:
             tracer=spec.tracer, task=spec.task, audit=spec.audit, breaker=spec.breaker, cost_ledger=spec.cost_ledger,
             memory=spec.memory, context_engine=spec.context_engine, step_timeout_s=spec.step_timeout_s,
             latency_budget=spec.latency_budget, sla_tracker=spec.sla_tracker, critique=spec.critique,
-            user_id=spec.user_id, checkpointer=checkpointer,
+            user_id=spec.user_id, pdp=spec.pdp, checkpointer=checkpointer,
         )
 
     def run(self, compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:

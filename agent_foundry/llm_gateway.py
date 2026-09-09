@@ -38,13 +38,58 @@ _PRICING: dict[str, tuple[float, float]] = {
 }
 
 
+class UnknownPricingError(Exception):
+    """Raised by PricingRegistry.calculate() when unknown_model_policy="block"
+    and the model has no registered rate."""
+
+
+@dataclass
+class PricingRegistry:
+    """Decouples "what does this call cost" from the Provider that made it —
+    the previous design (`_PRICING.get(model, (0.0, 0.0))` inline in each
+    Provider.complete()) meant an unlisted model silently metered as $0,
+    which is dangerous for cost governance: real spend keeps happening while
+    RunBudget's ceiling sees none of it. `rates` holds the same
+    {model: (in_price, out_price)} shape as _PRICING/_OPENAI_PRICING below
+    (both are passed in as a Provider's default `rates`, not replaced by
+    this class); `unknown_model_policy` decides what happens for anything
+    NOT in `rates`:
+      - "block": raise UnknownPricingError — the safest default for a real
+        budget ceiling to mean anything; forces registering the model's
+        rate (or explicitly choosing a looser policy) before it's trusted.
+      - "estimate": meter at `estimate_rate` (default: a deliberately
+        conservative top-tier rate, not an average) instead of silently $0
+        — the call still succeeds, but the ceiling still sees a real cost.
+      - "allow": the previous behavior — $0 for an unlisted model. Only
+        appropriate when cost governance genuinely doesn't matter for this
+        deployment (e.g. a local/free model)."""
+
+    rates: dict[str, tuple[float, float]] = field(default_factory=dict)
+    unknown_model_policy: str = "estimate"
+    estimate_rate: tuple[float, float] = (15.00, 75.00)  # $/1M tokens (in, out)
+
+    def calculate(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        rate = self.rates.get(model)
+        if rate is None:
+            if self.unknown_model_policy == "block":
+                raise UnknownPricingError(
+                    f"no pricing registered for model {model!r} — register its rate in "
+                    "PricingRegistry.rates, or set unknown_model_policy='estimate'/'allow' to proceed anyway"
+                )
+            rate = self.estimate_rate if self.unknown_model_policy == "estimate" else (0.0, 0.0)
+        in_price, out_price = rate
+        return (input_tokens * in_price + output_tokens * out_price) / 1_000_000
+
+
 class AnthropicProvider:
     """Reference Provider implementation. Swap in OpenAI/Gemini/local by matching this interface."""
 
-    def __init__(self, *, workspace_id: str | None = None) -> None:
+    def __init__(self, *, workspace_id: str | None = None, pricing: PricingRegistry | None = None) -> None:
         import os
 
         import anthropic
+
+        self.pricing = pricing or PricingRegistry(rates=_PRICING)
 
         # Identity-linked API keys (Console keys tied to a personal identity
         # rather than a plain workspace key) require this header on every
@@ -108,8 +153,7 @@ class AnthropicProvider:
             # own wire shape ({"name","description","input_schema"}) here.
             create_kw["tools"] = [{"name": t["name"], "description": t["description"], "input_schema": t["parameters"]} for t in tools]
         resp = self._client.messages.create(**create_kw)
-        in_price, out_price = _PRICING.get(model, (0.0, 0.0))
-        cost = (resp.usage.input_tokens * in_price + resp.usage.output_tokens * out_price) / 1_000_000
+        cost = self.pricing.calculate(model, resp.usage.input_tokens, resp.usage.output_tokens)
         tool_calls = [
             ToolCall(id=block.id, name=block.name, args=block.input)
             for block in resp.content if block.type == "tool_use"
@@ -135,7 +179,10 @@ class AnthropicProvider:
 
 
 # OpenAI pricing intentionally left blank — fill in your account's model ids and
-# per-1M-token rates; an unlisted model just meters as $0 rather than guessing.
+# per-1M-token rates via `pricing=PricingRegistry(rates={...})`. An unlisted
+# model no longer silently meters as $0 — PricingRegistry's default
+# unknown_model_policy="estimate" means it's metered at a conservative
+# estimate instead, so a real budget ceiling still means something.
 _OPENAI_PRICING: dict[str, tuple[float, float]] = {}
 
 
@@ -145,10 +192,11 @@ class OpenAIProvider:
     native tool-calling (OpenAI's own tool_calls wire shape, reconstructed on
     every turn the same way AnthropicProvider does for its shape), streaming."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, pricing: PricingRegistry | None = None) -> None:
         import openai
 
         self._client = openai.OpenAI()
+        self.pricing = pricing or PricingRegistry(rates=_OPENAI_PRICING)
 
     def _turns(self, messages: list[dict]) -> list[dict]:
         """Reconstructs OpenAI's tool-calling conversation format: an assistant
@@ -188,8 +236,7 @@ class OpenAIProvider:
                 for t in tools
             ]
         resp = self._client.chat.completions.create(**create_kw)
-        in_price, out_price = _OPENAI_PRICING.get(model, (0.0, 0.0))
-        cost = (resp.usage.prompt_tokens * in_price + resp.usage.completion_tokens * out_price) / 1_000_000
+        cost = self.pricing.calculate(model, resp.usage.prompt_tokens, resp.usage.completion_tokens)
         message = resp.choices[0].message
         tool_calls = [
             ToolCall(id=tc.id, name=tc.function.name, args=json.loads(tc.function.arguments))

@@ -38,7 +38,7 @@ import json
 import operator
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Annotated, Any, Callable, TypedDict
+from typing import Annotated, Any, Callable, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
@@ -61,11 +61,9 @@ from .runtime import (
     SLATrackerLike,
     with_timeout,
 )
+from .policy_engine import PolicyDecisionPoint
 from .security import AuditLog
 from .tools_gateway import PermissionDenied, ToolRegistry
-
-if TYPE_CHECKING:
-    from .policy_engine import PolicyDecisionPoint
 
 
 class AgentState(TypedDict):
@@ -194,13 +192,19 @@ class AgentConfig:
     # overriding whatever the model supplied — a model should never be
     # trusted to name which real user's profile it's updating.
     user_id: str | Callable[[AgentState], str] | None = None
-    # Optional mandatory Policy Decision Point (policy_engine.PolicyDecisionPoint)
-    # — when set, make_act_node calls config.pdp.decide(...) instead of
-    # config.guardrails.check_action(...) directly, composing in an external
-    # PolicyEngine (OPA/Cedar) and/or EgressPolicy check too. None (default):
-    # unchanged behavior — every existing caller that doesn't set this sees
-    # the exact same check_action-only gate it always has.
-    pdp: "PolicyDecisionPoint | None" = None
+    # The mandatory Policy Decision Point (policy_engine.PolicyDecisionPoint)
+    # every tool-call decision goes through — make_act_node/native_engine._act
+    # ALWAYS call config.pdp.decide(...), never config.guardrails.check_action(
+    # ...) directly, so this can't be silently bypassed the way an optional
+    # field could. Leave unset and __post_init__ builds a PDP that wraps THIS
+    # config's own guardrails with no external PolicyEngine/EgressPolicy —
+    # behaviorally identical to the old check_action-only gate for anyone who
+    # doesn't configure OPA/Cedar/egress; pass one explicitly to compose those in.
+    pdp: PolicyDecisionPoint | None = None
+
+    def __post_init__(self) -> None:
+        if self.pdp is None:
+            self.pdp = PolicyDecisionPoint(guardrails=self.guardrails)
 
 
 def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
@@ -355,11 +359,11 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
             spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
             destructive = spec is not None and spec.destructive
-            if config.pdp is not None:
-                gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
-                                        destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id))
-            else:
-                gr = config.guardrails.check_action(tool_name, cost_so_far=config.budget.cost_usd_for(session_id), destructive=destructive)
+            # Every tool call goes through the PDP, no bypass — AgentConfig.
+            # __post_init__ guarantees config.pdp is never None.
+            gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
+                                    destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
+                                    hosts=spec.egress_hosts if spec is not None else frozenset())
             if not gr.allowed and gr.reason and "approval" in gr.reason:
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
                 config.audit.record(identity=config.identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
@@ -686,6 +690,7 @@ def build_agent_graph(
     critique: CritiqueConfig | None = None,
     self_verify: bool = False,
     user_id: str | Callable[[AgentState], str] | None = None,
+    pdp: PolicyDecisionPoint | None = None,
     checkpointer: BaseCheckpointSaver | None = None,
 ):
     """One agent, the think/act loop. Thin wrapper over make_think_node/make_act_node —
@@ -711,7 +716,7 @@ def build_agent_graph(
         eval_harness=eval_harness, identity=identity, policy=policy, budget=budget,
         tracer=tracer, task=task, audit=audit or AuditLog(), breaker=breaker or CircuitBreaker(),
         cost_ledger=cost_ledger, memory=memory, context_engine=context_engine, step_timeout_s=step_timeout_s,
-        latency_budget=latency_budget, sla_tracker=sla_tracker, critique=critique, user_id=user_id,
+        latency_budget=latency_budget, sla_tracker=sla_tracker, critique=critique, user_id=user_id, pdp=pdp,
     )
     graph = StateGraph(AgentState)
     graph.add_node("think", make_think_node(config))
@@ -882,7 +887,7 @@ def _run_governed_turn(config: AgentConfig, messages: list[dict], *, thread_id: 
         tracer=config.tracer, task=config.task, audit=config.audit, breaker=config.breaker,
         cost_ledger=config.cost_ledger, memory=config.memory, context_engine=config.context_engine,
         step_timeout_s=config.step_timeout_s, latency_budget=config.latency_budget, sla_tracker=config.sla_tracker,
-        critique=config.critique, user_id=config.user_id,
+        critique=config.critique, user_id=config.user_id, pdp=config.pdp,
     )
     result = graph.invoke({"messages": list(messages), "thread_id": thread_id}, {"configurable": {"thread_id": thread_id}})
     return result["messages"][-1]["content"]

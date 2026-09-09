@@ -58,3 +58,15 @@ def test_http_tool_composes_through_registry_rbac(echo_server):
     policy = Policy(allowed_tools=frozenset({"get_status"}))
     result = registry.invoke("get_status", {"id": "42"}, identity=identity, policy=policy)
     assert result.ok and result.output["path"] == "/status/42"
+
+
+def test_http_tool_declares_its_own_egress_host_from_the_url_template(echo_server):
+    """The host is known at registration time (the url template's host
+    never varies per call, only path {placeholders} do) — http_tool() must
+    populate ToolSpec.egress_hosts automatically so policy_engine.
+    PolicyDecisionPoint can enforce an egress allowlist without every
+    caller having to wire that up separately."""
+    from urllib.parse import urlparse
+
+    tool = http_tool("get_status", "status", url=echo_server + "/status/{id}")
+    assert tool.egress_hosts == frozenset({urlparse(echo_server).hostname})
