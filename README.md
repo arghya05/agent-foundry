@@ -13,10 +13,11 @@ core primitives assumes a single fixed agent shape: one agent, a supervisor
 of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
 the same `think`/`act` building blocks wired differently.
 
-> **36 modules** · **2 interchangeable orchestration engines** · **7
-> multi-agent topologies** · a formal run lifecycle and eval-as-release-gate
-> on one shared core · **285 tests passing** · MCP / A2A / AutoGen / CrewAI
-> protocol interop built in
+> **36 modules** · **two interchangeable single-agent execution engines**
+> (LangGraph and native Python — advanced multi-agent topologies currently
+> use LangGraph only) · **7 multi-agent topologies** · a formal run
+> lifecycle and eval-as-release-gate on one shared core · **372 tests
+> passing** · MCP / A2A / AutoGen / CrewAI protocol interop built in
 
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
 [Architecture](#architecture) ·

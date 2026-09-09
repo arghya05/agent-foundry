@@ -10,14 +10,21 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "langgraph>=0.6",
-    "anthropic>=0.40",
     "cryptography>=42.0",
 ]
 
-# Extras mirror exactly what requirements-test.txt/requirements-distributed.txt
-# already declared as optional — no new dependencies introduced here, just
-# organized as pip extras instead of one flat test-requirements file.
+# No model vendor is privileged in the base install — "vendor-neutral" holds
+# all the way down to what `pip install agent-foundry` actually pulls in.
+# Agent()'s zero-config default (LLMGateway(provider=AnthropicProvider()))
+# needs `agent-foundry[anthropic]` (or an explicit llm= of your own) — that
+# import already fails with a clear ModuleNotFoundError otherwise, same as
+# any other lazily-imported optional dependency in this package.
+#
+# requirements.txt (still includes anthropic) is a SEPARATE, pre-existing
+# install path for running this repo's own bundled examples/Dockerfile
+# directly — left as-is; it predates pip extras and isn't "the package."
 [project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.40"]
 mcp = ["mcp>=1.0"]
 redis = ["redis>=5.0"]
@@ -32,7 +39,7 @@ otel = ["opentelemetry-sdk>=1.25"]
 # lightweight required/type checker otherwise) — not test-only.
 schema = ["jsonschema>=4.20"]
 test = ["pytest>=8.0", "httpx>=0.27", "jsonschema>=4.20"]
-all = ["agent-foundry[openai,mcp,redis,rag,serve,autogen,a2a,cedar,otel,schema]"]
+all = ["agent-foundry[anthropic,openai,mcp,redis,rag,serve,autogen,a2a,cedar,otel,schema]"]
 
 [project.scripts]
 foundry = "agent_foundry.cli:main"

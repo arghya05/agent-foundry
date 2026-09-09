@@ -128,6 +128,46 @@ def test_chat_then_resume_hitl_flow():
     assert r2.json() == {"status": "ok", "reply": "Refund processed.", "pending": None}
 
 
+def test_chat_endpoint_requires_auth_when_an_auth_resolver_is_configured():
+    """The generic serving surface trusts a client-supplied thread_id
+    verbatim by default — fine for a demo, not for a multi-tenant
+    deployment exposed directly. auth=... makes every /chat request
+    authenticate first (401 if it doesn't), mirroring how the runtime
+    already never trusts a model-supplied session_id/user_id."""
+    from agent_foundry.serve import ApiKeyAuthResolver
+
+    identity = Identity(id="user-1", tenant_id="acme")
+    app = build_http_app(_support_graph(), auth=ApiKeyAuthResolver(identities={"secret-key": identity}))
+    client = TestClient(app)
+
+    denied = client.post("/chat", json={"thread_id": "t1", "message": "hello"})
+    assert denied.status_code == 401
+
+    allowed = client.post("/chat", json={"thread_id": "t1", "message": "hello"}, headers={"Authorization": "Bearer secret-key"})
+    assert allowed.status_code == 200 and allowed.json()["status"] == "ok"
+
+
+def test_chat_endpoint_namespaces_the_client_thread_id_by_resolved_tenant():
+    """The actual security property: two tenants sending the SAME
+    client-supplied thread_id must never share conversation state — the
+    server namespaces it under the resolved identity's tenant_id before it
+    ever reaches the graph."""
+    from agent_foundry.serve import ApiKeyAuthResolver
+
+    acme = Identity(id="user-1", tenant_id="acme")
+    globex = Identity(id="user-2", tenant_id="globex")
+    app = build_http_app(_support_graph(requires_approval=True), auth=ApiKeyAuthResolver(identities={"acme-key": acme, "globex-key": globex}))
+    client = TestClient(app)
+
+    acme_reply = client.post("/chat", json={"thread_id": "shared", "message": "refund order A100"}, headers={"Authorization": "Bearer acme-key"})
+    assert acme_reply.json()["status"] == "awaiting_approval"
+
+    # globex uses the SAME client-supplied thread_id — must be a fresh,
+    # independent conversation, not acme's paused-mid-approval one.
+    globex_reply = client.post("/chat", json={"thread_id": "shared", "message": "hi there"}, headers={"Authorization": "Bearer globex-key"})
+    assert globex_reply.json()["status"] == "ok"
+
+
 def test_slack_channel_signature_verification_and_full_round_trip():
     from agent_foundry.channels import build_slack_app, verify_slack_signature
 

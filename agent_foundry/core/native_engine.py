@@ -255,7 +255,10 @@ class NativeEngine:
             # __post_init__ guarantees config.pdp is never None.
             gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
                                     destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
-                                    hosts=spec.egress_hosts if spec is not None else frozenset())
+                                    hosts=spec.egress_hosts if spec is not None else frozenset(),
+                                    scopes=spec.scopes if spec is not None else frozenset(),
+                                    requires_confirmation=spec is not None and spec.requires_confirmation,
+                                    data_classification=spec.data_classification if spec is not None else "internal")
             needs_approval = not gr.allowed and bool(gr.reason) and "approval" in gr.reason
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id

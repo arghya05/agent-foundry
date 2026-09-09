@@ -262,6 +262,34 @@ def test_pdp_egress_check_denies_a_tool_call_to_a_host_outside_the_allowlist(ide
     _invoke(graph, "t-egress", "fetch A100")
 
 
+def test_tool_spec_requires_confirmation_pauses_for_human_approval(identity):
+    """End-to-end: a ToolSpec declaring requires_confirmation=True must
+    pause via interrupt() — the same HITL mechanism Policy.requires_approval
+    already triggers — even though nothing in `policy` names this tool as
+    requiring approval."""
+    from agent_foundry.contracts import Policy
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("send_wire", "send a wire transfer", {"amount_usd": "number"}, send_wire, requires_confirmation=True))
+    policy_with_tool = Policy(allowed_tools=frozenset({"send_wire"}), max_cost_usd_per_thread=1.0, max_steps_per_thread=10)
+
+    def call_tool(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 500})])
+
+    provider = ScriptedProvider([call_tool])
+    graph = build_agent_graph(system_prompt="sys", **make_config_kwargs(identity=identity, policy=policy_with_tool, tools=tools, provider=provider))
+    result = _invoke(graph, "t-confirm", "send a wire")
+
+    assert "__interrupt__" in result
+    pending = result["__interrupt__"][0].value
+    assert pending["tool"] == "send_wire"
+    assert "approval" in pending["reason"]
+
+
 def test_pdp_survives_a_blackboard_governed_turn_rebuild(identity):
     """Regression: _run_governed_turn() (blackboard/debate) rebuilds a
     fresh graph via build_agent_graph() from an existing AgentConfig — it

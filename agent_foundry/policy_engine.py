@@ -22,14 +22,22 @@ class PolicyEngine(Protocol):
     def allow(self, input: dict[str, Any]) -> bool: ...
 
 
+# data_classification values that gate on a matching identity role — see
+# PolicyDecisionPoint.decide()'s own comment. "public"/"internal" (the
+# ToolSpec default) are unrestricted, matching how EgressPolicy/scopes both
+# default to "no restriction declared."
+_RESTRICTED_CLASSIFICATIONS = ("confidential", "restricted")
+
+
 @dataclass
 class PolicyDecisionPoint:
     """The single mandatory call site the review asked for, instead of
     Policy.allowed_tools/EgressPolicy/an external PolicyEngine being loosely
     related utilities a caller has to remember to wire together itself.
-    Composes (in order) the deterministic action guardrail, an optional
-    external PolicyEngine (OPAPolicyEngine/CedarPolicyEngine above), and an
-    optional EgressPolicy host allowlist — the same delegate-don't-replace
+    Composes (in order) a ToolSpec-scope check, a data-classification role
+    check, the deterministic action guardrail, an optional external
+    PolicyEngine (OPAPolicyEngine/CedarPolicyEngine above), and an optional
+    EgressPolicy host allowlist — the same delegate-don't-replace
     composition guardrails.LLMGuardrails.check_action already uses for
     GuardrailEngine. Each piece stays independently usable/testable; this is
     just the thing that calls all of them for one tool-call decision.
@@ -46,10 +54,29 @@ class PolicyDecisionPoint:
     def decide(
         self, tool_name: str, args: dict[str, Any], *, identity: Identity, policy: Policy,
         destructive: bool = False, cost_so_far: float = 0.0, hosts: frozenset[str] = frozenset(),
+        scopes: frozenset[str] = frozenset(), requires_confirmation: bool = False,
+        data_classification: str = "internal",
     ) -> GuardrailResult:
+        # ToolSpec.scopes: the identity must carry at least one of the
+        # tool's declared scopes — previously this field was pure metadata,
+        # never checked against Identity.roles at all.
+        if scopes and not (scopes & set(identity.roles)):
+            return GuardrailResult(False, f"{tool_name!r} requires one of scopes {sorted(scopes)} — identity {identity.id!r} has none of them", "action")
+        # ToolSpec.data_classification: confidential/restricted tools need a
+        # matching "data:<classification>" role — same never-enforced-before gap.
+        if data_classification in _RESTRICTED_CLASSIFICATIONS:
+            required_role = f"data:{data_classification}"
+            if required_role not in identity.roles:
+                return GuardrailResult(False, f"{tool_name!r} handles {data_classification!r} data — identity {identity.id!r} lacks the {required_role!r} role", "action")
         gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
         if not gr.allowed:
             return gr
+        # ToolSpec.requires_confirmation: forces the SAME "needs human
+        # approval" signal make_act_node already knows how to interrupt()
+        # on, independent of Policy.requires_approval/autonomy — a tool can
+        # demand confirmation on its own terms, not only via the policy.
+        if requires_confirmation:
+            return GuardrailResult(False, f"{tool_name!r} requires human approval before executing (ToolSpec.requires_confirmation=True)", "action")
         if self.policy_engine is not None:
             allowed = self.policy_engine.allow({
                 "identity_id": identity.id, "tool": tool_name, "allowed_tools": list(policy.allowed_tools),

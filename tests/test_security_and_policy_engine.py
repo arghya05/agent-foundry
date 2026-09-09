@@ -90,6 +90,68 @@ def test_policy_decision_point_composes_an_external_policy_engine():
     assert not result.allowed and "external policy engine" in result.reason
 
 
+def test_policy_decision_point_denies_a_tool_scope_the_identity_lacks():
+    """Regression: ToolSpec.scopes was pure metadata — nothing checked it
+    against Identity.roles at all. An identity without any of the tool's
+    declared scopes must be denied even though the guardrail alone (which
+    knows nothing about scopes) would allow the call."""
+    from agent_foundry.contracts import AutonomyLevel, Policy
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+
+    policy = Policy(allowed_tools=frozenset({"issue_refund"}), autonomy=AutonomyLevel.L4_POLICY_BOUND)
+    pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy))
+
+    no_scope_identity = Identity(id="agent-1", tenant_id="acme", roles=("support",))
+    denied = pdp.decide("issue_refund", {}, identity=no_scope_identity, policy=policy, scopes=frozenset({"orders.refund"}))
+    assert not denied.allowed and "orders.refund" in denied.reason
+
+    scoped_identity = Identity(id="agent-2", tenant_id="acme", roles=("orders.refund",))
+    allowed = pdp.decide("issue_refund", {}, identity=scoped_identity, policy=policy, scopes=frozenset({"orders.refund"}))
+    assert allowed.allowed
+
+
+def test_policy_decision_point_denies_confidential_data_without_the_matching_role():
+    """Regression: ToolSpec.data_classification was pure metadata too. A
+    "confidential"/"restricted" tool requires a matching "data:<level>"
+    role; "internal"/"public" (the default) stays unrestricted."""
+    from agent_foundry.contracts import AutonomyLevel, Policy
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+
+    policy = Policy(allowed_tools=frozenset({"read_salary_data"}), autonomy=AutonomyLevel.L4_POLICY_BOUND)
+    pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy))
+
+    unprivileged = Identity(id="agent-1", tenant_id="acme")
+    denied = pdp.decide("read_salary_data", {}, identity=unprivileged, policy=policy, data_classification="confidential")
+    assert not denied.allowed and "data:confidential" in denied.reason
+
+    privileged = Identity(id="agent-2", tenant_id="acme", roles=("data:confidential",))
+    allowed = pdp.decide("read_salary_data", {}, identity=privileged, policy=policy, data_classification="confidential")
+    assert allowed.allowed
+
+    default_classification = pdp.decide("read_salary_data", {}, identity=unprivileged, policy=policy)
+    assert default_classification.allowed  # "internal" (the ToolSpec default) is unrestricted
+
+
+def test_policy_decision_point_requires_confirmation_regardless_of_autonomy_level():
+    """Regression: ToolSpec.requires_confirmation was declared but never
+    consulted — a tool demanding confirmation on its own terms must force
+    the same HITL "approval" signal even under an autonomy level that would
+    otherwise let a non-destructive call through with no approval at all."""
+    from agent_foundry.contracts import AutonomyLevel, Policy
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.policy_engine import PolicyDecisionPoint
+
+    identity = Identity(id="agent-1", tenant_id="acme")
+    policy = Policy(allowed_tools=frozenset({"send_wire_transfer"}), autonomy=AutonomyLevel.L4_POLICY_BOUND, requires_approval=frozenset())
+    pdp = PolicyDecisionPoint(guardrails=GuardrailEngine(policy))
+
+    result = pdp.decide("send_wire_transfer", {}, identity=identity, policy=policy, requires_confirmation=True)
+
+    assert not result.allowed and "approval" in result.reason
+
+
 def test_egress_policy_allowlist():
     policy = EgressPolicy(allowed_hosts={"weather_tool": frozenset({"api.weather.com"})})
     assert policy.check("weather_tool", "api.weather.com")

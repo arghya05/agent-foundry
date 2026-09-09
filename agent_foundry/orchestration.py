@@ -363,7 +363,10 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             # __post_init__ guarantees config.pdp is never None.
             gr = config.pdp.decide(tool_name, args, identity=config.identity, policy=config.policy,
                                     destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
-                                    hosts=spec.egress_hosts if spec is not None else frozenset())
+                                    hosts=spec.egress_hosts if spec is not None else frozenset(),
+                                    scopes=spec.scopes if spec is not None else frozenset(),
+                                    requires_confirmation=spec is not None and spec.requires_confirmation,
+                                    data_classification=spec.data_classification if spec is not None else "internal")
             if not gr.allowed and gr.reason and "approval" in gr.reason:
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
                 config.audit.record(identity=config.identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))

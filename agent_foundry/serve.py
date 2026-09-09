@@ -8,15 +8,67 @@ is the entire portability boundary. Requires `pip install fastapi uvicorn`.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
+
+from .contracts import Identity
 
 if TYPE_CHECKING:
+    from fastapi import Request
     from pydantic import BaseModel
 else:
+    try:
+        from fastapi import Request
+    except ImportError:
+        Request = Any
     try:
         from pydantic import BaseModel
     except ImportError:
         BaseModel = object
+
+
+class AuthenticationError(Exception):
+    """Raised by an AuthResolver to reject a request — build_http_app turns
+    this into a 401, never an unhandled 500."""
+
+
+class AuthResolver(Protocol):
+    """Resolves an authenticated caller's Identity from request headers —
+    the server boundary's own version of "never trust the model for
+    identity": the runtime already never trusts a model-supplied session_id/
+    user_id (make_act_node overrides both with the graph's real values); this
+    is the same posture applied one layer further out, to the HTTP client
+    itself. Protocol, not a mandate to use any specific scheme (JWT/OAuth/
+    API key) — implement it against whatever your deployment already uses,
+    the same way OPAPolicyEngine/CedarPolicyEngine are two of many valid
+    policy_engine.PolicyEngine implementations. Raise AuthenticationError to
+    reject the request."""
+
+    def resolve(self, headers: Mapping[str, str]) -> Identity: ...
+
+
+@dataclass
+class ApiKeyAuthResolver:
+    """Zero-dependency reference AuthResolver: a static {api_key: Identity}
+    map, checked against `Authorization: Bearer <key>` (or a bare
+    `X-API-Key` header). For real JWT/OAuth verification, implement
+    AuthResolver against your IdP/library of choice instead — this exists so
+    build_http_app(auth=...) has SOME real, runnable default to point at,
+    the same role InMemoryVectorStore/GuardrailEngine play elsewhere in this
+    package."""
+
+    identities: dict[str, Identity]
+
+    def resolve(self, headers: Mapping[str, str]) -> Identity:
+        auth_header = headers.get("authorization", "") or headers.get("Authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            key = auth_header[len("bearer "):].strip()
+        else:
+            key = headers.get("x-api-key", "") or headers.get("X-API-Key", "")
+        identity = self.identities.get(key)
+        if identity is None:
+            raise AuthenticationError("invalid or missing API key")
+        return identity
 
 
 class ChatRequest(BaseModel):
@@ -125,9 +177,23 @@ def invoke_graph_chat_turn(graph: Any, *, message: str, thread_id: str) -> ChatR
     return chat_response_from_result(result)
 
 
-def build_http_app(graph: Any, *, serve_demo_ui: bool = True, serve_chat_route: bool = True, serve_resume_route: bool = True) -> Any:
+def build_http_app(
+    graph: Any, *, serve_demo_ui: bool = True, serve_chat_route: bool = True, serve_resume_route: bool = True,
+    auth: AuthResolver | None = None,
+) -> Any:
     """A real deployment surface: GET / (a working browser chat UI), POST /chat,
     POST /resume (approve/deny a paused destructive action), GET /health.
+
+    `auth`: when set, every /chat and /resume request must resolve to an
+    Identity via `auth.resolve(request.headers)` (401 if it doesn't) — the
+    client-supplied `thread_id` is then namespaced under that identity's
+    tenant_id before it ever reaches the graph, so one tenant can never
+    guess or collide with another tenant's thread_id. `auth=None` (default):
+    the original demo behavior — the client's thread_id is trusted verbatim,
+    fine for local development or a single-tenant deployment behind its own
+    gateway, NOT for a generic multi-tenant serving surface exposed
+    directly. See AuthResolver's own docstring for wiring in real JWT/OAuth
+    verification instead of the reference ApiKeyAuthResolver.
 
     ChatRequest/ChatResponse are module-level, not nested in this function — with
     `from __future__ import annotations` active, a Pydantic model FastAPI can't
@@ -161,10 +227,19 @@ def build_http_app(graph: Any, *, serve_demo_ui: bool = True, serve_chat_route: 
     stays a genuine batteries-included "point a browser at it and it works"
     surface for anything that has no frontend of its own (the framework's
     own quickstart/demo use)."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, HTTPException
     from fastapi.responses import HTMLResponse
 
     app = FastAPI()
+
+    def _resolve_thread_id(request_thread_id: str, request: Request) -> str:
+        if auth is None:
+            return request_thread_id
+        try:
+            identity = auth.resolve(request.headers)
+        except AuthenticationError as e:
+            raise HTTPException(status_code=401, detail=str(e)) from e
+        return f"{identity.tenant_id}:{request_thread_id}"
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -177,19 +252,20 @@ def build_http_app(graph: Any, *, serve_demo_ui: bool = True, serve_chat_route: 
 
     if serve_chat_route:
         @app.post("/chat", response_model=ChatResponse)
-        def chat(req: ChatRequest) -> ChatResponse:
-            return invoke_graph_chat_turn(graph, message=req.message, thread_id=req.thread_id)
+        def chat(req: ChatRequest, request: Request) -> ChatResponse:
+            thread_id = _resolve_thread_id(req.thread_id, request)
+            return invoke_graph_chat_turn(graph, message=req.message, thread_id=thread_id)
 
     if serve_resume_route:
         @app.post("/resume", response_model=ChatResponse)
-        def resume(req: ResumeRequest) -> ChatResponse:
-            from fastapi import HTTPException
+        def resume(req: ResumeRequest, request: Request) -> ChatResponse:
             from langgraph.types import Command
 
             from .runtime import BudgetExceeded
 
+            thread_id = _resolve_thread_id(req.thread_id, request)
             try:
-                result = graph.invoke(Command(resume={"approved": req.approved}), {"configurable": {"thread_id": req.thread_id}})
+                result = graph.invoke(Command(resume={"approved": req.approved}), {"configurable": {"thread_id": thread_id}})
             except BudgetExceeded as e:  # same as invoke_graph_chat_turn — see its docstring
                 raise HTTPException(status_code=429, detail=str(e)) from e
             return chat_response_from_result(result)
