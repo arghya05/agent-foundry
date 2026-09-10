@@ -26,7 +26,7 @@ dependencies = [
 # examples/Dockerfile directly — left as-is; it predates pip extras and
 # isn't "the package."
 [project.optional-dependencies]
-# runtime="langgraph" (Agent's default) needs this; runtime="native" doesn't
+# runtime="langgraph" needs this; runtime="native" (Agent's default) doesn't
 # — see core/native_engine.py's own module docstring ("this module never
 # imports langgraph") and orchestration.py's LangGraph imports, all local to
 # the specific build_*_graph/make_act_node/make_critique_node functions that

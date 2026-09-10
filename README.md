@@ -5,7 +5,7 @@
 [![Security](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 
-Built by **Arghya Mukherjee**, CTO at Algonomy — a reference architecture for
+Built by **Arghya Mukherjee**, Senior Director, AI Product Engineering at Algonomy — a reference architecture for
 taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
 scratch each time.
@@ -16,11 +16,15 @@ pluggable execution engines, model providers, and agent frameworks, not a
 framework built on top of any one of them.** `Agent`, the domain model
 (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/`Memory`/
 `Guardrail`/`Evaluator`), and the governance/eval/observability layers are
-plain Python — dataclasses and `Protocol`s, no LangChain or LangGraph
-import anywhere in that path (verified: `grep` for either across
-`orchestration.py`/`core/agent.py` returns nothing), and neither is a
-base-install dependency — `pip install agent-foundry` pulls in
-`cryptography` only. Execution is pluggable behind one seam
+plain Python — dataclasses and `Protocol`s, with no LangChain or LangGraph
+import at module level anywhere in that path (verified: `grep` for a
+top-level `import`/`from` of either across `orchestration.py`/`core/agent.py`
+returns nothing) and neither is a base-install dependency — `pip install
+agent-foundry` pulls in `cryptography` only. The one exception is a single
+function-local `from langgraph.types import Command` inside
+`core/agent.py`'s `_resume_command`, reached only when `runtime="langgraph"`
+is actually in use for that call — never on the native default path.
+Execution is pluggable behind one seam
 (`core.protocols.WorkflowEngine`, dispatched through a `RUNTIMES` registry
 — see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
 `runtime="native"` (the default) is a complete, from-scratch implementation
@@ -73,12 +77,33 @@ flowchart TD
 [detailed diagram](#architecture) further down; this is just the "what
 runs my agent" choice.)*
 
-**Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
+**Jump to:** [How this is different](#how-this-is-different) ·
+[Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
 [Architecture](#architecture) ·
 [Problem → solution table](#problem--platform-service--what-solves-it-here) ·
 [Module reference](#module-reference) · [Security](#security) ·
 [Build your own agent](#building-your-own-agent) ·
 [Testing](#testing) · [Docs](#docs)
+
+## How this is different
+
+None of these frameworks are wrong to reach for — Agent Foundry sits
+alongside them, not instead of a specific one:
+
+| | What it actually is | Where Agent Foundry differs |
+|---|---|---|
+| **LangGraph** | An execution engine — a graph runtime for a single agent's control flow | One of Agent Foundry's two `WorkflowEngine` backends, not a replacement for it — the same `AgentConfig` runs on LangGraph's `StateGraph` or on a from-scratch native Python loop, your choice per-`Agent` or per-call |
+| **LangChain** | Tool-calling and provider abstractions, `create_agent` | One deliberately minimal entry point (`quickstart.py`) built on it; the governed path (`Agent`, `AgentSpec`, `orchestration.build_agent_graph`) never imports it |
+| **CrewAI / AutoGen** | Own their own agent-definition DSL and execution model end to end | Treated as interop targets, not competitors to rewrite into — wrap a CrewAI crew or AutoGen agent as a single governed `ToolSpec` (RBAC, guardrails, audit trail all apply to that call like any other tool), or hand one of your tools to *their* agent — no rewrite either direction |
+| **Calling the LLM API directly** | Fastest to a demo, nothing else included | RBAC-scoped tools, guardrails, fail-closed budgets, an eval-as-release-gate, and a formal `Run` lifecycle (`pause`/`resume`/`fork`/`replay`) come with the framework instead of getting hand-rolled per project once a demo needs to become a product |
+
+The concrete claim, not just the positioning: the same `AgentConfig` you
+write once is portable across backends — `Agent(..., runtime="native")` and
+`Agent(..., runtime="langgraph")` run identical governance, guardrails, and
+critique logic, verified by `tests/test_native_engine.py` running the exact
+scenarios `tests/test_core_agent.py` runs against the other engine. That
+portability is the thing to check for in any framework claiming to be
+"vendor-neutral" — not just which model providers it lists.
 
 ## Why this helps a 0-to-1 startup
 
@@ -129,7 +154,7 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
-        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime chosen per-Agent or per-call\nno LangGraph/LangChain import in this surface"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime chosen per-Agent or per-call\nno module-level LangGraph/LangChain import"]
         Spec["agent_spec.py — AgentSpec\ndeclarative YAML/JSON/dict:\nstructured tools, named critique evaluators"]
         Quick["quickstart.py\nplug_and_play_agent() — the one place\nreal LangChain (create_agent) is used"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
