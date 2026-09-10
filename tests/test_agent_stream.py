@@ -100,3 +100,33 @@ def test_arun_does_not_block_the_event_loop_on_langgraph():
     asyncio.run(main())
 
     assert len(progress) >= 2
+
+
+@pytest.mark.parametrize("runtime", ["langgraph", "native"])
+def test_aresume_matches_sync_resume(runtime):
+    """aresume() delegates to graph.ainvoke(Command(resume=...)) (LangGraph)
+    or asyncio.to_thread(self.resume, ...) (native) — same
+    approve-a-paused-turn round trip as resume(), just awaitable."""
+    from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    tool = ToolSpec("send_wire", "send a wire", {"amount_usd": "number"}, send_wire, requires_confirmation=True)
+    policy = Policy(allowed_tools=frozenset({"send_wire"}), requires_approval=frozenset({"send_wire"}))
+    provider = ScriptedProvider([
+        LLMResponse(text="", model="m", input_tokens=1, output_tokens=1, cost_usd=0.0,
+                    tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 5})]),
+        "done",
+    ])
+    agent = Agent("t", "Chat.", runtime=runtime, tools=[tool], policy=policy, llm=LLMGateway(provider=provider))
+    context = ExecutionContext(thread_id=f"aresume-{runtime}")
+
+    async def main():
+        paused = await agent.arun("send a wire", context=context)
+        assert paused.awaiting_approval
+        return await agent.aresume(approved=True, context=context)
+
+    resumed = asyncio.run(main())
+
+    assert resumed.content == "done"

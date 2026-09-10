@@ -423,7 +423,23 @@ def _dispatch_tool_calls(
     deliberately kept off these worker threads: CircuitBreaker's per-tool
     counters are a read-modify-write, not safe to mutate from two threads at
     once, unlike the plain list-index writes/appends everything else here
-    does under the GIL."""
+    does under the GIL.
+
+    ThreadPoolExecutor, not asyncio.gather, and not because native asyncio
+    wasn't considered: verified empirically that LangGraph's own synchronous
+    `.invoke()` raises `TypeError: No synchronous function provided` against
+    an `async def` node function — `make_act_node`'s `act()` closure has to
+    stay a plain `def` for `Agent.run()` (sync) to keep working at all, so it
+    can never itself be `async def` and `await`-dispatch these calls with
+    asyncio.gather. Threads are the concurrency primitive available to a
+    synchronous function that still needs to run several blocking (or, via
+    `_invoke_tool_call`'s `asyncio.run()` bridge, async) calls in parallel.
+    `Agent.arun()`/`.astream()` (core/agent.py) get real asyncio-native
+    non-blocking behavior at the CALLER's boundary instead — LangGraph runs
+    this whole synchronous node off-thread on its own when invoked via
+    `.ainvoke()`, so an `await agent.arun(...)` caller's event loop is never
+    blocked by any of this, even though the dispatch underneath is threads,
+    not coroutines."""
     if len(cleared) <= 1:
         out: list[tuple[int, ToolResult | PermissionDenied]] = []
         for i, tool_name, args, idem_key, timeout in cleared:

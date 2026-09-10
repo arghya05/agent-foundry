@@ -23,7 +23,14 @@ CANCELLED) with `.pause()/.unpause()/.cancel()/.retry()/.fork()/.replay()/
 .wait_for_event()` on top of `Agent.run()`'s plain `RunResult` (unchanged).
 `run_eval(agent, cases)` scores an `Agent` against a list of `EvalCase`s and
 returns a `Scorecard` with a `.passes(thresholds)` regression gate — the
-`foundry eval` idea, as a Python API (no CLI exists in this repo).
+same scoring the `foundry eval` CLI subcommand (`cli.py`) runs.
+
+`AgentSpec`/`build_agent` (`agent_spec.py`) are the declarative alternative
+to constructing an `Agent` by hand — a YAML/JSON/dict spec instead of Python
+kwargs. `Agent.arun`/`.astream`/`.aresume` are non-blocking counterparts to
+`.run`/`.stream`/`.resume`; `ToolRegistry.ainvoke` (`tools_gateway.py`) and
+`@tool`-decorated `async def` functions (`tool_decorator.py`) are the async
+tool-side counterpart.
 """
 from .agent_spec import AgentSpec, build_agent
 from .core.agent import Agent, Workflow

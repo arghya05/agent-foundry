@@ -219,6 +219,16 @@ class _CompiledWorkflow:
         raw = self._graph.invoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
+    async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        """Non-blocking resume() — same LangGraph-native-vs-to_thread split
+        as arun()/astream()."""
+        thread_id = context.resolved_thread_id()
+        payload = {"approved": approved, **(decision or {})}
+        if hasattr(self._graph, "ainvoke"):
+            raw = await self._graph.ainvoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
+            return result_from_graph_output(raw, thread_id=thread_id)
+        return await asyncio.to_thread(self.resume, approved=approved, decision=decision, context=context)
+
     def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
         return run_batch(self._graph, items, **kw)
 
@@ -386,6 +396,9 @@ class Agent:
 
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         return self._runner.resume(approved=approved, decision=decision, context=context)
+
+    async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
+        return await self._runner.aresume(approved=approved, decision=decision, context=context)
 
     def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
         return self._runner.batch(items, **kw)

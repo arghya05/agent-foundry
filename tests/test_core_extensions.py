@@ -4,6 +4,7 @@ the @tool decorator, and Agent.on() event triggers.
 """
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import time
 
@@ -173,6 +174,66 @@ def test_tool_decorator_caches_within_ttl():
     assert counted.fn(x=3) == 6
     assert counted.fn(x=3) == 6
     assert calls == [3]  # second call served from cache, fn body ran once
+
+
+def test_tool_decorator_on_an_async_function_stays_a_real_coroutine_function():
+    """Regression: a plain sync `wrapped(**kwargs)` around an async fn would
+    call fn(**kwargs) and return the unawaited coroutine as output (silently
+    wrong), and inspect.iscoroutinefunction(wrapped) would read False even
+    though calling it returns a coroutine — invisible to ToolRegistry.
+    invoke()'s own async-tool check (tools_gateway.py), the exact bug class
+    that check exists to catch. wrapped must itself be `async def`."""
+    import inspect
+
+    @tool(description="Async lookup")
+    async def async_lookup(sku: str) -> str:
+        return f"5 units of {sku}"
+
+    assert inspect.iscoroutinefunction(async_lookup.fn)
+    assert asyncio.run(async_lookup.fn(sku="A100")) == "5 units of A100"
+
+
+def test_tool_decorator_caches_an_async_function_within_ttl():
+    calls = []
+
+    @tool(cache_ttl=60)
+    async def counted(x: int) -> int:
+        calls.append(x)
+        return x * 2
+
+    assert asyncio.run(counted.fn(x=3)) == 6
+    assert asyncio.run(counted.fn(x=3)) == 6
+    assert calls == [3]
+
+
+def test_tool_decorator_enforces_a_real_timeout_on_an_async_function():
+    @tool(timeout=0.05)
+    async def slow() -> str:
+        await asyncio.sleep(0.3)
+        return "too slow"
+
+    with pytest.raises(asyncio.TimeoutError):
+        asyncio.run(slow.fn())
+
+
+def test_async_decorated_tool_runs_through_tool_registry_ainvoke(identity):
+    """Proves the fix at the actual framework boundary, not just in
+    isolation — an async @tool-decorated function works through
+    ToolRegistry.ainvoke() exactly like a plain async ToolSpec would."""
+    from agent_foundry.tools_gateway import ToolRegistry
+
+    @tool(description="Async lookup")
+    async def async_lookup(sku: str) -> str:
+        return f"5 units of {sku}"
+
+    registry = ToolRegistry()
+    registry.register(async_lookup)
+    policy = Policy(allowed_tools=frozenset({async_lookup.name}))
+
+    result = asyncio.run(registry.ainvoke(async_lookup.name, {"sku": "A100"}, identity=identity, policy=policy))
+
+    assert result.ok
+    assert result.output == "5 units of A100"
 
 
 def test_agent_uses_a_decorated_tool_end_to_end():

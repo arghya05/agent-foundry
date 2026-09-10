@@ -573,14 +573,16 @@ execution is synchronous in both engines, so there's no distinct "waiting on
 a tool" state. `tests/test_run_lifecycle.py` covers every transition on both
 engines.
 
-### Async — `arun`/`astream`, async tools, concurrent tool dispatch
+### Async — `arun`/`astream`/`aresume`, async tools, concurrent tool dispatch
 
-`Agent.arun`/`.astream` are non-blocking counterparts to `.run`/`.stream`:
+`Agent.arun`/`.astream`/`.aresume` are non-blocking counterparts to
+`.run`/`.stream`/`.resume`:
 
 ```python
 result = await agent.arun("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"))
 async for chunk in agent.astream("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1")):
     ...
+resumed = await agent.aresume(approved=True, context=ExecutionContext(thread_id="thread-1"))
 ```
 
 On `runtime="langgraph"` this is genuinely non-blocking — LangGraph's
@@ -594,15 +596,30 @@ scheduling underneath.
 Tool functions can be `async def` — `ToolRegistry.ainvoke()` awaits them
 (and runs a plain sync tool unchanged); calling the sync `invoke()` on an
 async tool raises a clear `TypeError` instead of silently returning an
-unawaited coroutine. When a turn's tool calls are independent (no
+unawaited coroutine. The `@tool` decorator (`core/tool_decorator.py`)
+preserves this: decorating an `async def` produces a `ToolSpec` whose `.fn`
+is itself a real coroutine function, not a sync wrapper hiding one.
+
+When a turn's tool calls are independent (no
 `Policy.requires_approval`/`ToolSpec.requires_confirmation` in the way),
-`make_act_node`/`NativeEngine._act` dispatch them **concurrently** — real
-wall-clock parallelism, not just non-blocking syntax — while keeping every
-approval gate, breaker/audit/eval bookkeeping side effect, and result
-ordering exactly as sequential execution would produce. Two deliberate
-tradeoffs from this: the PDP's `cost_so_far` is computed once per turn
-rather than re-read per call, and two concurrent calls to the same tool name
-don't see each other's circuit-breaker state before both start.
+`make_act_node`/`NativeEngine._act` dispatch them **concurrently** via a
+`ThreadPoolExecutor` — real wall-clock parallelism, not just non-blocking
+syntax — while keeping every approval gate, breaker/audit/eval bookkeeping
+side effect, and result ordering exactly as sequential execution would
+produce. Threads, not `asyncio.gather`, and not by default — verified
+empirically that LangGraph's synchronous `.invoke()` raises `TypeError: No
+synchronous function provided` against an `async def` node function, so
+`act()` has to stay a plain `def` for `Agent.run()` (sync) to keep working
+at all, which rules out making it `async def` and awaiting these calls
+directly. `Agent.arun()`/`.astream()` still get real asyncio-native
+non-blocking behavior at the *caller's* boundary — LangGraph runs this whole
+synchronous node off-thread on its own when invoked via `.ainvoke()` — even
+though the dispatch underneath is threads. See
+`orchestration._dispatch_tool_calls`'s own docstring for the full reasoning.
+Two further deliberate tradeoffs from concurrent dispatch: the PDP's
+`cost_so_far` is computed once per turn rather than re-read per call, and
+two concurrent calls to the same tool name don't see each other's
+circuit-breaker state before both start.
 
 ### 5. AgentSpec — build an agent from YAML/JSON instead of Python
 
