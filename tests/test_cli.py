@@ -131,6 +131,40 @@ def test_cli_serve_builds_an_app_from_a_script_top_level_graph(monkeypatch):
         assert captured["app"].title  # a real FastAPI app, not a stub
 
 
+def test_cli_eval_accepts_a_versioned_dataset_and_saves_a_baseline(capsys):
+    with tempfile.TemporaryDirectory() as tmp:
+        script = _write_eval_script(tmp)
+        dataset = os.path.join(tmp, "dataset.json")
+        with open(dataset, "w") as f:
+            json.dump({"name": "refunds", "version": "v1",
+                       "cases": [{"input": "please refund order A100", "expected_substring": "processed"}]}, f)
+        baseline_dir = os.path.join(tmp, "baselines")
+
+        cli.main(["eval", script, dataset, "--save-baseline", baseline_dir])
+
+        assert os.path.exists(os.path.join(baseline_dir, "refunds-v1.baseline.json"))
+        out = capsys.readouterr().out
+        assert "saved baseline to" in out
+
+
+def test_cli_eval_compares_against_a_saved_baseline(capsys):
+    with tempfile.TemporaryDirectory() as tmp:
+        script = _write_eval_script(tmp)
+        dataset = os.path.join(tmp, "dataset.json")
+        with open(dataset, "w") as f:
+            json.dump({"name": "refunds", "version": "v1",
+                       "cases": [{"input": "please refund order A100", "expected_substring": "processed"}]}, f)
+        baseline_dir = os.path.join(tmp, "baselines")
+        cli.main(["eval", script, dataset, "--save-baseline", baseline_dir])
+        capsys.readouterr()
+
+        cli.main(["eval", script, dataset, "--baseline", baseline_dir])
+
+        out = capsys.readouterr().out
+        assert "Delta vs baseline:" in out
+        assert "task_success_rate: +0.0000" in out
+
+
 def test_cli_run_spec_builds_and_runs_an_agent(tmp_path, monkeypatch, capsys):
     from agent_foundry import agent_spec
 

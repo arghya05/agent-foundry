@@ -53,16 +53,42 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 def cmd_eval(args: argparse.Namespace) -> None:
     from .core.evalgate import EvalCase, run_eval
+    from .eval_dataset import EvalDataset
 
     module = _load_module(args.script)
     agent = getattr(module, args.agent_attr, None)
     if agent is None:
         raise SystemExit(f"{args.script!r} has no top-level `{args.agent_attr}` — pass --agent-attr to name it")
 
-    dataset = json.loads(Path(args.dataset).read_text())
-    cases = [EvalCase(**case) for case in dataset]
-    scorecard = run_eval(agent, cases, dataset_name=Path(args.dataset).stem)
+    raw = json.loads(Path(args.dataset).read_text())
+    if EvalDataset.looks_versioned(raw):
+        dataset = EvalDataset(name=raw["name"], version=raw["version"], cases=raw["cases"])
+        cases = dataset.to_cases()
+        dataset_name = dataset.name
+    else:
+        dataset = None
+        cases = [EvalCase(**case) for case in raw]
+        dataset_name = Path(args.dataset).stem
+
+    scorecard = run_eval(agent, cases, dataset_name=dataset_name)
     print(scorecard.render())
+
+    if args.baseline:
+        if dataset is None:
+            raise SystemExit("--baseline needs a versioned dataset ({\"name\", \"version\", \"cases\"}), not a flat list")
+        baseline = EvalDataset.load_baseline(args.baseline, dataset.name, dataset.version)
+        if baseline is None:
+            print(f"\nno baseline found for {dataset.name}-{dataset.version} in {args.baseline}")
+        else:
+            print("\nDelta vs baseline:")
+            for metric, delta in scorecard.compare_to(baseline).items():
+                print(f"  {metric}: {delta:+.4f}")
+
+    if args.save_baseline:
+        if dataset is None:
+            raise SystemExit("--save-baseline needs a versioned dataset ({\"name\", \"version\", \"cases\"}), not a flat list")
+        saved = dataset.save_baseline(scorecard, args.save_baseline)
+        print(f"\nsaved baseline to {saved}")
 
     if args.thresholds:
         ok, reasons = scorecard.passes(json.loads(args.thresholds))
@@ -144,6 +170,8 @@ def main(argv: list[str] | None = None) -> None:
     p_eval.add_argument("dataset", help="a JSON file: a list of objects matching EvalCase fields (input, name, expected_substring, expected_tool)")
     p_eval.add_argument("--agent-attr", default="agent", help="name of the top-level Agent variable in `script` (default: agent)")
     p_eval.add_argument("--thresholds", default=None, help='JSON object of Scorecard.passes() thresholds, e.g. \'{"task_success_rate_min": 0.9}\' — exits 1 if not met')
+    p_eval.add_argument("--save-baseline", default=None, metavar="DIR", help="save this run's Scorecard as the baseline for future --baseline comparisons (needs a versioned dataset)")
+    p_eval.add_argument("--baseline", default=None, metavar="DIR", help="compare this run against a previously --save-baseline'd Scorecard (needs a versioned dataset)")
     p_eval.set_defaults(func=cmd_eval)
 
     p_serve = sub.add_parser("serve", help="serve a script's top-level `app` or `graph` over HTTP (agent_foundry.serve)")

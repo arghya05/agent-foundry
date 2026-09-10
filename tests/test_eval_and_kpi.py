@@ -4,8 +4,9 @@ import tempfile
 
 from agent_foundry.eval import EvalHarness, JSONLEvalSink, trajectory_report
 from agent_foundry.kpi import (
-    KPI, KPIBoard, completeness_kpi, composite_grounding_kpi, cost_kpi, db_match_kpi,
-    efficiency_kpi, fact_check_kpi, llm_judge_kpi, reference_check_kpi, schema_valid_kpi, word_overlap,
+    KPI, KPIBoard, citation_correctness_kpi, completeness_kpi, composite_grounding_kpi, cost_kpi, db_match_kpi,
+    efficiency_kpi, fact_check_kpi, judge_calibration_kpi, llm_judge_kpi, reference_check_kpi,
+    retrieval_recall_precision_kpi, schema_valid_kpi, word_overlap,
 )
 
 
@@ -245,3 +246,41 @@ def test_schema_valid_kpi_catches_malformed_output():
     assert kpi.evaluate({"output_text": '{"order_id": "A100"}'}).passed
     assert not kpi.evaluate({"output_text": "not json"}).passed
     assert not kpi.evaluate({"output_text": "{}"}).passed
+
+
+def test_retrieval_recall_precision_kpi_scores_f1():
+    kpi = retrieval_recall_precision_kpi("retrieval", retrieved=lambda ctx: ctx["retrieved"], relevant=lambda ctx: ctx["relevant"])
+    perfect = kpi.evaluate({"retrieved": ["a", "b"], "relevant": ["a", "b"]})
+    partial = kpi.evaluate({"retrieved": ["a", "c"], "relevant": ["a", "b"]})
+    assert perfect.value == 1.0
+    assert 0.0 < partial.value < 1.0
+
+
+def test_retrieval_recall_precision_kpi_vacuous_and_mismatched_cases():
+    kpi = retrieval_recall_precision_kpi("retrieval", retrieved=lambda ctx: ctx["retrieved"], relevant=lambda ctx: ctx["relevant"])
+    assert kpi.evaluate({"retrieved": [], "relevant": []}).value == 1.0
+    assert kpi.evaluate({"retrieved": ["a"], "relevant": []}).value == 0.0
+    assert kpi.evaluate({"retrieved": [], "relevant": ["a"]}).value == 0.0
+
+
+def test_citation_correctness_kpi_flags_a_fabricated_citation():
+    kpi = citation_correctness_kpi("citations", citations=lambda text: ["[1]", "[2]"], sources=lambda ctx: ctx["sources"])
+    correct = kpi.evaluate({"output_text": "...", "sources": ["[1]", "[2]"]})
+    fabricated = kpi.evaluate({"output_text": "...", "sources": ["[1]"]})
+    assert correct.value == 1.0
+    assert fabricated.value == 0.5
+    assert not fabricated.passed
+
+
+def test_citation_correctness_kpi_passes_when_output_cites_nothing():
+    kpi = citation_correctness_kpi("citations", citations=lambda text: [], sources=lambda ctx: [])
+    assert kpi.evaluate({"output_text": "no citations here"}).passed
+
+
+def test_judge_calibration_kpi_rewards_agreement_with_the_human_label():
+    kpi = judge_calibration_kpi("calibration", judge=lambda text: 0.85, labeled=lambda ctx: ctx["human_score"])
+    close = kpi.evaluate({"output_text": "x", "human_score": 0.9})
+    far = kpi.evaluate({"output_text": "x", "human_score": 0.2})
+    assert close.passed
+    assert not far.passed
+    assert close.value > far.value

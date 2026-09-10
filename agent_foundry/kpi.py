@@ -375,3 +375,72 @@ def risk_kpi(*, threshold: float = 0.5) -> KPI:
     def score(ctx: dict[str, Any]) -> float:
         return float(ctx.get("risk", 0.0))
     return KPI(name="risk", score=score, direction="minimize", threshold=threshold)
+
+
+def retrieval_recall_precision_kpi(
+    name: str, *, retrieved: Callable[[dict[str, Any]], list[str]], relevant: Callable[[dict[str, Any]], list[str]], weight: float = 1.0,
+) -> KPI:
+    """Retrieval quality as one F1 score — the harmonic mean of recall
+    (fraction of RELEVANT passage/doc ids that were actually retrieved) and
+    precision (fraction of RETRIEVED ids that were actually relevant).
+    `retrieved(ctx)`/`relevant(ctx)` each return a list of ids for this
+    case — chunk ids, URLs, doc titles, whatever identifies a source in
+    your pipeline, as long as both callables agree on the same id space.
+    Scores 1.0 when nothing was relevant and nothing was retrieved
+    (vacuously correct); 0.0 when one side is empty and the other isn't."""
+
+    def score(ctx: dict[str, Any]) -> float:
+        got = set(retrieved(ctx))
+        want = set(relevant(ctx))
+        if not want and not got:
+            return 1.0
+        if not want or not got:
+            return 0.0
+        hits = len(got & want)
+        precision = hits / len(got)
+        recall = hits / len(want)
+        return 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+
+    return KPI(name=name, score=score, direction="maximize", threshold=0.5, weight=weight)
+
+
+def citation_correctness_kpi(
+    name: str, *, citations: Callable[[str], list[str]], sources: Callable[[dict[str, Any]], list[str]], weight: float = 1.0,
+) -> KPI:
+    """Fraction of the output's own citations that actually correspond to a
+    source it was genuinely given — a different failure mode than
+    reference_check_kpi/fact_check_kpi's grounding checks: an answer can be
+    fully grounded in its retrieved passages while still citing "[3]" when
+    only two sources were retrieved, or citing a real source's content
+    under the wrong id. `citations(text)` extracts whatever citation
+    markers your agent emits (e.g. "[1]", a doc id, a URL) from the output
+    text; `sources(ctx)` returns the ids that were actually available to
+    cite for this case. Scores 1.0 when the output cites nothing (nothing
+    to get wrong)."""
+
+    def score(ctx: dict[str, Any]) -> float:
+        cited = citations(ctx.get("output_text", ""))
+        if not cited:
+            return 1.0
+        available = set(sources(ctx))
+        correct = sum(1 for c in cited if c in available)
+        return correct / len(cited)
+
+    return KPI(name=name, score=score, direction="maximize", threshold=1.0, weight=weight)
+
+
+def judge_calibration_kpi(
+    name: str, *, judge: Callable[[str], float], labeled: Callable[[dict[str, Any]], float], tolerance: float = 0.15, weight: float = 1.0,
+) -> KPI:
+    """How well an LLM judge (the same `judge` shape llm_judge_kpi takes)
+    agrees with a human-labeled score on the same case — measures the
+    JUDGE's trustworthiness, not the output's quality. `labeled(ctx)`
+    returns the known-correct human score (0..1) for this eval case; score
+    is 1 minus the absolute deviation between the judge's score and that
+    label, so a perfectly calibrated judge scores 1.0. `tolerance` sets how
+    much deviation still counts as "passed" (default: agree within 0.15)."""
+
+    def score(ctx: dict[str, Any]) -> float:
+        return 1.0 - abs(judge(ctx.get("output_text", "")) - labeled(ctx))
+
+    return KPI(name=name, score=score, direction="maximize", threshold=1.0 - tolerance, weight=weight)
