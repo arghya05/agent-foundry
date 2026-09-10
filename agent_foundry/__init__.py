@@ -31,8 +31,21 @@ kwargs. `Agent.arun`/`.astream`/`.aresume` are non-blocking counterparts to
 `.run`/`.stream`/`.resume`; `ToolRegistry.ainvoke` (`tools_gateway.py`) and
 `@tool`-decorated `async def` functions (`tool_decorator.py`) are the async
 tool-side counterpart.
+
+`Agent(runtime=...)` picks a default execution backend (`"langgraph"` or
+`"native"` — a from-scratch, zero-LangGraph-dependency implementation of
+the same think/act/critique loop); `agent.run(msg, runtime=...)` overrides
+it for one call. Both dispatch through `core.protocols.WorkflowEngine` +
+the `RUNTIMES` registry (`core/engines.py`) — the seam a new backend
+(Temporal, say) plugs into by implementing `WorkflowEngine` and adding one
+registry entry, not by touching `Agent` itself. `Model` (`contracts.py`) is
+the same `Provider` Protocol `AnthropicProvider`/`OpenAIProvider`/
+`MultiProvider` already implement, under the name most readers reach for
+first; `Message` documents the `{"role": ..., "content": ...}` shape every
+message dict here already has.
 """
 from .agent_spec import AgentSpec, build_agent
+from .contracts import Message, Model
 from .core.agent import Agent, Workflow
 from .core.evalgate import CaseResult, EvalCase, Scorecard, run_eval
 from .core.execution_context import ExecutionContext
@@ -47,6 +60,7 @@ __version__ = "0.1.0"
 __all__ = [
     "Agent", "Workflow", "ExecutionContext", "RunResult", "tool",
     "AgentSpec", "build_agent",
+    "Model", "Message",
     "PromptRegistry", "PolicyRegistry", "EvalRegistry",
     "ModelRouter", "ModelRequest", "ModelCapabilities", "apply_route",
     "Run", "RunStatus",

@@ -369,3 +369,28 @@ def test_anthropic_provider_still_sends_system_when_present():
     ap.complete([{"role": "system", "content": "You are a helpful agent."}, {"role": "user", "content": "hi"}], model="claude-sonnet-5")
 
     assert captured["system"] == "You are a helpful agent."
+
+
+def test_model_is_the_same_protocol_as_provider():
+    """Provider isn't @runtime_checkable (a deliberate, pre-existing choice
+    — isinstance() against a non-runtime-checkable Protocol raises
+    TypeError, not False), so this checks structural conformance directly
+    rather than via isinstance."""
+    from agent_foundry.contracts import Model, Provider
+    from agent_foundry.llm_gateway import AnthropicProvider, OpenAIProvider
+
+    assert Model is Provider
+    assert callable(getattr(AnthropicProvider, "complete", None))
+    assert callable(getattr(OpenAIProvider, "complete", None))
+
+
+def test_message_typeddict_accepts_every_existing_message_shape():
+    from agent_foundry.contracts import Message
+
+    plain: Message = {"role": "user", "content": "hi"}
+    tool_result: Message = {"role": "tool", "content": "ok", "tool_call_id": "c1", "ok": True}
+    assistant_with_calls: Message = {"role": "assistant", "content": "", "tool_calls": [{"id": "c1", "name": "f", "args": {}}]}
+
+    # TypedDict is erased at runtime — these are just plain dicts, proving
+    # the type change is genuinely zero-behavior-change, not a new check.
+    assert isinstance(plain, dict) and isinstance(tool_result, dict) and isinstance(assistant_with_calls, dict)

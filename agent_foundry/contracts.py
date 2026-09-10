@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, TypedDict
 
 
 # ---- Identity & policy (Identity & Governance rail) ------------------------
@@ -98,6 +98,24 @@ class ToolResult:
 
 # ---- LLM Gateway ---------------------------------------------------------------
 
+class Message(TypedDict, total=False):
+    """The shape every message dict in this codebase already has,
+    structurally — AgentState.messages, LLMResponse-building code,
+    ToolRegistry results, every test fixture. Purely a documentation-level
+    type: a TypedDict is erased at runtime, so this changes no behavior —
+    every existing `{"role": ..., "content": ...}` literal already
+    satisfies it. `total=False` (not NotRequired-per-field, to avoid a
+    typing_extensions dependency for this package's Python 3.10 floor)
+    since only `role`/`content` are truly always present in practice, and
+    this type is never used for runtime validation anyway."""
+
+    role: str
+    content: Any
+    tool_call_id: str
+    tool_calls: list[dict[str, Any]]
+    ok: bool
+
+
 @dataclass
 class ToolCall:
     """One native, structured tool call the model chose to make — real
@@ -120,6 +138,14 @@ class LLMResponse:
 
 class Provider(Protocol):
     def complete(self, messages: list[dict], *, model: str, tools: list[dict] | None = None, **kw: Any) -> LLMResponse: ...
+
+
+# `Model` is the same Protocol as `Provider`, under the name a reader
+# reaches for first — AnthropicProvider/OpenAIProvider/MultiProvider
+# (llm_gateway.py) are Model implementations by either name. Not a rewrite:
+# `Provider` stays the primary name throughout llm_gateway.py/tests (real
+# rename would be pure churn), this is the public-facing alias.
+Model = Provider
 
 
 # ---- Guardrails ------------------------------------------------------------------
