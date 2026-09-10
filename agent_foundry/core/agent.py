@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from ..batch import BatchReport, IntervalScheduler, run_batch
 from ..blackboard import Blackboard
-from ..contracts import Identity, Policy, ToolSpec
+from ..contracts import AgentRole, Identity, Policy, ToolSpec
 from ..context import MemoryStore
 from ..eval import EvalHarness
 from ..events import EventBus, InMemoryEventBus, wire_event_driven
@@ -44,7 +44,6 @@ from ..orchestration import (
     CritiqueConfig,
     DAGStep,
     agent_as_tool,
-    build_agent_graph,
     build_blackboard_graph,
     build_debate_graph,
     build_dag_graph,
@@ -53,8 +52,8 @@ from ..orchestration import (
 )
 from ..runtime import RunBudget, RunBudgetLike
 from ..tools_gateway import ToolRegistry
+from .engines import RUNTIMES
 from .execution_context import ExecutionContext
-from .native_engine import _NativeGraph
 from .protocols import Memory, Tool
 from .result import RunResult, result_from_graph_output
 
@@ -336,6 +335,7 @@ class Agent:
         identity: Identity | None = None,
         workflow: str = "react",
         runtime: str = "langgraph",
+        role: AgentRole = AgentRole.GENERALIST,
         critique: CritiqueConfig | None = None,
         user_id: str | Callable[[Any], str] | None = None,
         llm: LLMGateway | None = None,
@@ -351,13 +351,14 @@ class Agent:
                 f"Agent(workflow={workflow!r}) is not a single-AgentConfig topology — "
                 "use Workflow.supervisor/.swarm/.blackboard/.debate/.fanout/.dag instead"
             )
-        if runtime not in ("langgraph", "native"):
-            raise ValueError(f"unknown runtime {runtime!r} — use 'langgraph' or 'native'")
+        if runtime not in RUNTIMES:
+            raise ValueError(f"unknown runtime {runtime!r} — use one of {sorted(RUNTIMES)}")
         if runtime == "native" and checkpointer is not None:
             raise ValueError("runtime='native' keeps its own in-memory per-thread state and doesn't accept a checkpointer")
         self.name = name
         self.workflow = workflow
         self.runtime = runtime
+        self._checkpointer = checkpointer
         registry = _coerce_tools(tools)
         resolved_policy = policy or _default_policy(registry.names())
 
@@ -375,20 +376,14 @@ class Agent:
             memory=_coerce_memory(memory),
             critique=critique,
             user_id=user_id,
+            role=role,
         )
-        if runtime == "native":
-            graph: Any = _NativeGraph(self.config)
-        else:
-            graph = build_agent_graph(
-                system_prompt=self.config.system_prompt, llm=self.config.llm, tools=self.config.tools,
-                guardrails=self.config.guardrails, eval_harness=self.config.eval_harness, identity=self.config.identity,
-                policy=self.config.policy, budget=self.config.budget, tracer=self.config.tracer, task=self.config.task,
-                audit=self.config.audit, breaker=self.config.breaker, cost_ledger=self.config.cost_ledger,
-                memory=self.config.memory, context_engine=self.config.context_engine, step_timeout_s=self.config.step_timeout_s,
-                latency_budget=self.config.latency_budget, sla_tracker=self.config.sla_tracker, critique=self.config.critique,
-                user_id=self.config.user_id, pdp=self.config.pdp, checkpointer=checkpointer,
-            )
-        self._runner = _CompiledWorkflow(graph, name=name)
+        # The actual extension point: RUNTIMES (core/engines.py) is the
+        # registry a new backend (Temporal, say) gets added to — Agent
+        # itself never branches on a runtime name beyond this one lookup.
+        graph: Any = RUNTIMES[runtime].build(self.config, checkpointer=checkpointer)
+        self._runners: dict[str, "_CompiledWorkflow"] = {runtime: _CompiledWorkflow(graph, name=name)}
+        self._runner = self._runners[runtime]  # the construction-time default — unchanged attribute, unchanged meaning
         self.event_bus = event_bus or InMemoryEventBus()
 
     @property

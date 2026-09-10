@@ -1,8 +1,9 @@
-"""Core — the two real WorkflowEngine implementations, existing specifically
-to make core.protocols.WorkflowEngine a verified contract instead of
-documentation. `Agent` itself does NOT route through these — it calls
-build_agent_graph/_NativeGraph directly (unchanged, already tested) — these
-wrap the exact same functions/classes behind the protocol's literal shape.
+"""Core — the two real WorkflowEngine implementations, and the RUNTIMES
+registry `Agent.__init__`/`Agent._runner_for` (core/agent.py) actually
+dispatch through — `build()` is the one seam a new engine genuinely needs
+to implement differently; adding a third backend (e.g. Temporal) means
+implementing WorkflowEngine and adding one RUNTIMES entry, not touching
+core/agent.py.
 
 Both `.run`/`.stream`/`.resume` are identical code across the two engines:
 both `.build()` outputs (a LangGraph compiled graph, or a _NativeGraph)
@@ -69,7 +70,7 @@ class LangGraphWorkflowEngine:
             tracer=spec.tracer, task=spec.task, audit=spec.audit, breaker=spec.breaker, cost_ledger=spec.cost_ledger,
             memory=spec.memory, context_engine=spec.context_engine, step_timeout_s=spec.step_timeout_s,
             latency_budget=spec.latency_budget, sla_tracker=spec.sla_tracker, critique=spec.critique,
-            user_id=spec.user_id, pdp=spec.pdp, checkpointer=checkpointer,
+            user_id=spec.user_id, pdp=spec.pdp, role=spec.role, checkpointer=checkpointer,
         )
 
     def run(self, compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:
@@ -109,3 +110,13 @@ class NativeWorkflowEngine:
 
     def resume(self, compiled: Any, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         return _invoke_resume(compiled, approved=approved, decision=decision, context=context)
+
+
+# The actual extension point: core.agent.Agent looks runtime names up here
+# instead of hardcoding an if/else between two engines — adding a third
+# backend (Temporal, say) means implementing WorkflowEngine and adding one
+# entry here, not touching core/agent.py at all.
+RUNTIMES: dict[str, Any] = {
+    "native": NativeWorkflowEngine(),
+    "langgraph": LangGraphWorkflowEngine(),
+}

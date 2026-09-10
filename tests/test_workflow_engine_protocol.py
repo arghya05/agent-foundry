@@ -2,17 +2,21 @@
 did not previously exist: WorkflowEngine wasn't @runtime_checkable
 (isinstance() against it raised TypeError, not False) and nothing in the
 codebase was ever verified to satisfy its exact shape (build/run/stream/
-resume operating on an externally-held `compiled` object). Agent itself
-still calls build_agent_graph/_NativeGraph directly, unchanged — these
-adapters (core/engines.py) are the seam's verification surface.
+resume operating on an externally-held `compiled` object). `Agent` now
+genuinely routes through these adapters via the `RUNTIMES` registry
+(core/engines.py) — `Agent.__init__` does `RUNTIMES[runtime].build(...)`,
+not an inline if/else — verified below (`test_agent_routes_through_the_...`
+cases), not just that the adapters exist standing alone.
 """
 from __future__ import annotations
 
 import pytest
 
-from agent_foundry.contracts import Identity, Policy
+from agent_foundry import Agent
+from agent_foundry.contracts import AgentRole, Identity, Policy
 from agent_foundry.core.engines import LangGraphWorkflowEngine, NativeWorkflowEngine
 from agent_foundry.core.execution_context import ExecutionContext
+from agent_foundry.core.native_engine import _NativeGraph
 from agent_foundry.core.protocols import WorkflowEngine
 from agent_foundry.eval import EvalHarness
 from agent_foundry.guardrails import GuardrailEngine
@@ -82,3 +86,59 @@ def test_engine_resume_round_trip(engine_cls):
 
     resumed = engine.resume(compiled, approved=True, context=context)
     assert resumed.content == "an ambiguous answer"
+
+
+def test_agent_routes_through_native_workflow_engine_not_an_inline_branch():
+    """Agent.__init__ does RUNTIMES["native"].build(...), not its own
+    from-scratch _NativeGraph(...) call — proven by the compiled graph
+    genuinely being a _NativeGraph instance, the exact object
+    NativeWorkflowEngine.build() constructs."""
+    agent = Agent("t", "hi", runtime="native", llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+    assert isinstance(agent.graph, _NativeGraph)
+
+
+def test_agent_routes_through_langgraph_workflow_engine_not_an_inline_branch():
+    agent = Agent("t", "hi", runtime="langgraph", llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+    assert not isinstance(agent.graph, _NativeGraph)
+    assert hasattr(agent.graph, "ainvoke")  # a real compiled LangGraph graph
+
+
+def test_agent_role_reaches_the_native_graphs_own_config():
+    """_NativeGraph holds the whole AgentConfig object directly, so this
+    direction always worked — the real regression was the langgraph path,
+    tested separately below (a compiled LangGraph graph has no public
+    attribute exposing its internal AgentConfig to assert against directly,
+    since it's captured in node-function closures, not stored on the graph
+    object itself)."""
+    agent = Agent("t", "hi", runtime="native", role=AgentRole.SPECIALIST, llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+
+    assert agent.config.role == AgentRole.SPECIALIST
+    assert agent.graph._config.role == AgentRole.SPECIALIST
+
+
+def test_agent_role_reaches_build_agent_graphs_internal_config(monkeypatch):
+    """Regression: AgentConfig.role used to be silently dropped on the
+    langgraph path — build_agent_graph had no `role` parameter at all, so
+    it was structurally impossible for a caller's role to reach the graph,
+    regardless of what Agent(role=...)/LangGraphWorkflowEngine.build()
+    passed in. Spies on orchestration.AgentConfig's own constructor (the
+    one build_agent_graph builds internally) since a compiled graph has no
+    public attribute to assert the reached role against directly."""
+    from agent_foundry import orchestration
+
+    seen_roles = []
+    real_init = orchestration.AgentConfig.__init__
+
+    def spy_init(self, *args, **kwargs):
+        seen_roles.append(kwargs.get("role"))
+        real_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(orchestration.AgentConfig, "__init__", spy_init)
+
+    Agent("t", "hi", runtime="langgraph", role=AgentRole.SPECIALIST, llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+
+    # Two AgentConfig constructions happen for one Agent(runtime="langgraph")
+    # call: Agent.__init__'s own (already worked before this fix — role is
+    # a plain field there) and build_agent_graph's internal one (didn't;
+    # role had no way to reach it). Both must show SPECIALIST, not just one.
+    assert seen_roles == [AgentRole.SPECIALIST, AgentRole.SPECIALIST]

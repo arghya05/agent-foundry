@@ -922,6 +922,7 @@ def build_agent_graph(
     self_verify: bool = False,
     user_id: str | Callable[[Mapping[str, Any]], str] | None = None,
     pdp: PolicyDecisionPoint | None = None,
+    role: AgentRole = AgentRole.GENERALIST,
     checkpointer: BaseCheckpointSaver | None = None,
 ):
     """One agent, the think/act loop. Thin wrapper over make_think_node/make_act_node —
@@ -951,6 +952,7 @@ def build_agent_graph(
         tracer=tracer, task=task, audit=audit or AuditLog(), breaker=breaker or CircuitBreaker(),
         cost_ledger=cost_ledger, memory=memory, context_engine=context_engine, step_timeout_s=step_timeout_s,
         latency_budget=latency_budget, sla_tracker=sla_tracker, critique=critique, user_id=user_id, pdp=pdp,
+        role=role,
     )
     graph = StateGraph(AgentState)
     # The `# type: ignore[call-overload]`/`[arg-type]` tags on add_node/
