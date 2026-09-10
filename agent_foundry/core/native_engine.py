@@ -136,7 +136,7 @@ class NativeEngine:
         # critique escalation (pending["kind"] == "critique")
         if not approved:
             state["messages"][-1] = {"role": "assistant", "content": config.critique.fallback_message}
-        _finalize_turn(config, thread_id, outcome="completed_with_review")
+        _finalize_turn(config, thread_id, budget=config.budget, outcome="completed_with_review")
         return self._raw(state)
 
     # ---- the loop -----------------------------------------------------------
@@ -157,7 +157,7 @@ class NativeEngine:
                     return critique_raw  # clarify / escalate-paused / finalized
                 continue  # critique retry -> think
 
-            _finalize_turn(config, thread_id, outcome="completed")
+            _finalize_turn(config, thread_id, budget=config.budget, outcome="completed")
             return self._raw(state)
 
     def _raw(self, state: dict[str, Any], *, interrupt: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -329,7 +329,7 @@ class NativeEngine:
             config.eval_harness.record("atomic", "critique", "clarification_requested", 1.0,
                                         reason="model asked the user a clarifying question instead of guessing", session_id=session_id)
             state["messages"].append({"role": "assistant", "content": question})
-            _finalize_turn(config, session_id, outcome="needs_clarification")
+            _finalize_turn(config, session_id, budget=config.budget, outcome="needs_clarification")
             return self._raw(state)
 
         result = config.critique.kpi.evaluate(config.critique.context(state, draft))
@@ -382,7 +382,7 @@ class NativeEngine:
             state["_pending"] = pending
             return self._raw(state, interrupt=pending)
 
-        _finalize_turn(config, session_id, outcome="completed" if result.passed else "completed_low_confidence")
+        _finalize_turn(config, session_id, budget=config.budget, outcome="completed" if result.passed else "completed_low_confidence")
         return self._raw(state)
 
 

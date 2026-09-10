@@ -336,9 +336,13 @@ class LLMGateway:
     rate_limiter: RateLimiterLike | None = None
     registry: ModelRegistry | None = None
 
-    def complete(self, messages: list[dict], *, task: str = "default", **kw: Any) -> LLMResponse:
+    def complete(self, messages: list[dict], *, task: str = "default", models: list[str] | None = None, **kw: Any) -> LLMResponse:
+        # `models`, when given, overrides self.routes[task] for THIS call
+        # only — e.g. a per-request ExecutionContext.model_policy narrowing
+        # which models a run may use (see orchestration._resolve_model_names).
+        # None (default): routes[task]/routes["default"], unchanged behavior.
         last_err: Exception | None = None
-        for model in self.routes.get(task, self.routes["default"]):
+        for model in models or self.routes.get(task, self.routes["default"]):
             if self.cache is not None:
                 cached = self.cache.get(model, messages)
                 if cached is not None:

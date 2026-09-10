@@ -58,10 +58,12 @@ from .kpi import KPI
 from .llm_gateway import LLMGateway
 from .observability import CostLedgerLike, Tracer
 from .runtime import (
+    BudgetExceeded,
     CircuitBreaker,
     CircuitBreakerLike,
     LatencyBudgetLike,
     RunBudgetLike,
+    RunCancelled,
     SLATrackerLike,
     with_timeout,
 )
@@ -103,6 +105,22 @@ class AgentState(TypedDict):
     # exact omission made the LangGraph engine ignore a per-request identity
     # that native_engine's plain-dict state had no trouble carrying).
     request_identity: dict[str, Any] | None
+    # The rest of ExecutionContext.to_request_state()'s keys — same
+    # "declared here or LangGraph silently drops it" requirement as
+    # request_identity above, and same per-turn semantics (only present
+    # when a caller actually set that ExecutionContext field on this
+    # specific call; absent otherwise, so a continuing thread's earlier
+    # turn isn't reset to "no override"). See each resolver function
+    # (_resolve_budget, _check_deadline, _check_cancellation,
+    # _resolve_tool_policy, _resolve_model_names, _memory_key) below for
+    # how each is actually used.
+    request_trace_id: str | None
+    request_budget: RunBudgetLike | None
+    request_deadline: float | None
+    request_cancellation_token: Any  # a core.execution_context.CancellationToken; typed loosely here to avoid orchestration.py importing core/ (core/ already imports orchestration.py)
+    request_tool_policy: Policy | None
+    request_model_policy: dict[str, Any] | None
+    request_memory_scope: str | None
 
 
 @dataclass
@@ -233,7 +251,10 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
         # session's prompt, or let one session's spend exhaust every other
         # session's cost/step ceiling too.
         session_id = state.get("thread_id") or config.tracer.thread_id
-        config.budget.step(thread_id=session_id)
+        _check_cancellation(state)
+        _check_deadline(state, session_id)
+        budget = _resolve_budget(config, state)
+        budget.step(thread_id=session_id)
         if config.latency_budget is not None:
             config.latency_budget.check(thread_id=session_id)
         # A fresh turn (not a think() re-entry after a tool result, or a
@@ -293,7 +314,7 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             request_identity = _resolve_identity(config, state)
             has_request_identity = state.get("request_identity") is not None
             built = config.context_engine.build(
-                session_id, last_user["content"], roles=frozenset(request_identity.roles),
+                _memory_key(state, session_id), last_user["content"], roles=frozenset(request_identity.roles),
                 tenant_id=request_identity.tenant_id if has_request_identity else None,
             )
             if built:
@@ -306,7 +327,7 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             # covers above, so a planted instruction in one would otherwise
             # reach the prompt completely unscreened (OWASP LLM01, indirect).
             from .guardrails import looks_like_injection
-            passages = [p for p in config.memory.semantic.search(session_id, last_user["content"]) if not looks_like_injection(p)]
+            passages = [p for p in config.memory.semantic.search(_memory_key(state, session_id), last_user["content"]) if not looks_like_injection(p)]
             if passages:
                 prompt = config.system_prompt + "\n\nRelevant context:\n" + "\n".join(f"- {p}" for p in passages)
 
@@ -322,13 +343,15 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             if profile:
                 prompt = prompt + "\n\nWhat you already know about this user (persists across sessions):\n" + "\n".join(f"- {k}: {v}" for k, v in profile.items())
 
-        native_tools = config.tools.native_tools(config.policy)
+        policy = _resolve_tool_policy(config, state)
+        native_tools = config.tools.native_tools(policy)
         messages = [{"role": "system", "content": prompt}, *state["messages"]]
         task = config.task(state) if callable(config.task) else config.task
+        models = _resolve_model_names(config, state, task)
         with config.tracer.span("orchestration.think") as span:
-            call = (lambda: config.llm.complete(messages, task=task, tools=native_tools or None))
+            call = (lambda: config.llm.complete(messages, task=task, tools=native_tools or None, models=models))
             resp = with_timeout(call, seconds=config.step_timeout_s) if config.step_timeout_s else call()
-            config.budget.spend(resp.cost_usd, thread_id=session_id)
+            budget.spend(resp.cost_usd, thread_id=session_id)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model, native_tool_calls=len(resp.tool_calls), task=task)
         config.eval_harness.record("atomic", "think", "responded", 1.0, model=resp.model, task=task, session_id=session_id)
 
@@ -359,7 +382,10 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
     def act(state: AgentState) -> dict:
         session_id = state.get("thread_id") or config.tracer.thread_id
+        _check_cancellation(state)
         identity = _resolve_identity(config, state)
+        policy = _resolve_tool_policy(config, state)
+        budget = _resolve_budget(config, state)
         resolved_user_id = (config.user_id(state) if callable(config.user_id) else config.user_id) if config.user_id is not None else None
         calls = _get_all_tool_calls(state["messages"][-1])
         if not calls:
@@ -367,6 +393,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
         results: list[dict] = []
         for tool_name, args, tool_call_id in calls:
+            _check_cancellation(state)
             if config.tools.has(tool_name):
                 param_names = _tool_param_names(config.tools.get(tool_name))
                 if "session_id" in param_names:
@@ -393,8 +420,8 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             destructive = spec is not None and spec.destructive
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
-            gr = config.pdp.decide(tool_name, args, identity=identity, policy=config.policy,
-                                    destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
+            gr = config.pdp.decide(tool_name, args, identity=identity, policy=policy,
+                                    destructive=destructive, cost_so_far=budget.cost_usd_for(session_id),
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
                                     requires_confirmation=spec is not None and spec.requires_confirmation,
@@ -415,7 +442,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 try:
                     idem_key = _default_idempotency_key(session_id, tool_call_id)
                     timeout = _tool_timeout(config, spec)
-                    invoke = (lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=identity, policy=config.policy, idempotency_key=k))
+                    invoke = (lambda tn=tool_name, a=args, k=idem_key, p=policy: config.tools.invoke(tn, a, identity=identity, policy=p, idempotency_key=k))
                     result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
                 except PermissionDenied as e:
                     config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
@@ -437,13 +464,19 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
     return act
 
 
-def _finalize_turn(config: AgentConfig, session_id: str, *, outcome: str = "completed") -> None:
+def _finalize_turn(config: AgentConfig, session_id: str, *, budget: RunBudgetLike, outcome: str = "completed") -> None:
     """Session-closing bookkeeping for a turn that's genuinely done — flow-
     completed eval record, cost ledger close, SLA tracker record, procedural-
     memory tool-sequence capture. Was inlined in make_router; hoisted out so
     make_critique_node can call the exact same bookkeeping once IT decides
     the turn is done (critique may resolve one or more steps after the
     router first saw a tool-call-free reply).
+
+    `budget` is the resolved per-request-or-static budget this turn actually
+    spent against (see _resolve_budget) — every caller passes
+    _resolve_budget(config, state), not config.budget directly, so a
+    per-request ExecutionContext.budget override is reflected in what
+    CostLedger.close_task reports, not silently ignored by cost accounting.
 
     `outcome` flows straight into CostLedger.close_task — the field already
     existed there but every caller passed the literal string "completed",
@@ -455,7 +488,7 @@ def _finalize_turn(config: AgentConfig, session_id: str, *, outcome: str = "comp
     if config.cost_ledger is not None:
         config.cost_ledger.close_task(
             thread_id=session_id, tenant_id=config.identity.tenant_id,
-            cost_usd=config.budget.cost_usd_for(session_id), steps=config.budget.steps_for(session_id), outcome=outcome,
+            cost_usd=budget.cost_usd_for(session_id), steps=budget.steps_for(session_id), outcome=outcome,
         )
     if config.sla_tracker is not None:
         # this turn's own wall-clock time (stamped in make_think_node on the
@@ -527,7 +560,7 @@ def make_critique_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             question = draft.strip()[len(CLARIFY_PREFIX):].strip()
             config.eval_harness.record("atomic", "critique", "clarification_requested", 1.0,
                                         reason="model asked the user a clarifying question instead of guessing", session_id=session_id)
-            _finalize_turn(config, session_id, outcome="needs_clarification")
+            _finalize_turn(config, session_id, budget=_resolve_budget(config, state), outcome="needs_clarification")
             return {"messages": [{"role": "assistant", "content": question}]}
 
         result = config.critique.kpi.evaluate(config.critique.context(state, draft))
@@ -592,9 +625,9 @@ def make_critique_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             config.audit.record(identity=_resolve_identity(config, state), action="critique_review", tool=result.name, score=result.value, approved=approved)
             if not approved:
                 update = {"messages": [{"role": "assistant", "content": config.critique.fallback_message}]}
-            _finalize_turn(config, session_id, outcome="completed_with_review")
+            _finalize_turn(config, session_id, budget=_resolve_budget(config, state), outcome="completed_with_review")
         else:
-            _finalize_turn(config, session_id, outcome="completed" if result.passed else "completed_low_confidence")
+            _finalize_turn(config, session_id, budget=_resolve_budget(config, state), outcome="completed" if result.passed else "completed_low_confidence")
         return update
 
     return critique
@@ -637,7 +670,7 @@ def make_self_verify_node(config: AgentConfig, *, context: Callable[[AgentState,
         task = config.task(state) if callable(config.task) else config.task
         with config.tracer.span("orchestration.self_verify") as span:
             resp = config.llm.complete([{"role": "user", "content": prompt}], task=task)
-            config.budget.spend(resp.cost_usd, thread_id=session_id)
+            _resolve_budget(config, state).spend(resp.cost_usd, thread_id=session_id)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model)
         revised = resp.text.strip() != draft.strip()
         reason = "draft's claims were not fully supported by evidence — revised" if revised else "draft's claims already matched the retrieved evidence — unchanged"
@@ -662,7 +695,7 @@ def make_router(config: AgentConfig) -> Callable[[AgentState], str]:
         if config.critique is not None:
             return "critique"
         session_id = state.get("thread_id") or config.tracer.thread_id
-        _finalize_turn(config, session_id)
+        _finalize_turn(config, session_id, budget=_resolve_budget(config, state))
         return END
 
     return route
@@ -1139,3 +1172,83 @@ def _resolve_identity(config: AgentConfig, state: dict) -> Identity:
     if raw is None:
         return config.identity
     return Identity(id=raw["id"], tenant_id=raw["tenant_id"], roles=tuple(raw.get("roles", ())))
+
+
+def _resolve_budget(config: AgentConfig, state: dict) -> RunBudgetLike:
+    """Per-request budget override — state["request_budget"], seeded from
+    ExecutionContext.budget when a caller sets one (e.g. a per-customer
+    spend cap tighter than this agent's own default) — else config.budget,
+    unchanged behavior for every existing caller. Used everywhere
+    config.budget/config.pdp's cost_so_far/CostLedger.close_task would
+    otherwise read the static budget directly, so an override actually
+    governs (and is reflected in) this run's real spend accounting."""
+    return state.get("request_budget") or config.budget
+
+
+def _check_deadline(state: dict, session_id: str) -> None:
+    """Raises BudgetExceeded once ExecutionContext.deadline (an absolute
+    unix timestamp) has passed. Composes with, doesn't replace,
+    step_timeout_s/latency_budget — those bound a single step/the whole
+    session; this bounds THIS run against the caller's own clock (e.g. an
+    inbound HTTP request's own timeout)."""
+    deadline = state.get("request_deadline")
+    if deadline is not None and time.time() > deadline:
+        raise BudgetExceeded(f"thread {session_id!r} passed its deadline ({deadline})")
+
+
+def _check_cancellation(state: dict) -> None:
+    """Raises RunCancelled once ExecutionContext.cancellation_token has been
+    cancelled — see CancellationToken's own docstring for why this is
+    cooperative, checked only at loop-safe points, not preemptive."""
+    token = state.get("request_cancellation_token")
+    if token is not None and token.is_cancelled():
+        raise RunCancelled("run was cancelled")
+
+
+def _resolve_tool_policy(config: AgentConfig, state: dict) -> Policy:
+    """Per-request Policy override (ExecutionContext.tool_policy) — narrows,
+    never widens, config.policy: allowed_tools intersects (a tool must be
+    allowed by BOTH), requires_approval unions (an override can only ADD an
+    approval requirement, never remove one config.policy already demands),
+    max_cost_usd_per_thread/max_steps_per_thread/autonomy each take the
+    stricter (lower) of the two. None (default): config.policy unchanged,
+    existing behavior for every caller that doesn't set tool_policy."""
+    override = state.get("request_tool_policy")
+    if override is None:
+        return config.policy
+    base = config.policy
+    return Policy(
+        allowed_tools=base.allowed_tools & override.allowed_tools,
+        max_cost_usd_per_thread=min(base.max_cost_usd_per_thread, override.max_cost_usd_per_thread),
+        max_steps_per_thread=min(base.max_steps_per_thread, override.max_steps_per_thread),
+        requires_approval=base.requires_approval | override.requires_approval,
+        autonomy=min(base.autonomy, override.autonomy),
+    )
+
+
+def _resolve_model_names(config: AgentConfig, state: dict, task: str) -> list[str] | None:
+    """Per-request model allowlist (ExecutionContext.model_policy =
+    {"allowed_models": [...]}) — narrows, never widens, which of
+    config.llm.routes[task]'s models this call may use. Deliberately scoped
+    to model selection only, not a duplicate cost ceiling — total spend is
+    already governed by _resolve_budget/RunBudget, a second, weaker,
+    after-the-fact cost check here would just be redundant. Returns None
+    (config.llm's own routing, unchanged) when no override, or when the
+    override and the route share no model in common."""
+    override = state.get("request_model_policy")
+    if not override or not override.get("allowed_models"):
+        return None
+    base_route = config.llm.routes.get(task, config.llm.routes["default"])
+    narrowed = [m for m in base_route if m in override["allowed_models"]]
+    return narrowed or None
+
+
+def _memory_key(state: dict, session_id: str) -> str:
+    """Overrides the key used for THIS call's semantic/RAG memory reads
+    (ExecutionContext.memory_scope) — e.g. sharing retrieved context across
+    two otherwise-separate threads. Deliberately NOT used for the
+    working-memory scratch keys (turn_start_ts, tool_sequence) or cost/
+    audit, which stay thread-scoped — those are internal per-turn
+    bookkeeping keyed consistently by session_id at both their write and
+    read sites, not user-facing "memory" in the sense memory_scope means."""
+    return state.get("request_memory_scope") or session_id

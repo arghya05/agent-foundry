@@ -19,6 +19,12 @@ class BudgetExceeded(Exception):
     pass
 
 
+class RunCancelled(Exception):
+    """Raised at the next loop-safe checkpoint (top of think/act, or before
+    an individual tool call) once ExecutionContext.cancellation_token has
+    been cancelled — see core.execution_context.CancellationToken."""
+
+
 _DEFAULT_THREAD = "__default__"  # the bucket used when no thread_id is given — every
                                    # pre-existing single-session caller (tests, examples)
                                    # gets exactly one implicit bucket, unchanged behavior.
