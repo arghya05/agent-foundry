@@ -390,8 +390,29 @@ class Agent:
     def graph(self) -> Any:
         return self._runner.graph
 
-    def run(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
-        return self._runner.run(message, context=context)
+    def _runner_for(self, runtime: str | None) -> "_CompiledWorkflow":
+        """Resolves a per-call `runtime=` override (run/arun/stream/astream/
+        resume/aresume) against this Agent's own RUNTIMES-backed runners,
+        lazily building and caching a second _CompiledWorkflow the first
+        time a non-default runtime is actually used — not eagerly at
+        construction. `runtime=None` (the common case) reuses the
+        construction-time default (self._runner) with zero extra work.
+        Native rejects an explicit checkpointer (unchanged, existing
+        validation) — respected per-runtime here, not per-Agent, so an
+        Agent constructed with a langgraph checkpointer can still call
+        .run(msg, runtime="native") without that checkpointer ever
+        reaching an engine that would reject it."""
+        name = runtime or self.runtime
+        if name not in self._runners:
+            if name not in RUNTIMES:
+                raise ValueError(f"unknown runtime {name!r} — use one of {sorted(RUNTIMES)}")
+            checkpointer = self._checkpointer if name != "native" else None
+            graph = RUNTIMES[name].build(self.config, checkpointer=checkpointer)
+            self._runners[name] = _CompiledWorkflow(graph, name=self.name)
+        return self._runners[name]
+
+    def run(self, message: str, *, context: ExecutionContext | None = None, runtime: str | None = None) -> RunResult:
+        return self._runner_for(runtime).run(message, context=context)
 
     invoke = run
 
@@ -409,20 +430,20 @@ class Agent:
         run.run(message)
         return run
 
-    async def arun(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
-        return await self._runner.arun(message, context=context)
+    async def arun(self, message: str, *, context: ExecutionContext | None = None, runtime: str | None = None) -> RunResult:
+        return await self._runner_for(runtime).arun(message, context=context)
 
-    def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
-        return self._runner.stream(message, context=context)
+    def stream(self, message: str, *, context: ExecutionContext | None = None, runtime: str | None = None) -> Iterator[Any]:
+        return self._runner_for(runtime).stream(message, context=context)
 
-    def astream(self, message: str, *, context: ExecutionContext | None = None) -> Any:
-        return self._runner.astream(message, context=context)
+    def astream(self, message: str, *, context: ExecutionContext | None = None, runtime: str | None = None) -> Any:
+        return self._runner_for(runtime).astream(message, context=context)
 
-    def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
-        return self._runner.resume(approved=approved, decision=decision, context=context)
+    def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext, runtime: str | None = None) -> RunResult:
+        return self._runner_for(runtime).resume(approved=approved, decision=decision, context=context)
 
-    async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
-        return await self._runner.aresume(approved=approved, decision=decision, context=context)
+    async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext, runtime: str | None = None) -> RunResult:
+        return await self._runner_for(runtime).aresume(approved=approved, decision=decision, context=context)
 
     def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
         return self._runner.batch(items, **kw)
