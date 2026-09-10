@@ -41,8 +41,8 @@ from typing import Any, Iterator
 
 from ..guardrails import screen_tool_output
 from ..orchestration import (
-    CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _finalize_turn, _get_all_tool_calls, _resolve_identity,
-    _tool_param_names, _tool_timeout,
+    CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _dispatch_tool_calls, _finalize_turn, _get_all_tool_calls,
+    _resolve_identity, _tool_param_names, _tool_timeout,
 )
 from ..runtime import with_timeout
 from ..tools_gateway import PermissionDenied
@@ -253,8 +253,42 @@ class NativeEngine:
         if not calls:
             return None
 
-        results: list[dict[str, Any]] = []
-        for tool_name, args, tool_call_id in calls:
+        results: list[dict[str, Any] | None] = [None] * len(calls)
+        cleared: list[tuple[int, str, dict, str | None, float | None]] = []
+        tool_names_by_index: dict[int, str] = {}
+        call_ids_by_index: dict[int, str | None] = {}
+
+        def flush_cleared() -> None:
+            """Same reasoning as orchestration.make_act_node's own
+            flush_cleared: actually invokes every cleared-but-not-yet-
+            dispatched call (concurrently when there's more than one) via
+            the identical _dispatch_tool_calls this engine and the
+            LangGraph one now share, then does its bookkeeping. Called
+            before returning a pause signal (this engine's equivalent of
+            LangGraph's interrupt()) so everything ordered before an
+            approval-needing call has genuinely run, and once more after
+            the loop for whatever's left."""
+            for i, outcome in _dispatch_tool_calls(config, cleared, identity=identity, policy=config.policy):
+                tool_name = tool_names_by_index[i]
+                tool_call_id = call_ids_by_index[i]
+                if isinstance(outcome, PermissionDenied):
+                    config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(outcome), session_id=session_id)
+                    results[i] = _tool_msg(str(outcome), tool_call_id=tool_call_id, ok=False)
+                    continue
+                result = outcome
+                config.breaker.record(tool_name, result.ok)
+                config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
+                config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
+                                            session_id=session_id, **({"reason": result.error} if not result.ok else {}))
+                if config.memory is not None and result.ok:
+                    config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
+                output = screen_tool_output(result.output) if result.ok else result.error
+                results[i] = _tool_msg(output, tool_call_id=tool_call_id, ok=result.ok)
+            cleared.clear()
+
+        for i, (tool_name, args, tool_call_id) in enumerate(calls):
+            tool_names_by_index[i] = tool_name
+            call_ids_by_index[i] = tool_call_id
             if config.tools.has(tool_name):
                 param_names = _tool_param_names(config.tools.get(tool_name))
                 if "session_id" in param_names:
@@ -262,7 +296,7 @@ class NativeEngine:
                 if "user_id" in param_names and resolved_user_id is not None:
                     args = {**args, "user_id": resolved_user_id}
             if config.breaker.is_open(tool_name):
-                results.append(_tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False))
+                results[i] = _tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False)
                 continue
 
             spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
@@ -279,6 +313,18 @@ class NativeEngine:
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id
                 if not already_decided:
+                    # flush_cleared() runs the calls gated before this one for
+                    # real (same ordering the old sequential loop gave) but,
+                    # like the original code, does NOT commit `results` into
+                    # state["messages"] here — only a pass that reaches the
+                    # bottom of this loop without pausing does that, exactly
+                    # once. This pass's `results` (and flush_cleared's real,
+                    # already-executed tool calls) are discarded from the
+                    # STATE's perspective; a resumed pass re-runs from the
+                    # top and re-appends everything in one go — the same
+                    # idempotency-cache-backed "re-run the whole node on
+                    # resume" property this module's own docstring documents.
+                    flush_cleared()
                     pending = {"kind": "tool", "tool": tool_name, "tool_name": tool_name, "args": args, "tool_call_id": tool_call_id, "reason": gr.reason}
                     state["_pending"] = pending
                     return self._raw(state, interrupt=pending)
@@ -286,35 +332,20 @@ class NativeEngine:
                 config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=approved)
                 if not approved:
                     config.eval_harness.record("component", tool_name, "approval", 0.0, reason="denied by reviewer", session_id=session_id)
-                    results.append(_tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False))
+                    results[i] = _tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False)
                     continue
+                # approved: falls through to `cleared` below, same as any other call.
             elif not gr.allowed:
                 config.eval_harness.record("component", tool_name, "action_guardrail", 0.0, reason=gr.reason, session_id=session_id)
-                results.append(_tool_msg(gr.reason, tool_call_id=tool_call_id, ok=False))
+                results[i] = _tool_msg(gr.reason, tool_call_id=tool_call_id, ok=False)
                 continue
 
-            with config.tracer.span("native.act", tool=tool_name) as span:
-                try:
-                    idem_key = _default_idempotency_key(session_id, tool_call_id)
-                    timeout = _tool_timeout(config, spec)
-                    invoke = lambda tn=tool_name, a=args, k=idem_key: config.tools.invoke(tn, a, identity=identity, policy=config.policy, idempotency_key=k)
-                    result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
-                except PermissionDenied as e:
-                    config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
-                    results.append(_tool_msg(str(e), tool_call_id=tool_call_id, ok=False))
-                    continue
-                span["attributes"].update(ok=result.ok, latency_ms=result.latency_ms)
+            idem_key = _default_idempotency_key(session_id, tool_call_id)
+            timeout = _tool_timeout(config, spec)
+            cleared.append((i, tool_name, args, idem_key, timeout))
 
-            config.breaker.record(tool_name, result.ok)
-            config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
-            config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
-                                        session_id=session_id, **({"reason": result.error} if not result.ok else {}))
-            if config.memory is not None and result.ok:
-                config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
-            output = screen_tool_output(result.output) if result.ok else result.error
-            results.append(_tool_msg(output, tool_call_id=tool_call_id, ok=result.ok))
-
-        state["messages"].extend(results)
+        flush_cleared()
+        state["messages"].extend(r for r in results if r is not None)
         return None
 
     # ---- critique --------------------------------------------------------------

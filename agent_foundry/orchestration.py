@@ -38,9 +38,12 @@ langgraph-checkpoint-postgres's PostgresSaver, both drop-in.
 """
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import operator
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Callable, TypedDict
 
@@ -51,7 +54,7 @@ from langgraph.types import Command, Send, interrupt
 
 from .blackboard import Blackboard, parse_post
 from .context import ContextEngine, MemoryStore
-from .contracts import AgentRole, Identity, Policy, ToolSpec
+from .contracts import AgentRole, Identity, Policy, ToolResult, ToolSpec
 from .eval import EvalHarness
 from .guardrails import GuardrailEngine, screen_tool_output
 from .kpi import KPI
@@ -372,6 +375,79 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
     return think
 
 
+def _invoke_tool_call(
+    config: AgentConfig, tool_name: str, args: dict, *, identity: Identity, policy: Policy, idem_key: str | None, timeout: float | None,
+) -> ToolResult:
+    """The actual (possibly async, possibly timed-out) execution for ONE
+    already-gated tool call — split out from make_act_node/native_engine._act
+    so both the single-call and the concurrent-dispatch path (_dispatch_tool_
+    calls below) call the identical function. Bridges an `async def` tool
+    into this synchronous call via ToolRegistry.ainvoke()+asyncio.run(): safe
+    here because every call to this function — whether on the node's own
+    thread or inside one of _dispatch_tool_calls's worker threads — owns a
+    thread with no event loop of its own already running on it."""
+    spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
+
+    def call() -> ToolResult:
+        if spec is not None and inspect.iscoroutinefunction(spec.fn):
+            return asyncio.run(config.tools.ainvoke(tool_name, args, identity=identity, policy=policy, idempotency_key=idem_key))
+        return config.tools.invoke(tool_name, args, identity=identity, policy=policy, idempotency_key=idem_key)
+
+    # The span lives HERE (not around the dispatch loop below) so its
+    # duration reflects this call's own execution time even when several
+    # calls run concurrently on separate threads — Tracer.span's only shared
+    # mutable state is a plain list append, safe under the GIL from any
+    # thread. A raised PermissionDenied still exits the span normally (its
+    # `finally` records duration without ok/latency_ms attrs, matching the
+    # pre-concurrency behavior) and propagates to the caller.
+    with config.tracer.span("orchestration.act", tool=tool_name) as span:
+        result = with_timeout(call, seconds=timeout) if timeout else call()
+        span["attributes"].update(ok=result.ok, latency_ms=result.latency_ms)
+        return result
+
+
+def _dispatch_tool_calls(
+    config: AgentConfig, cleared: list[tuple[int, str, dict, str | None, float | None]], *, identity: Identity, policy: Policy,
+) -> list[tuple[int, ToolResult | PermissionDenied]]:
+    """Runs every cleared call's _invoke_tool_call concurrently when there's
+    more than one, plain-sequentially otherwise (no thread-pool overhead for
+    the common single-tool-call turn). `cleared` entries are (original
+    index, tool_name, args, idem_key, timeout) — already past every gate
+    (breaker/PDP/interrupt) make_act_node/native_engine._act run first, in
+    order, on the calling thread only (interrupt() itself must never run
+    inside a spawned worker thread). Returns (index, ToolResult-or-
+    PermissionDenied) pairs in COMPLETION order, not `cleared` order —
+    callers write into a pre-sized results list by index and do every
+    breaker/audit/eval_harness/memory bookkeeping side effect themselves,
+    sequentially, once every future is back. That bookkeeping is
+    deliberately kept off these worker threads: CircuitBreaker's per-tool
+    counters are a read-modify-write, not safe to mutate from two threads at
+    once, unlike the plain list-index writes/appends everything else here
+    does under the GIL."""
+    if len(cleared) <= 1:
+        out: list[tuple[int, ToolResult | PermissionDenied]] = []
+        for i, tool_name, args, idem_key, timeout in cleared:
+            try:
+                out.append((i, _invoke_tool_call(config, tool_name, args, identity=identity, policy=policy, idem_key=idem_key, timeout=timeout)))
+            except PermissionDenied as e:
+                out.append((i, e))
+        return out
+
+    out = []
+    with ThreadPoolExecutor(max_workers=len(cleared)) as pool:
+        futures = {
+            pool.submit(_invoke_tool_call, config, tool_name, args, identity=identity, policy=policy, idem_key=idem_key, timeout=timeout): i
+            for i, tool_name, args, idem_key, timeout in cleared
+        }
+        for future in futures:
+            i = futures[future]
+            try:
+                out.append((i, future.result()))
+            except PermissionDenied as e:
+                out.append((i, e))
+    return out
+
+
 def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
     def tool_msg(content: Any, *, tool_call_id: str | None, ok: bool = True) -> dict:
         msg: dict[str, Any] = {"role": "tool", "content": content}
@@ -391,9 +467,50 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
         if not calls:
             return {}
 
-        results: list[dict] = []
-        for tool_name, args, tool_call_id in calls:
+        # Computed ONCE for this whole turn, not re-read per call — the old
+        # strictly-sequential loop let each call's PDP decision see prior
+        # calls' spend; concurrent dispatch below can't offer that without
+        # serializing the very thing it exists to parallelize. Deliberate
+        # accuracy/latency tradeoff: the PRE-turn budget.step() check (top of
+        # make_think_node) is unaffected, only this intra-turn PDP read moves
+        # earlier.
+        cost_so_far = budget.cost_usd_for(session_id)
+
+        results: list[dict | None] = [None] * len(calls)
+        cleared: list[tuple[int, str, dict, str | None, float | None]] = []
+        tool_names_by_index: dict[int, str] = {}
+        call_ids_by_index: dict[int, str | None] = {}
+
+        def flush_cleared() -> None:
+            """Actually invokes (concurrently, when there's more than one)
+            every cleared-but-not-yet-dispatched call, then does its
+            bookkeeping — called both right before an approval-needing call's
+            interrupt() (so, exactly like the old strictly-sequential loop,
+            everything ordered BEFORE that call in `calls` has genuinely run
+            by the time a human sees the approval prompt, not merely been
+            gated) and once more after the loop for whatever's left."""
+            for i, outcome in _dispatch_tool_calls(config, cleared, identity=identity, policy=policy):
+                tool_name = tool_names_by_index[i]
+                tool_call_id = call_ids_by_index[i]
+                if isinstance(outcome, PermissionDenied):
+                    config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(outcome), session_id=session_id)
+                    results[i] = tool_msg(str(outcome), tool_call_id=tool_call_id, ok=False)
+                    continue
+                result = outcome
+                config.breaker.record(tool_name, result.ok)
+                config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
+                config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
+                                            session_id=session_id, **({"reason": result.error} if not result.ok else {}))
+                if config.memory is not None and result.ok:
+                    config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
+                output = screen_tool_output(result.output) if result.ok else result.error
+                results[i] = tool_msg(output, tool_call_id=tool_call_id, ok=result.ok)
+            cleared.clear()
+
+        for i, (tool_name, args, tool_call_id) in enumerate(calls):
             _check_cancellation(state)
+            tool_names_by_index[i] = tool_name
+            call_ids_by_index[i] = tool_call_id
             if config.tools.has(tool_name):
                 param_names = _tool_param_names(config.tools.get(tool_name))
                 if "session_id" in param_names:
@@ -413,7 +530,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                     # always wins over anything the model supplied.
                     args = {**args, "user_id": resolved_user_id}
             if config.breaker.is_open(tool_name):
-                results.append(tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False))
+                results[i] = tool_msg(f"{tool_name} temporarily disabled after repeated failures", tool_call_id=tool_call_id, ok=False)
                 continue
 
             spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
@@ -421,44 +538,33 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
             gr = config.pdp.decide(tool_name, args, identity=identity, policy=policy,
-                                    destructive=destructive, cost_so_far=budget.cost_usd_for(session_id),
+                                    destructive=destructive, cost_so_far=cost_so_far,
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
                                     requires_confirmation=spec is not None and spec.requires_confirmation,
                                     data_classification=spec.data_classification if spec is not None else "internal")
             if not gr.allowed and gr.reason and "approval" in gr.reason:
+                flush_cleared()  # everything gated before this call runs for real now, same ordering the old sequential loop gave
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
                 config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
                 if not decision.get("approved"):
                     config.eval_harness.record("component", tool_name, "approval", 0.0, reason="denied by reviewer", session_id=session_id)
-                    results.append(tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False))
+                    results[i] = tool_msg(f"{tool_name} denied by reviewer", tool_call_id=tool_call_id, ok=False)
                     continue
+                # approved: falls through to `cleared` below, same as any
+                # other call — by construction, interrupt() itself already
+                # ran (and only ever runs) on this node's own thread, never
+                # inside _dispatch_tool_calls's pool.
             elif not gr.allowed:
                 config.eval_harness.record("component", tool_name, "action_guardrail", 0.0, reason=gr.reason, session_id=session_id)
-                results.append(tool_msg(gr.reason, tool_call_id=tool_call_id, ok=False))
+                results[i] = tool_msg(gr.reason, tool_call_id=tool_call_id, ok=False)
                 continue
 
-            with config.tracer.span("orchestration.act", tool=tool_name) as span:
-                try:
-                    idem_key = _default_idempotency_key(session_id, tool_call_id)
-                    timeout = _tool_timeout(config, spec)
-                    invoke = (lambda tn=tool_name, a=args, k=idem_key, p=policy: config.tools.invoke(tn, a, identity=identity, policy=p, idempotency_key=k))
-                    result = with_timeout(invoke, seconds=timeout) if timeout else invoke()
-                except PermissionDenied as e:
-                    config.eval_harness.record("component", tool_name, "permission", 0.0, reason=str(e), session_id=session_id)
-                    results.append(tool_msg(str(e), tool_call_id=tool_call_id, ok=False))
-                    continue
-                span["attributes"].update(ok=result.ok, latency_ms=result.latency_ms)
+            idem_key = _default_idempotency_key(session_id, tool_call_id)
+            timeout = _tool_timeout(config, spec)
+            cleared.append((i, tool_name, args, idem_key, timeout))
 
-            config.breaker.record(tool_name, result.ok)
-            config.audit.record(identity=identity, action="tool_call", tool=tool_name, ok=result.ok)
-            config.eval_harness.record("component", tool_name, "success", 1.0 if result.ok else 0.0,
-                                        session_id=session_id, **({"reason": result.error} if not result.ok else {}))
-            if config.memory is not None and result.ok:
-                config.memory.working.setdefault(session_id, {}).setdefault("tool_sequence", []).append(tool_name)
-            output = screen_tool_output(result.output) if result.ok else result.error
-            results.append(tool_msg(output, tool_call_id=tool_call_id, ok=result.ok))
-
+        flush_cleared()
         return {"messages": results}
 
     return act
