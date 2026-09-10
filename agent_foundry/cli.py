@@ -36,6 +36,18 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
+    if args.spec is not None:
+        if not args.message:
+            raise SystemExit("foundry run --spec needs --message")
+        from .agent_spec import AgentSpec, build_agent
+
+        loader = AgentSpec.from_yaml if args.spec.endswith((".yaml", ".yml")) else AgentSpec.from_json
+        agent = build_agent(loader(args.spec))
+        result = agent.run(args.message)
+        print(result.content)
+        return
+    if not args.script:
+        raise SystemExit("foundry run needs either a script or --spec")
     raise SystemExit(subprocess.call([sys.executable, args.script]))
 
 
@@ -121,8 +133,10 @@ def main(argv: list[str] | None = None) -> None:
     p_init.add_argument("--tools", default="", help="comma-separated tool names, e.g. lookup_lead,send_email")
     p_init.set_defaults(func=cmd_init)
 
-    p_run = sub.add_parser("run", help="run a scaffolded agent script")
-    p_run.add_argument("script")
+    p_run = sub.add_parser("run", help="run a scaffolded agent script, or (with --spec) a declarative AgentSpec")
+    p_run.add_argument("script", nargs="?", help="a scaffolded .py script — omit when using --spec")
+    p_run.add_argument("--spec", default=None, help="an AgentSpec file (.yaml/.yml or .json) to build and run instead of --script")
+    p_run.add_argument("--message", default=None, help="the message to send the --spec agent (required with --spec)")
     p_run.set_defaults(func=cmd_run)
 
     p_eval = sub.add_parser("eval", help="score an Agent against a JSON dataset of cases (agent_foundry.core.evalgate)")

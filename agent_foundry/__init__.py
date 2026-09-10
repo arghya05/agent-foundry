@@ -25,6 +25,7 @@ CANCELLED) with `.pause()/.unpause()/.cancel()/.retry()/.fork()/.replay()/
 returns a `Scorecard` with a `.passes(thresholds)` regression gate — the
 `foundry eval` idea, as a Python API (no CLI exists in this repo).
 """
+from .agent_spec import AgentSpec, build_agent
 from .core.agent import Agent, Workflow
 from .core.evalgate import CaseResult, EvalCase, Scorecard, run_eval
 from .core.execution_context import ExecutionContext
@@ -38,6 +39,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Agent", "Workflow", "ExecutionContext", "RunResult", "tool",
+    "AgentSpec", "build_agent",
     "PromptRegistry", "PolicyRegistry", "EvalRegistry",
     "ModelRouter", "ModelRequest", "ModelCapabilities", "apply_route",
     "Run", "RunStatus",

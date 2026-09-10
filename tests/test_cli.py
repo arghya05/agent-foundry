@@ -129,3 +129,25 @@ def test_cli_serve_builds_an_app_from_a_script_top_level_graph(monkeypatch):
 
         assert captured["app"] is not None
         assert captured["app"].title  # a real FastAPI app, not a stub
+
+
+def test_cli_run_spec_builds_and_runs_an_agent(tmp_path, monkeypatch, capsys):
+    from agent_foundry import agent_spec
+
+    monkeypatch.setitem(agent_spec._PROVIDERS, "anthropic", lambda: _StaticProvider())
+    spec_path = tmp_path / "agent.json"
+    spec_path.write_text(json.dumps({"name": "cli-agent", "instructions": "Help.", "provider": "anthropic"}))
+
+    cli.main(["run", "--spec", str(spec_path), "--message", "hi"])
+
+    assert "Refund processed." in capsys.readouterr().out
+
+
+def test_cli_run_spec_without_message_errors():
+    with pytest.raises(SystemExit, match="--message"):
+        cli.main(["run", "--spec", "irrelevant.json"])
+
+
+def test_cli_run_without_script_or_spec_errors():
+    with pytest.raises(SystemExit, match="script or --spec"):
+        cli.main(["run"])
