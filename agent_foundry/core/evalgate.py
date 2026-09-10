@@ -177,6 +177,30 @@ class CaseResult:
     trajectory_errors: list[str] = field(default_factory=list)
 
 
+def attribute_failure(result: CaseResult) -> str | None:
+    """Classifies WHY a failed CaseResult failed — nothing in this module
+    does that today, only THAT a case failed (`.ok`). Checked in the same
+    order `run_eval` itself computes `ok` (task_success and tool_accuracy
+    and not trajectory_errors and kpi passed — see run_eval below), with
+    `error` checked first since an exception makes every other field
+    meaningless by construction (run_eval's except branch sets them all to
+    False/None). Returns None for a case that actually passed — call this
+    only on cases you already know failed (`not result.ok`), or check the
+    return value; a None means there's nothing to attribute."""
+    if not result.ok:
+        if result.error is not None:
+            return "error"
+        if not result.task_success:
+            return "task_success"
+        if not result.tool_accuracy:
+            return "tool_accuracy"
+        if result.trajectory_errors:
+            return "trajectory"
+        if result.kpi_result is not None and not result.kpi_result.passed:
+            return "kpi"
+    return None
+
+
 @dataclass
 class Scorecard:
     agent_name: str

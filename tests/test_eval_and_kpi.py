@@ -5,7 +5,7 @@ import tempfile
 from agent_foundry.eval import EvalHarness, JSONLEvalSink, trajectory_report
 from agent_foundry.kpi import (
     KPI, KPIBoard, citation_correctness_kpi, completeness_kpi, composite_grounding_kpi, cost_kpi, db_match_kpi,
-    efficiency_kpi, fact_check_kpi, judge_calibration_kpi, llm_judge_kpi, reference_check_kpi,
+    efficiency_kpi, fact_check_kpi, judge_calibration_kpi, llm_judge_kpi, pairwise_comparison_kpi, reference_check_kpi,
     retrieval_recall_precision_kpi, schema_valid_kpi, word_overlap,
 )
 
@@ -284,3 +284,39 @@ def test_judge_calibration_kpi_rewards_agreement_with_the_human_label():
     assert close.passed
     assert not far.passed
     assert close.value > far.value
+
+
+def test_pairwise_comparison_kpi_a_wins():
+    kpi = pairwise_comparison_kpi("release_check", judge=lambda a, b: 1.0)
+    result = kpi.evaluate({"output_a": "candidate", "output_b": "baseline"})
+    assert result.value == 1.0
+    assert result.passed
+
+
+def test_pairwise_comparison_kpi_b_wins():
+    kpi = pairwise_comparison_kpi("release_check", judge=lambda a, b: 0.0)
+    result = kpi.evaluate({"output_a": "candidate", "output_b": "baseline"})
+    assert result.value == 0.0
+    assert not result.passed
+
+
+def test_pairwise_comparison_kpi_tie_passes_by_default():
+    """Default threshold (0.5): a tie counts as "the candidate held up
+    against the baseline", not a failure — only B outright winning fails."""
+    kpi = pairwise_comparison_kpi("release_check", judge=lambda a, b: 0.5)
+    result = kpi.evaluate({"output_a": "candidate", "output_b": "baseline"})
+    assert result.value == 0.5
+    assert result.passed
+
+
+def test_pairwise_comparison_kpi_judge_receives_both_outputs():
+    seen = []
+
+    def judge(a, b):
+        seen.append((a, b))
+        return 1.0
+
+    kpi = pairwise_comparison_kpi("release_check", judge=judge)
+    kpi.evaluate({"output_a": "candidate text", "output_b": "baseline text"})
+
+    assert seen == [("candidate text", "baseline text")]

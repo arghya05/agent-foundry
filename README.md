@@ -717,19 +717,39 @@ against a prior `Scorecard`. See `tests/test_evalgate.py`.
 `retrieval_recall_precision_kpi` (F1 over retrieved-vs-relevant ids),
 `citation_correctness_kpi` (do a reply's citation markers name real
 sources), `judge_calibration_kpi` (does an LLM judge agree with a human
-label), `llm_judge_kpi`, `tool_error_rate_kpi`, `hallucination_rate_kpi`,
-and more. `EvalCase.kpi` holds a live `KPI` object, so it isn't
-JSON-serializable — `agent_foundry.eval_dataset.EvalDataset` gives the
-`foundry eval` CLI a named/versioned `{"name","version","cases"}` dataset
-file for the JSON-expressible checks, plus `--save-baseline DIR`/
-`--baseline DIR` flags to persist a `Scorecard`'s metrics and diff a later
-run against it — a lightweight regression gate across releases, not just
-within one run:
+label), `pairwise_comparison_kpi` (A vs. B — a release candidate against a
+previous version's saved output, two prompt variants; every other KPI here
+scores ONE output against a threshold, this compares two directly),
+`llm_judge_kpi`, `tool_error_rate_kpi`, `hallucination_rate_kpi`, and more.
+`EvalCase.kpi` holds a live `KPI` object, so it isn't JSON-serializable —
+`agent_foundry.eval_dataset.EvalDataset` gives the `foundry eval` CLI a
+named/versioned `{"name","version","cases"}` dataset file for the
+JSON-expressible checks, plus `--save-baseline DIR`/`--baseline DIR` flags
+to persist a `Scorecard`'s metrics and diff a later run against it — a
+lightweight regression gate across releases, not just within one run:
 
 ```bash
 foundry eval agent.py eval_dataset.json --save-baseline baselines/
 foundry eval agent.py eval_dataset.json --baseline baselines/   # prints deltas vs the saved run
 ```
+
+`core.evalgate.attribute_failure(case_result)` classifies *why* a failed
+`CaseResult` failed — `"error"` (an exception during the run), `"task_
+success"` (substring miss), `"tool_accuracy"` (wrong/missing tool), `"trajectory"`
+(sequence/args/forbidden/approval violation), or `"kpi"` (a KPI threshold
+miss) — a diagnostic nothing else here provides; `Scorecard`/`.ok` only ever
+say *that* a case failed.
+
+**The eval pyramid**, named end to end (every level already exists — this
+just names the structure a reader would otherwise have to reconstruct):
+
+| Level | What | Where |
+|---|---|---|
+| L0 | Deterministic assertions | `EvalCase.expected_substring`/`.expected_tool` |
+| L1–L2 | Atomic / component records | `EvalHarness` (`eval.py`) |
+| L3 | Trajectory | `Scorecard.trajectory_accuracy_rate` (`core/evalgate.py`) |
+| L4 | LLM judge | `kpi.llm_judge_kpi` + `llm_gateway.make_llm_judge`/`make_grounding_judge` — generic over any criterion (correctness, relevance, tool-selection, plan-adherence, conversation-quality are this one mechanism parameterized differently, not separate features) |
+| L5 | Business outcome / release gate | `Scorecard.passes(thresholds)`, `--save-baseline`/`--baseline` |
 
 Then pick a topology for how multiple agents (if any) cooperate — all built
 from the exact same `AgentConfig`/`think`/`act` primitives:

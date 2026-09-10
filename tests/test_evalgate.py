@@ -4,6 +4,7 @@ scored from real Agent.run() calls, not mocked scorers.
 from __future__ import annotations
 
 from agent_foundry import Agent, EvalCase, run_eval
+from agent_foundry.core.evalgate import attribute_failure
 from agent_foundry.kpi import KPI
 from agent_foundry.llm_gateway import LLMGateway
 
@@ -239,3 +240,59 @@ def test_scorecard_render_produces_a_readable_summary():
     assert "Task success" in text and "100.0%" in text
     assert "P95 latency" in text
     assert "Average cost" in text
+
+
+def test_attribute_failure_returns_none_for_a_passing_case():
+    provider = ScriptedProvider(["wedding outfit"])
+    agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
+    scorecard = run_eval(agent, [EvalCase(input="a", expected_substring="wedding")])
+
+    assert attribute_failure(scorecard.cases[0]) is None
+
+
+def test_attribute_failure_classifies_an_exception_as_error():
+    class FlakyProvider:
+        def complete(self, messages, *, model, tools=None, **kw):
+            raise RuntimeError("provider outage")
+
+    agent = Agent("shopper", "Help.", llm=LLMGateway(provider=FlakyProvider()))
+    scorecard = run_eval(agent, [EvalCase(input="hi")])
+
+    assert attribute_failure(scorecard.cases[0]) == "error"
+
+
+def test_attribute_failure_classifies_a_missed_substring_as_task_success():
+    provider = ScriptedProvider(["a casual outfit"])
+    agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
+    scorecard = run_eval(agent, [EvalCase(input="a", expected_substring="wedding")])
+
+    assert attribute_failure(scorecard.cases[0]) == "task_success"
+
+
+def test_attribute_failure_classifies_a_wrong_tool_call_as_tool_accuracy():
+    def other_tool() -> str:
+        """An unrelated tool."""
+        return "unrelated"
+
+    provider = ScriptedProvider(["CALL other_tool {}", "done"])
+    agent = Agent("shopper", "Help.", tools=[lookup_order, other_tool], llm=LLMGateway(provider=provider))
+    scorecard = run_eval(agent, [EvalCase(input="status of A100?", expected_tool="lookup_order")])
+
+    assert attribute_failure(scorecard.cases[0]) == "tool_accuracy"
+
+
+def test_attribute_failure_classifies_a_forbidden_tool_call_as_trajectory():
+    provider = ScriptedProvider(['CALL issue_refund {"order_id": "A100", "amount_usd": 20}', "done"])
+    agent = Agent("shopper", "Help.", tools=[issue_refund], llm=LLMGateway(provider=provider))
+    scorecard = run_eval(agent, [EvalCase(input="just look this up, don't refund", forbidden_tools=frozenset({"issue_refund"}))])
+
+    assert attribute_failure(scorecard.cases[0]) == "trajectory"
+
+
+def test_attribute_failure_classifies_a_below_threshold_kpi_as_kpi():
+    provider = ScriptedProvider(["a poorly grounded answer"])
+    agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
+    kpi = KPI(name="groundedness", score=lambda ctx: ctx["score"], direction="maximize", threshold=0.5)
+    scorecard = run_eval(agent, [EvalCase(input="hi", kpi=kpi, kpi_context=lambda result: {"score": 0.1})])
+
+    assert attribute_failure(scorecard.cases[0]) == "kpi"

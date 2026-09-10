@@ -445,3 +445,23 @@ def judge_calibration_kpi(
         return 1.0 - abs(judge(ctx.get("output_text", "")) - labeled(ctx))
 
     return KPI(name=name, score=score, direction="maximize", threshold=1.0 - tolerance, weight=weight)
+
+
+def pairwise_comparison_kpi(name: str, *, judge: Callable[[str, str], float], threshold: float = 0.5, weight: float = 1.0) -> KPI:
+    """A vs. B comparison — two prompt variants, a release candidate against
+    a previous one's saved output, two models — something every other KPI
+    here can't express: they all score ONE output against a threshold,
+    never compare two directly. `judge(output_a, output_b)` returns which
+    one wins: 1.0 if A is fully better, 0.0 if B is fully better, 0.5 for a
+    genuine tie — read from `ctx["output_a"]`/`ctx["output_b"]`, not the
+    usual `ctx["output_text"]` single-output convention, since there are two
+    candidates here, not one. `output_a` is the side being judged, by
+    convention (a release candidate, a new prompt variant) — the default
+    threshold (0.5) passes when A at least ties B, the natural "did the
+    candidate hold up against the baseline" reading; pass a stricter
+    threshold for "A must outright win"."""
+
+    def score(ctx: dict[str, Any]) -> float:
+        return judge(ctx.get("output_a", ""), ctx.get("output_b", ""))
+
+    return KPI(name=name, score=score, direction="maximize", threshold=threshold, weight=weight)
