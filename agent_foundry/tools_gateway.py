@@ -5,6 +5,7 @@ RBAC/policy scopes at call time regardless of what the tool does.
 """
 from __future__ import annotations
 
+import inspect
 import json
 import time
 from dataclasses import dataclass, field
@@ -197,21 +198,11 @@ class ToolRegistry:
         — pass straight to LLMGateway.complete(tools=...) for native tool-calling."""
         return [tool_json_schema(self._tools[name]) for name in self.list_for(policy)]
 
-    def invoke(self, name: str, args: dict, *, identity: Identity, policy: Policy, idempotency_key: str | None = None) -> ToolResult:
-        """Checks policy.allowed_tools, then validates/caches/rate-limits/
-        executes/retries — but NOT the richer PDP checks (ToolSpec.scopes,
-        data_classification, requires_confirmation, egress, an external
-        OPA/Cedar PolicyEngine). Those live one layer up, in
-        policy_engine.PolicyDecisionPoint, which orchestration.make_act_node
-        and native_engine._act ALWAYS call before reaching this method — go
-        through an Agent/build_agent_graph, not this method directly, for
-        that governance to actually apply. Calling ToolRegistry.invoke()
-        directly (bypassing the act node) is a real gap, not a hypothetical
-        one: nothing here stops it. Kept as a public, direct-callable method
-        rather than folded into a separate enforcement wrapper for now — the
-        registry/executor split is a real improvement worth doing, but is a
-        larger, separately-scoped redesign (every existing direct caller of
-        .invoke(), tests included, would need to move), not a quick fix."""
+    def _pre_invoke(self, name: str, args: dict, *, identity: Identity, policy: Policy, idempotency_key: str | None) -> ToolResult | ToolSpec:
+        """Shared by invoke()/ainvoke(): policy/idempotency/cache/rate-limit/
+        arg-validation checks that don't depend on whether spec.fn is sync
+        or async. Returns an early ToolResult when any of those short-
+        circuit execution, else the validated ToolSpec to actually call."""
         if name not in policy.allowed_tools:
             raise PermissionDenied(f"{identity.id} is not permitted to call {name!r}")
         if idempotency_key is not None and self.idempotency_store is not None:
@@ -228,27 +219,76 @@ class ToolRegistry:
         invalid = _validate_args(spec, args)
         if invalid is not None:
             return ToolResult(tool=name, ok=False, error=f"invalid arguments for {name!r}: {invalid}")
+        return spec
+
+    def _finish(self, spec: ToolSpec, args: dict, output: Any, *, identity: Identity, idempotency_key: str | None, start: float) -> ToolResult:
+        if spec.output_schema is not None:
+            # Same validation boundary as input args, applied to what the
+            # tool actually returned — a schema-violating output is treated
+            # like any other execution failure (retried up to
+            # spec.max_retries, same as an exception).
+            invalid_output = _validate_against_schema(spec.output_schema, output)
+            if invalid_output is not None:
+                raise ValueError(f"tool {spec.name!r} returned output that doesn't match its declared output_schema: {invalid_output}")
+        if self.cache is not None and spec.cacheable and not spec.destructive:
+            self.cache.set(spec.name, args, output, tenant=identity.tenant_id)
+        result = ToolResult(tool=spec.name, ok=True, output=output, latency_ms=(time.time() - start) * 1000)
+        if idempotency_key is not None and self.idempotency_store is not None:
+            self.idempotency_store.set(idempotency_key, result)
+        return result
+
+    def invoke(self, name: str, args: dict, *, identity: Identity, policy: Policy, idempotency_key: str | None = None) -> ToolResult:
+        """Checks policy.allowed_tools, then validates/caches/rate-limits/
+        executes/retries — but NOT the richer PDP checks (ToolSpec.scopes,
+        data_classification, requires_confirmation, egress, an external
+        OPA/Cedar PolicyEngine). Those live one layer up, in
+        policy_engine.PolicyDecisionPoint, which orchestration.make_act_node
+        and native_engine._act ALWAYS call before reaching this method — go
+        through an Agent/build_agent_graph, not this method directly, for
+        that governance to actually apply. Calling ToolRegistry.invoke()
+        directly (bypassing the act node) is a real gap, not a hypothetical
+        one: nothing here stops it. Kept as a public, direct-callable method
+        rather than folded into a separate enforcement wrapper for now — the
+        registry/executor split is a real improvement worth doing, but is a
+        larger, separately-scoped redesign (every existing direct caller of
+        .invoke(), tests included, would need to move), not a quick fix.
+
+        Raises TypeError for an `async def` tool function — use ainvoke()
+        for those; previously this silently returned the unawaited
+        coroutine object as `output`, a real bug, not just an omission."""
+        pre = self._pre_invoke(name, args, identity=identity, policy=policy, idempotency_key=idempotency_key)
+        if isinstance(pre, ToolResult):
+            return pre
+        spec = pre
+        if inspect.iscoroutinefunction(spec.fn):
+            raise TypeError(f"tool {name!r} is an async function — call ainvoke() instead of invoke()")
         start = time.time()
         attempt = 0
         while True:
             try:
                 output = spec.fn(**args)
-                if spec.output_schema is not None:
-                    # Same validation boundary as input args, applied to
-                    # what the tool actually returned — previously
-                    # ToolSpec.output_schema was pure metadata, never
-                    # checked against anything. A schema-violating output
-                    # is treated like any other execution failure (retried
-                    # up to spec.max_retries, same as an exception).
-                    invalid_output = _validate_against_schema(spec.output_schema, output)
-                    if invalid_output is not None:
-                        raise ValueError(f"tool {name!r} returned output that doesn't match its declared output_schema: {invalid_output}")
-                if self.cache is not None and spec.cacheable and not spec.destructive:
-                    self.cache.set(name, args, output, tenant=identity.tenant_id)
-                result = ToolResult(tool=name, ok=True, output=output, latency_ms=(time.time() - start) * 1000)
-                if idempotency_key is not None and self.idempotency_store is not None:
-                    self.idempotency_store.set(idempotency_key, result)
-                return result
+                return self._finish(spec, args, output, identity=identity, idempotency_key=idempotency_key, start=start)
+            except Exception as e:
+                if attempt >= spec.max_retries:
+                    return ToolResult(tool=name, ok=False, error=str(e), latency_ms=(time.time() - start) * 1000)
+                attempt += 1
+
+    async def ainvoke(self, name: str, args: dict, *, identity: Identity, policy: Policy, idempotency_key: str | None = None) -> ToolResult:
+        """Same checks/caching/retry contract as invoke(), but awaits
+        spec.fn when it's an `async def` tool (and just calls it directly,
+        same as invoke(), when it isn't) — the one entry point that handles
+        both. Used by the concurrent same-turn tool dispatch in
+        orchestration.make_act_node/native_engine._act."""
+        pre = self._pre_invoke(name, args, identity=identity, policy=policy, idempotency_key=idempotency_key)
+        if isinstance(pre, ToolResult):
+            return pre
+        spec = pre
+        start = time.time()
+        attempt = 0
+        while True:
+            try:
+                output = await spec.fn(**args) if inspect.iscoroutinefunction(spec.fn) else spec.fn(**args)
+                return self._finish(spec, args, output, identity=identity, idempotency_key=idempotency_key, start=start)
             except Exception as e:
                 if attempt >= spec.max_retries:
                     return ToolResult(tool=name, ok=False, error=str(e), latency_ms=(time.time() - start) * 1000)

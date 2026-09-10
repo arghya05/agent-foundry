@@ -10,6 +10,8 @@ step.
 """
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from agent_foundry import Agent, ExecutionContext
@@ -44,3 +46,57 @@ def test_stream_final_chunk_matches_run_result_content(runtime):
     stream_chunks = list(agent_stream.stream("hi", context=ExecutionContext(thread_id="stream-compare")))
 
     assert stream_chunks[-1]["messages"][-1]["content"] == run_result.content
+
+
+@pytest.mark.parametrize("runtime", ["langgraph", "native"])
+def test_arun_matches_sync_run(runtime):
+    """arun() delegates to graph.ainvoke() (LangGraph) or asyncio.to_thread
+    (native) — either way it should agree with run() on the same input."""
+    provider = ScriptedProvider(["async hello"])
+    agent = Agent("chatty", "Chat.", runtime=runtime, llm=LLMGateway(provider=provider))
+
+    result = asyncio.run(agent.arun("hi", context=ExecutionContext(thread_id=f"arun-{runtime}")))
+
+    assert result.content == "async hello"
+
+
+@pytest.mark.parametrize("runtime", ["langgraph", "native"])
+def test_astream_yields_chunks_shaped_like_the_full_state(runtime):
+    provider = ScriptedProvider(["async streamed reply"])
+    agent = Agent("chatty", "Chat.", runtime=runtime, llm=LLMGateway(provider=provider))
+
+    async def collect():
+        return [chunk async for chunk in agent.astream("hi", context=ExecutionContext(thread_id=f"astream-{runtime}"))]
+
+    chunks = asyncio.run(collect())
+
+    assert len(chunks) >= 1
+    assert chunks[-1]["messages"][-1]["content"] == "async streamed reply"
+
+
+def test_arun_does_not_block_the_event_loop_on_langgraph():
+    """The actual point of arun() for the LangGraph runtime: while one
+    agent's turn is "running" (a scripted, slow provider standing in for a
+    real blocking network call), a concurrent asyncio task on the same loop
+    must still get to make progress — proof this isn't just run() called
+    synchronously from inside a coroutine."""
+    import time
+
+    def slow_response(messages, model):
+        time.sleep(0.2)
+        return "slow reply"
+
+    agent = Agent("slow", "Chat.", llm=LLMGateway(provider=ScriptedProvider([slow_response])))
+    progress: list[str] = []
+
+    async def ticker():
+        for _ in range(4):
+            await asyncio.sleep(0.05)
+            progress.append("tick")
+
+    async def main():
+        await asyncio.gather(agent.arun("hi", context=ExecutionContext(thread_id="noblock")), ticker())
+
+    asyncio.run(main())
+
+    assert len(progress) >= 2

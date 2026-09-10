@@ -22,6 +22,7 @@ own public methods below don't know or care which one is underneath.
 """
 from __future__ import annotations
 
+import asyncio
 import inspect
 from typing import Any, Callable, Iterator
 
@@ -162,6 +163,23 @@ class _CompiledWorkflow:
 
     invoke = run  # alias for API parity with the memo's run()/invoke() — same call, not a distinct one
 
+    async def arun(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
+        """Non-blocking run() for an async caller. `self._graph` is either a
+        compiled LangGraph graph (has a real `.ainvoke()` — verified
+        empirically: LangGraph runs plain-sync node functions off-thread on
+        its own, so orchestration.py's think/act/critique nodes need no
+        async rewrite for this to be genuinely non-blocking) or
+        native_engine._NativeGraph (no async of its own — `asyncio.to_thread`
+        keeps this method non-blocking either way, just without LangGraph's
+        native off-thread scheduling)."""
+        if hasattr(self._graph, "ainvoke"):
+            context = context or ExecutionContext()
+            thread_id = context.resolved_thread_id()
+            state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
+            raw = await self._graph.ainvoke(state, {"configurable": {"thread_id": thread_id}})
+            return result_from_graph_output(raw, thread_id=thread_id)
+        return await asyncio.to_thread(self.run, message, context=context)
+
     def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
         # stream_mode="values": LangGraph's own default ("updates") yields
         # per-node partial dicts keyed by node name (e.g. {"think": {...}}),
@@ -175,6 +193,21 @@ class _CompiledWorkflow:
         thread_id = context.resolved_thread_id()
         state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
         yield from self._graph.stream(state, {"configurable": {"thread_id": thread_id}}, stream_mode="values")
+
+    async def astream(self, message: str, *, context: ExecutionContext | None = None) -> Any:
+        """Non-blocking stream() — see arun()'s docstring for the same
+        LangGraph-native-vs-to_thread split. An async generator (`async
+        for chunk in agent.astream(...)`), not a coroutine returning an
+        iterator."""
+        if hasattr(self._graph, "astream"):
+            context = context or ExecutionContext()
+            thread_id = context.resolved_thread_id()
+            state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
+            async for chunk in self._graph.astream(state, {"configurable": {"thread_id": thread_id}}, stream_mode="values"):
+                yield chunk
+            return
+        for chunk in await asyncio.to_thread(lambda: list(self.stream(message, context=context))):
+            yield chunk
 
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         # `decision` layers richer resume payloads (an event's data, a
@@ -342,8 +375,14 @@ class Agent:
         run.run(message)
         return run
 
+    async def arun(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
+        return await self._runner.arun(message, context=context)
+
     def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
         return self._runner.stream(message, context=context)
+
+    def astream(self, message: str, *, context: ExecutionContext | None = None) -> Any:
+        return self._runner.astream(message, context=context)
 
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         return self._runner.resume(approved=approved, decision=decision, context=context)
