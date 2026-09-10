@@ -79,6 +79,12 @@ class ToolSpec:
     # policy_engine.PolicyDecisionPoint's egress policy on every call; empty
     # (default) means this tool has no egress dimension for the PDP to check.
     egress_hosts: frozenset[str] = field(default_factory=frozenset)
+    # Informational metadata for a caller's OWN RBAC check before registering
+    # this tool into Policy.allowed_tools — not enforced by ToolRegistry.invoke()
+    # itself (that's still the existing name-based allowed_tools allowlist).
+    # Set by core.tool_decorator.tool()'s permissions= kwarg and by
+    # agent_spec.build_agent()'s structured tool entries.
+    permissions: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass

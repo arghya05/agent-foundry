@@ -18,13 +18,38 @@ import math
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 from ..kpi import KPI, KPIResult
 from ..orchestration import _get_all_tool_calls
 from .agent import Agent
 from .execution_context import ExecutionContext
 from .result import RunResult
+
+
+class ScorecardLike(Protocol):
+    """Exactly the properties Scorecard.compare_to() reads — a real Scorecard
+    satisfies this structurally, and so does eval_dataset.BaselineScorecard
+    (a saved run's metrics reloaded from disk, with no .cases to reconstruct
+    a full Scorecard from). compare_to() takes this instead of the concrete
+    Scorecard class so a reloaded baseline can be compared against without
+    needing to fake up a Scorecard it isn't."""
+
+    @property
+    def task_success_rate(self) -> float: ...
+    @property
+    def tool_accuracy_rate(self) -> float: ...
+    @property
+    def trajectory_accuracy_rate(self) -> float: ...
+    @property
+    def groundedness_avg(self) -> float | None: ...
+    @property
+    def p95_latency_ms(self) -> float: ...
+    @property
+    def avg_cost_usd(self) -> float: ...
+    @property
+    def error_rate(self) -> float: ...
+
 
 _THRESHOLD_KINDS = {
     "task_success_rate_min": "min",
@@ -224,7 +249,7 @@ class Scorecard:
                 reasons.append(f"{key}: {actual:.3f} > allowed {limit}")
         return (len(reasons) == 0, reasons)
 
-    def compare_to(self, baseline: "Scorecard") -> dict[str, float]:
+    def compare_to(self, baseline: ScorecardLike) -> dict[str, float]:
         """This scorecard's metric minus baseline's, per metric — positive is
         better for task_success/tool_accuracy/groundedness, negative is
         better for latency/cost/error_rate."""

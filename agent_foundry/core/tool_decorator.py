@@ -66,7 +66,7 @@ def tool(
                 return result
 
         spec = _toolspec_from_callable(wrapped, name=name, description=description)
-        spec.permissions = frozenset(permissions)  # informational metadata — not a declared ToolSpec field
+        spec.permissions = frozenset(permissions)
         return spec
 
     return decorator

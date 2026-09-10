@@ -67,7 +67,7 @@ def _validate_basic(schema: dict[str, Any], value: Any) -> str | None:
             if py_type is not None and not isinstance(sub_value, py_type):
                 return f"argument {key!r} expected type {sub_type!r}, got {type(sub_value).__name__}"
         return None
-    py_type = _SCHEMA_TYPES.get(expected_type)
+    py_type = _SCHEMA_TYPES.get(expected_type) if expected_type is not None else None
     if py_type is not None and not isinstance(value, py_type):
         return f"expected type {expected_type!r}, got {type(value).__name__}"
     return None

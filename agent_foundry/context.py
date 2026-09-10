@@ -169,10 +169,13 @@ class ChromaKnowledgeStore:
         distances = (result.get("distances") or [[0.0] * len(docs)])[0]
         chunks = []
         for text, meta, distance in zip(docs, metas, distances):
-            perms = frozenset(p for p in (meta.get("permissions") or "").split(",") if p)
+            # ChromaDB's own Metadata type permits str|int|float|bool|SparseVector
+            # values; this codebase always stores/reads these three as strings by
+            # convention — str() both documents and enforces that at the read site.
+            perms = frozenset(p for p in str(meta.get("permissions") or "").split(",") if p)
             chunks.append(RetrievedChunk(
-                text=text, source=meta.get("document_id", ""), document_id=meta.get("document_id", ""),
-                chunk_id=meta.get("chunk_id", ""), score=1.0 - distance, metadata=meta, permissions=perms,
+                text=text, source=str(meta.get("document_id", "")), document_id=str(meta.get("document_id", "")),
+                chunk_id=str(meta.get("chunk_id", "")), score=1.0 - distance, metadata=dict(meta), permissions=perms,
             ))
         return chunks
 
@@ -319,7 +322,8 @@ class KnowledgeGraph:
 
     def is_a(self, class_name: str, ancestor: str) -> bool:
         """True if class_name == ancestor or ancestor is anywhere up its parent chain."""
-        seen, current = set(), class_name
+        seen: set[str] = set()
+        current: str | None = class_name
         while current is not None:
             if current == ancestor:
                 return True

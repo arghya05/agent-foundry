@@ -66,10 +66,10 @@ class ModelRouter:
         return min(names, key=lambda n: self.catalog[n].cost_per_1m_input_usd)
 
 
-def apply_route(llm: "LLMGateway", *, task: str, request: ModelRequest, router: ModelRouter, fallback: list[str] = ()) -> str:
+def apply_route(llm: "LLMGateway", *, task: str, request: ModelRequest, router: ModelRouter, fallback: list[str] | None = None) -> str:
     """Sets llm.routes[task] from a capability-based decision instead of a
     hand-authored model list. llm.complete(task=...)'s own routing/failover
     (llm_gateway.py, unchanged) does the rest."""
     selected = router.select(request)
-    llm.routes[task] = [selected, *fallback]
+    llm.routes[task] = [selected, *(fallback or [])]
     return selected

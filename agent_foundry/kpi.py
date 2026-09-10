@@ -144,6 +144,7 @@ def completeness_kpi(*, judge: Callable[[str], float] | None = None, required: C
     def score(ctx: dict[str, Any]) -> float:
         if judge is not None:
             return judge(ctx.get("output_text", ""))
+        assert required is not None  # exactly one of judge/required is set, checked above
         items = required(ctx)
         if not items:
             return 1.0

@@ -24,9 +24,12 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator, cast
 
 from langgraph.types import Command
+
+if TYPE_CHECKING:
+    from .run import Run
 
 from ..batch import BatchReport, IntervalScheduler, run_batch
 from ..blackboard import Blackboard
@@ -94,7 +97,11 @@ def _coerce_memory(memory: Any) -> MemoryStore | None:
     if not memory:
         return None
     if isinstance(memory, Memory):
-        return memory
+        # AgentConfig.memory is declared MemoryStore | None, not the broader
+        # Memory protocol this isinstance check actually accepts — every
+        # real caller passes a genuine MemoryStore; cast documents that,
+        # not silence a real mismatch.
+        return cast(MemoryStore, memory)
     raise TypeError(f"memory= must be a MemoryStore (or satisfy the Memory protocol), got {type(memory).__name__}")
 
 

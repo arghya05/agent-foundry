@@ -133,7 +133,10 @@ class NativeEngine:
                 return act_raw  # a further approval-needing call in this same turn paused again
             return self._drive(config, state, thread_id)  # act finished clean -> loop continues from think
 
-        # critique escalation (pending["kind"] == "critique")
+        # critique escalation (pending["kind"] == "critique") — only ever
+        # reached when a critique gate paused this turn, which can't happen
+        # without config.critique set
+        assert config.critique is not None
         if not approved:
             state["messages"][-1] = {"role": "assistant", "content": config.critique.fallback_message}
         _finalize_turn(config, thread_id, budget=config.budget, outcome="completed_with_review")
@@ -221,7 +224,8 @@ class NativeEngine:
         messages = [{"role": "system", "content": prompt}, *state["messages"]]
         task = config.task(state) if callable(config.task) else config.task
         with config.tracer.span("native.think") as span:
-            call = lambda: config.llm.complete(messages, task=task, tools=native_tools or None)
+            def call():
+                return config.llm.complete(messages, task=task, tools=native_tools or None)
             resp = with_timeout(call, seconds=config.step_timeout_s) if config.step_timeout_s else call()
             config.budget.spend(resp.cost_usd, thread_id=session_id)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model, native_tool_calls=len(resp.tool_calls), task=task)
@@ -303,13 +307,14 @@ class NativeEngine:
             destructive = spec is not None and spec.destructive
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
+            assert config.pdp is not None
             gr = config.pdp.decide(tool_name, args, identity=identity, policy=config.policy,
                                     destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
                                     requires_confirmation=spec is not None and spec.requires_confirmation,
                                     data_classification=spec.data_classification if spec is not None else "internal")
-            needs_approval = not gr.allowed and bool(gr.reason) and "approval" in gr.reason
+            needs_approval = not gr.allowed and gr.reason is not None and "approval" in gr.reason
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id
                 if not already_decided:
@@ -328,6 +333,7 @@ class NativeEngine:
                     pending = {"kind": "tool", "tool": tool_name, "tool_name": tool_name, "args": args, "tool_call_id": tool_call_id, "reason": gr.reason}
                     state["_pending"] = pending
                     return self._raw(state, interrupt=pending)
+                assert resume is not None  # already_decided is only True when resume is not None, per its own definition above
                 approved = resume[2]
                 config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=approved)
                 if not approved:

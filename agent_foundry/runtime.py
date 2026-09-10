@@ -8,7 +8,7 @@ from __future__ import annotations
 import concurrent.futures
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, TypeVar
+from typing import Callable, Protocol, TypeVar
 
 from .contracts import Policy
 

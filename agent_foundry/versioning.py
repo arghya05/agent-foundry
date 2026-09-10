@@ -10,14 +10,14 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class VersionStore(Protocol):
     def publish(self, name: str, content: str, *, label: str = "") -> str: ...
     def get(self, name: str, *, version: str | None = None) -> str: ...
     def rollback(self, name: str, *, version: str) -> None: ...
-    def history(self, name: str) -> list[dict[str, str]]: ...
+    def history(self, name: str) -> list[dict[str, Any]]: ...
 
 
 @dataclass
@@ -56,7 +56,7 @@ class FileVersionStore:
             raise ValueError(f"no such version {version!r} for {name!r}")
         (d / "current").write_text(version)
 
-    def history(self, name: str) -> list[dict[str, str]]:
+    def history(self, name: str) -> list[dict[str, Any]]:
         d = self._artifact_dir(name)
         current = (d / "current").read_text().strip() if (d / "current").exists() else None
         versions = sorted(p.stem for p in d.glob("*.txt"))

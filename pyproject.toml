@@ -11,7 +11,6 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
-    "langgraph>=0.6",
     "cryptography>=42.0",
 ]
 
@@ -22,10 +21,20 @@ dependencies = [
 # import already fails with a clear ModuleNotFoundError otherwise, same as
 # any other lazily-imported optional dependency in this package.
 #
-# requirements.txt (still includes anthropic) is a SEPARATE, pre-existing
-# install path for running this repo's own bundled examples/Dockerfile
-# directly — left as-is; it predates pip extras and isn't "the package."
+# requirements.txt (still includes anthropic and langgraph) is a SEPARATE,
+# pre-existing install path for running this repo's own bundled
+# examples/Dockerfile directly — left as-is; it predates pip extras and
+# isn't "the package."
 [project.optional-dependencies]
+# runtime="langgraph" (Agent's default) needs this; runtime="native" doesn't
+# — see core/native_engine.py's own module docstring ("this module never
+# imports langgraph") and orchestration.py's LangGraph imports, all local to
+# the specific build_*_graph/make_act_node/make_critique_node functions that
+# actually need them, not module-level. Workflow.supervisor/.swarm/
+# .blackboard/.debate/.dag/.fanout are LangGraph-only topologies with no
+# native equivalent today — calling one without this extra installed raises
+# a plain ModuleNotFoundError naming langgraph, not a confusing failure.
+langgraph = ["langgraph>=0.6"]
 anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.40"]
 mcp = ["mcp>=1.0"]
@@ -43,10 +52,22 @@ schema = ["jsonschema>=4.20"]
 # AgentSpec.from_yaml (agent_spec.py) — from_dict/from_json need no extra dep.
 spec = ["pyyaml>=6.0"]
 test = ["pytest>=8.0", "pytest-cov>=5.0", "httpx>=0.27", "jsonschema>=4.20"]
-all = ["agent-foundry[anthropic,openai,mcp,redis,rag,serve,autogen,a2a,cedar,otel,schema,spec]"]
+all = ["agent-foundry[langgraph,anthropic,openai,mcp,redis,rag,serve,autogen,a2a,cedar,otel,schema,spec]"]
 
 [project.scripts]
 foundry = "agent_foundry.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["agent_foundry*"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# PyYAML has a stub package (types-PyYAML) that's simply not installed here
+# — agent_spec.py's from_yaml() already imports it lazily/optionally
+# (pip install agent-foundry[spec]); this isn't a "no types exist" gap
+# ignore_missing_imports already covers, it's a "stubs exist, aren't
+# installed" one mypy reports separately.
+module = "yaml"
+ignore_missing_imports = true

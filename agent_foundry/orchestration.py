@@ -45,7 +45,7 @@ import operator
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Callable, TypedDict
+from typing import Annotated, Any, Callable, Mapping, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
@@ -156,7 +156,10 @@ class CritiqueConfig:
     the same one after it."""
 
     kpi: KPI  # e.g. kpi.reference_check_kpi("grounding", references=...) — any KPI works
-    context: Callable[[AgentState, str], dict[str, Any]]  # (state, draft_reply) -> this KPI's scoring context
+    # (state, draft_reply) -> this KPI's scoring context. Mapping[str, Any], not
+    # AgentState, since both engines' critique node call this — native_engine.py's
+    # own state is a plain dict, not the LangGraph-specific TypedDict.
+    context: Callable[[Mapping[str, Any], str], dict[str, Any]]
     escalate_threshold: float | None = None  # below this -> HITL pause; None -> never escalate, only ever flag
     fallback_message: str = "This answer needs review before it can be shared — a reviewer has been notified."
     # How many times a low-but-not-escalating score sends the turn back to
@@ -204,7 +207,7 @@ class AgentConfig:
     # that inspects the live turn and picks the route per-message — e.g.
     # a cheap/default/hard classifier keyed on question complexity instead
     # of one route for every turn a graph will ever handle.
-    task: str | Callable[[AgentState], str] = "default"
+    task: str | Callable[[Mapping[str, Any]], str] = "default"
     audit: AuditLog = field(default_factory=AuditLog)
     breaker: CircuitBreakerLike = field(default_factory=CircuitBreaker)
     cost_ledger: CostLedgerLike | None = None
@@ -228,7 +231,7 @@ class AgentConfig:
     # gets this SAME resolved value auto-injected by make_act_node,
     # overriding whatever the model supplied — a model should never be
     # trusted to name which real user's profile it's updating.
-    user_id: str | Callable[[AgentState], str] | None = None
+    user_id: str | Callable[[Mapping[str, Any]], str] | None = None
     # The mandatory Policy Decision Point (policy_engine.PolicyDecisionPoint)
     # every tool-call decision goes through — make_act_node/native_engine._act
     # ALWAYS call config.pdp.decide(...), never config.guardrails.check_action(
@@ -352,7 +355,8 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
         task = config.task(state) if callable(config.task) else config.task
         models = _resolve_model_names(config, state, task)
         with config.tracer.span("orchestration.think") as span:
-            call = (lambda: config.llm.complete(messages, task=task, tools=native_tools or None, models=models))
+            def call():
+                return config.llm.complete(messages, task=task, tools=native_tools or None, models=models)
             resp = with_timeout(call, seconds=config.step_timeout_s) if config.step_timeout_s else call()
             budget.spend(resp.cost_usd, thread_id=session_id)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model, native_tool_calls=len(resp.tool_calls), task=task)
@@ -553,6 +557,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             destructive = spec is not None and spec.destructive
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
+            assert config.pdp is not None
             gr = config.pdp.decide(tool_name, args, identity=identity, policy=policy,
                                     destructive=destructive, cost_so_far=cost_so_far,
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
@@ -868,7 +873,7 @@ def build_agent_graph(
     policy: Policy,
     budget: RunBudgetLike,
     tracer: Tracer,
-    task: str | Callable[[AgentState], str] = "default",
+    task: str | Callable[[Mapping[str, Any]], str] = "default",
     audit: AuditLog | None = None,
     breaker: CircuitBreakerLike | None = None,
     cost_ledger: CostLedgerLike | None = None,
@@ -879,7 +884,7 @@ def build_agent_graph(
     sla_tracker: SLATrackerLike | None = None,
     critique: CritiqueConfig | None = None,
     self_verify: bool = False,
-    user_id: str | Callable[[AgentState], str] | None = None,
+    user_id: str | Callable[[Mapping[str, Any]], str] | None = None,
     pdp: PolicyDecisionPoint | None = None,
     checkpointer: BaseCheckpointSaver | None = None,
 ):
@@ -909,11 +914,18 @@ def build_agent_graph(
         latency_budget=latency_budget, sla_tracker=sla_tracker, critique=critique, user_id=user_id, pdp=pdp,
     )
     graph = StateGraph(AgentState)
-    graph.add_node("think", make_think_node(config))
-    graph.add_node("act", make_act_node(config))
+    # The `# type: ignore[call-overload]`/`[arg-type]` tags on add_node/
+    # add_conditional_edges calls throughout this module (here and in every
+    # other build_*_graph function below): LangGraph's own StateGraph(AgentState)
+    # overloads don't bind cleanly against a plain Callable[[AgentState], dict]
+    # node function for mypy — a stub-inference limitation, not a real bug;
+    # this exact pattern is what every test in test_orchestration.py runs
+    # against a real compiled graph.
+    graph.add_node("think", make_think_node(config))  # type: ignore[call-overload, arg-type]
+    graph.add_node("act", make_act_node(config))  # type: ignore[call-overload, arg-type]
     mapping = {"act": "act", END: END}
     if critique is not None:
-        graph.add_node("critique", make_critique_node(config))
+        graph.add_node("critique", make_critique_node(config))  # type: ignore[call-overload, arg-type]
         if critique.max_retries > 0:
             # A low-but-not-escalating score can send the turn back to
             # "think" (see make_critique_node's retry branch / CLARIFY
@@ -922,13 +934,13 @@ def build_agent_graph(
         else:
             graph.add_edge("critique", END)
         if self_verify:
-            graph.add_node("self_verify", make_self_verify_node(config, context=critique.context))
+            graph.add_node("self_verify", make_self_verify_node(config, context=critique.context))  # type: ignore[call-overload, arg-type]
             graph.add_edge("self_verify", "critique")
             mapping["critique"] = "self_verify"
         else:
             mapping["critique"] = "critique"
     graph.set_entry_point("think")
-    graph.add_conditional_edges("think", make_router(config), mapping)
+    graph.add_conditional_edges("think", make_router(config), mapping)  # type: ignore[arg-type]
     graph.add_edge("act", "think")
     return graph.compile(checkpointer=checkpointer or MemorySaver())
 
@@ -962,21 +974,21 @@ def build_supervisor_graph(
     graph = StateGraph(AgentState)
     graph.add_node("supervisor", supervisor)
     for name, config in agents.items():
-        graph.add_node(f"{name}_think", make_think_node(config))
-        graph.add_node(f"{name}_act", make_act_node(config))
+        graph.add_node(f"{name}_think", make_think_node(config))  # type: ignore[call-overload, arg-type]
+        graph.add_node(f"{name}_act", make_act_node(config))  # type: ignore[call-overload, arg-type]
         mapping = {"act": f"{name}_act", END: END}
         if config.critique is not None:
             # Same wiring build_agent_graph does for a single agent — without
             # it, make_router(config) can return "critique" for a specialist
             # that has one configured, and this mapping has no such key
             # (found live: an unhandled route crashes the graph at runtime).
-            graph.add_node(f"{name}_critique", make_critique_node(config))
+            graph.add_node(f"{name}_critique", make_critique_node(config))  # type: ignore[call-overload, arg-type]
             if config.critique.max_retries > 0:
                 graph.add_conditional_edges(f"{name}_critique", make_critique_router(config), {"think": f"{name}_think", END: END})
             else:
                 graph.add_edge(f"{name}_critique", END)
             mapping["critique"] = f"{name}_critique"
-        graph.add_conditional_edges(f"{name}_think", make_router(config), mapping)
+        graph.add_conditional_edges(f"{name}_think", make_router(config), mapping)  # type: ignore[arg-type]
         graph.add_edge(f"{name}_act", f"{name}_think")
     graph.set_entry_point("supervisor")
     return graph.compile(checkpointer=checkpointer or MemorySaver())
@@ -990,19 +1002,19 @@ def build_swarm_graph(*, agents: dict[str, AgentConfig], entry: str, checkpointe
     graph = StateGraph(AgentState)
     for name, config in agents.items():
         others = [n for n in agents if n != name]
-        graph.add_node(f"{name}_think", make_think_node(config))
-        graph.add_node(f"{name}_act", make_act_node(config))
+        graph.add_node(f"{name}_think", make_think_node(config))  # type: ignore[call-overload, arg-type]
+        graph.add_node(f"{name}_act", make_act_node(config))  # type: ignore[call-overload, arg-type]
         mapping = {"act": f"{name}_act", END: END, **{peer: f"{peer}_think" for peer in others}}
         if config.critique is not None:
             # Same latent bug as build_supervisor_graph — make_swarm_router
             # falls back to make_router(config), which can return "critique".
-            graph.add_node(f"{name}_critique", make_critique_node(config))
+            graph.add_node(f"{name}_critique", make_critique_node(config))  # type: ignore[call-overload, arg-type]
             if config.critique.max_retries > 0:
                 graph.add_conditional_edges(f"{name}_critique", make_critique_router(config), {"think": f"{name}_think", END: END})
             else:
                 graph.add_edge(f"{name}_critique", END)
             mapping["critique"] = f"{name}_critique"
-        graph.add_conditional_edges(f"{name}_think", make_swarm_router(config, others), mapping)
+        graph.add_conditional_edges(f"{name}_think", make_swarm_router(config, others), mapping)  # type: ignore[arg-type]
         graph.add_edge(f"{name}_act", f"{name}_think")
     graph.set_entry_point(f"{entry}_think")
     return graph.compile(checkpointer=checkpointer or MemorySaver())
@@ -1039,8 +1051,8 @@ def build_fanout_graph(*, config: AgentConfig, checkpointer: BaseCheckpointSaver
         ]
 
     graph = StateGraph(FanoutState)
-    graph.add_node("worker", make_think_node(config))
-    graph.add_node("worker_act", make_act_node(config))
+    graph.add_node("worker", make_think_node(config))  # type: ignore[call-overload, arg-type]
+    graph.add_node("worker_act", make_act_node(config))  # type: ignore[call-overload, arg-type]
     graph.set_conditional_entry_point(dispatch, ["worker"])
     # Previously an unconditional worker -> END edge, so a tool call from a
     # fanned-out worker was never executed (make_router wasn't even called).
@@ -1182,7 +1194,7 @@ def build_dag_graph(steps: list[DAGStep], *, checkpointer: BaseCheckpointSaver |
     depended_on = {dep for step in steps for dep in step.depends_on}
     graph = StateGraph(DAGState)
     for step in steps:
-        graph.add_node(step.name, make_step(step))
+        graph.add_node(step.name, make_step(step))  # type: ignore[call-overload, arg-type]
         if not step.depends_on:
             graph.add_edge(START, step.name)
         for dep in step.depends_on:
@@ -1236,7 +1248,7 @@ def _get_all_tool_calls(message: dict) -> list[tuple[str, dict, str | None]]:
     native = message.get("tool_calls")
     if native:
         return [(tc["name"], tc["args"], tc["id"]) for tc in native]
-    name, args = _parse_tool_call(message.get("content"))
+    name, args = _parse_tool_call(message.get("content") or "")
     return [(name, args, None)] if name else []
 
 
@@ -1272,7 +1284,7 @@ def _tool_timeout(config: AgentConfig, spec: ToolSpec | None) -> float | None:
     return config.step_timeout_s
 
 
-def _resolve_identity(config: AgentConfig, state: dict) -> Identity:
+def _resolve_identity(config: AgentConfig, state: Mapping[str, Any]) -> Identity:
     """The identity used for THIS turn's authorization (PDP), tool
     invocation (cache tenant-scoping, PermissionDenied), and audit
     decisions — prefers a per-request identity carried in state
@@ -1296,7 +1308,7 @@ def _resolve_identity(config: AgentConfig, state: dict) -> Identity:
     return Identity(id=raw["id"], tenant_id=raw["tenant_id"], roles=tuple(raw.get("roles", ())))
 
 
-def _resolve_budget(config: AgentConfig, state: dict) -> RunBudgetLike:
+def _resolve_budget(config: AgentConfig, state: Mapping[str, Any]) -> RunBudgetLike:
     """Per-request budget override — state["request_budget"], seeded from
     ExecutionContext.budget when a caller sets one (e.g. a per-customer
     spend cap tighter than this agent's own default) — else config.budget,
@@ -1307,7 +1319,7 @@ def _resolve_budget(config: AgentConfig, state: dict) -> RunBudgetLike:
     return state.get("request_budget") or config.budget
 
 
-def _check_deadline(state: dict, session_id: str) -> None:
+def _check_deadline(state: Mapping[str, Any], session_id: str) -> None:
     """Raises BudgetExceeded once ExecutionContext.deadline (an absolute
     unix timestamp) has passed. Composes with, doesn't replace,
     step_timeout_s/latency_budget — those bound a single step/the whole
@@ -1318,7 +1330,7 @@ def _check_deadline(state: dict, session_id: str) -> None:
         raise BudgetExceeded(f"thread {session_id!r} passed its deadline ({deadline})")
 
 
-def _check_cancellation(state: dict) -> None:
+def _check_cancellation(state: Mapping[str, Any]) -> None:
     """Raises RunCancelled once ExecutionContext.cancellation_token has been
     cancelled — see CancellationToken's own docstring for why this is
     cooperative, checked only at loop-safe points, not preemptive."""
@@ -1327,7 +1339,7 @@ def _check_cancellation(state: dict) -> None:
         raise RunCancelled("run was cancelled")
 
 
-def _resolve_tool_policy(config: AgentConfig, state: dict) -> Policy:
+def _resolve_tool_policy(config: AgentConfig, state: Mapping[str, Any]) -> Policy:
     """Per-request Policy override (ExecutionContext.tool_policy) — narrows,
     never widens, config.policy: allowed_tools intersects (a tool must be
     allowed by BOTH), requires_approval unions (an override can only ADD an
@@ -1348,7 +1360,7 @@ def _resolve_tool_policy(config: AgentConfig, state: dict) -> Policy:
     )
 
 
-def _resolve_model_names(config: AgentConfig, state: dict, task: str) -> list[str] | None:
+def _resolve_model_names(config: AgentConfig, state: Mapping[str, Any], task: str) -> list[str] | None:
     """Per-request model allowlist (ExecutionContext.model_policy =
     {"allowed_models": [...]}) — narrows, never widens, which of
     config.llm.routes[task]'s models this call may use. Deliberately scoped
@@ -1365,7 +1377,7 @@ def _resolve_model_names(config: AgentConfig, state: dict, task: str) -> list[st
     return narrowed or None
 
 
-def _memory_key(state: dict, session_id: str) -> str:
+def _memory_key(state: Mapping[str, Any], session_id: str) -> str:
     """Overrides the key used for THIS call's semantic/RAG memory reads
     (ExecutionContext.memory_scope) — e.g. sharing retrieved context across
     two otherwise-separate threads. Deliberately NOT used for the

@@ -32,7 +32,7 @@ class Tracer:
 
     @contextlib.contextmanager
     def span(self, name: str, **attrs: Any) -> Iterator[dict[str, Any]]:
-        record = {
+        record: dict[str, Any] = {
             "trace_id": self.thread_id,
             "span_id": uuid.uuid4().hex[:12],
             "name": name,

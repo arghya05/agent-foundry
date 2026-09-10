@@ -253,9 +253,15 @@ class OpenAIProvider:
 
     def stream(self, messages: list[dict], *, model: str, max_tokens: int = 1024, **kw: Any) -> Iterator[str]:
         """Real token streaming via OpenAI's streaming API."""
-        stream = self._client.chat.completions.create(model=model, messages=self._turns(messages), max_tokens=max_tokens, stream=True, **kw)
+        # This codebase's messages are deliberately provider-agnostic plain
+        # dicts (see _turns()), not typed to OpenAI's own exact
+        # ChatCompletion*MessageParam union — real behavior is correct,
+        # just outside what OpenAI's stubs can verify statically.
+        stream = self._client.chat.completions.create(
+            model=model, messages=self._turns(messages), max_tokens=max_tokens, stream=True, **kw,  # type: ignore[arg-type]
+        )
         for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
+            delta = chunk.choices[0].delta.content if chunk.choices else None  # type: ignore[union-attr]
             if delta:
                 yield delta
 
