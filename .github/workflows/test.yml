@@ -6,6 +6,33 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      # Config lives in pyproject.toml's [tool.ruff] — ruff needs no package
+      # install of agent-foundry itself, it's a pure AST/syntax check.
+      - run: ruff check agent_foundry/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Real packages installed (not just `pip install mypy`) so mypy
+      # cross-checks against actual third-party stubs/types where they
+      # exist, not just the pyproject.toml [tool.mypy] ignore_missing_imports
+      # fallback — same install shape as the pytest job below, so a local
+      # `mypy agent_foundry/` (with [all] installed) matches CI exactly.
+      - run: pip install -e ".[all,test]" mypy
+      - run: mypy agent_foundry/
+
   pytest:
     runs-on: ubuntu-latest
     strategy:
@@ -27,5 +54,8 @@ jobs:
       - name: Install agent-foundry with all extras
         run: pip install -e ".[all,test]"
 
+      # 80 is a real margin below the ~84% this suite currently holds, not a
+      # threshold tuned to just barely pass — catches an actual coverage
+      # regression without flaking on ordinary day-to-day drift.
       - name: Run test suite with coverage
-        run: pytest -q --cov=agent_foundry --cov-report=term-missing
+        run: pytest -q --cov=agent_foundry --cov-report=term-missing --cov-fail-under=80
