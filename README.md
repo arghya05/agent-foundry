@@ -604,7 +604,21 @@ today. **CrewAI**/**AutoGen** stay on the other axis — `crewai_bridge.py`/
 from a `Runtime` backend; neither framework exposes a "run this loop"
 primitive the way LangGraph/native do, so forcing them into `WorkflowEngine`
 would mean a different kind of adapter than `build()`/`run()`/`stream()`/
-`resume()` — not attempted here.
+`resume()` — not attempted here. The interop is two-way, and neither
+direction needs a new abstraction — both already reduce to a `ToolSpec`:
+
+```mermaid
+flowchart LR
+    AF["Agent Foundry agent\nRBAC · guardrails · audit log"] --> Reg{{"ToolRegistry"}}
+    Reg -->|"crewai_as_tool(crew)"| Crew["CrewAI Crew"]
+    Reg -->|"autogen_as_tool(agent)"| Auto["AutoGen Agent"]
+    Crew -.->|"to_langchain_tool(spec)\nCrewAI tools accept LangChain BaseTool"| Reg
+    Auto -.->|"any ToolSpec.fn\nAutoGen tools accept plain callables"| Reg
+```
+
+Solid arrows: wrap their agent as one of our tools. Dashed arrows: hand one
+of our tools to their agent — no adapter needed either way, since a
+`ToolSpec` is just a name, a description, and a Python callable underneath.
 
 The runtime choice isn't locked in at construction either — `agent.run(msg,
 runtime="native")` overrides the `Agent`'s own default for one call, lazily
