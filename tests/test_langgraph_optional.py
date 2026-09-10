@@ -1,8 +1,9 @@
-"""Real proof that `pip install agent-foundry` (no [langgraph] extra) plus
-`Agent(..., runtime="native")` works with zero LangGraph installed — not
-just that orchestration.py's imports "look lazy" on a source read. Builds a
-throwaway venv (uv venv) with agent-foundry installed but LangGraph
-deliberately absent, and runs a real script inside it.
+"""Real proof that `pip install agent-foundry` (no [langgraph] extra) is a
+complete, working agent with zero LangGraph installed — Agent()'s runtime
+default is "native", so this needs no runtime= kwarg at all — not just that
+orchestration.py's imports "look lazy" on a source read. Builds a throwaway
+venv (uv venv) with agent-foundry installed but LangGraph deliberately
+absent, and runs a real script inside it.
 
 Slower (builds a venv, installs the package) — marked integration, same as
 this suite's other real-external-process tests, but still runs by default
@@ -45,7 +46,8 @@ class ScriptedProvider:
         return LLMResponse(text=self._responses.pop(0), model=model, input_tokens=1, output_tokens=1, cost_usd=0.0)
 
 
-agent = Agent("t", "Chat.", runtime="native", llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+agent = Agent("t", "Chat.", llm=LLMGateway(provider=ScriptedProvider(["hello"])))  # no runtime= — proves the default itself needs no langgraph
+assert agent.runtime == "native", agent.runtime
 result = agent.run("hi", context=ExecutionContext(thread_id="langgraph-optional-smoke"))
 assert result.content == "hello", result.content
 print("NATIVE_RUNTIME_OK")

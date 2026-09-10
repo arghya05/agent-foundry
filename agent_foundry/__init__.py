@@ -32,9 +32,12 @@ kwargs. `Agent.arun`/`.astream`/`.aresume` are non-blocking counterparts to
 `@tool`-decorated `async def` functions (`tool_decorator.py`) are the async
 tool-side counterpart.
 
-`Agent(runtime=...)` picks a default execution backend (`"langgraph"` or
-`"native"` — a from-scratch, zero-LangGraph-dependency implementation of
-the same think/act/critique loop); `agent.run(msg, runtime=...)` overrides
+`Agent(runtime=...)` picks a default execution backend — `"native"` (the
+default: a from-scratch, zero-LangGraph-dependency implementation of the
+think/act/critique loop, so `pip install agent-foundry` with no extras is
+a complete, working agent) or `"langgraph"` (opts into LangGraph's
+StateGraph for its persistence/streaming/HITL machinery, required for the
+multi-agent Workflow topologies); `agent.run(msg, runtime=...)` overrides
 it for one call. Both dispatch through `core.protocols.WorkflowEngine` +
 the `RUNTIMES` registry (`core/engines.py`) — the seam a new backend
 (Temporal, say) plugs into by implementing `WorkflowEngine` and adding one

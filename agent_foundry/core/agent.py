@@ -13,12 +13,14 @@ topology-specific arguments that don't fit a single Agent's constructor —
 those are Workflow's factories, each pulling the underlying AgentConfig out
 of the Agent instances passed in.
 
-`runtime="langgraph"` (default) or `runtime="native"` picks which
+`runtime="native"` (default) or `runtime="langgraph"` picks which
 WorkflowEngine actually runs that AgentConfig — native_engine.NativeEngine is
-a second, framework-free implementation of the same think/act/critique loop,
-proving core.protocols.WorkflowEngine is a real seam rather than a
-LangGraph-only abstraction. Both produce the same RunResult shape; Agent's
-own public methods below don't know or care which one is underneath.
+the framework-free implementation of the think/act/critique loop that ships
+as the default so `pip install agent-foundry` with zero extras is a complete,
+working agent; `runtime="langgraph"` opts into LangGraph's StateGraph for its
+persistence/streaming/HITL machinery (and is the only runtime the multi-agent
+Workflow topologies below support). Both produce the same RunResult shape;
+Agent's own public methods below don't know or care which one is underneath.
 """
 from __future__ import annotations
 
@@ -334,7 +336,7 @@ class Agent:
         policy: Policy | None = None,
         identity: Identity | None = None,
         workflow: str = "react",
-        runtime: str = "langgraph",
+        runtime: str = "native",
         role: AgentRole = AgentRole.GENERALIST,
         critique: CritiqueConfig | None = None,
         user_id: str | Callable[[Any], str] | None = None,

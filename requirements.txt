@@ -1,3 +1,8 @@
+# NOT the pip package's dependency spec — that's pyproject.toml's
+# [project.dependencies]/[project.optional-dependencies] (base install is
+# cryptography only; langgraph is the `agent-foundry[langgraph]` extra).
+# This file pins deps for running this repo's own bundled examples/
+# Dockerfile directly, several of which use runtime="langgraph".
 langgraph>=0.6
 anthropic>=0.40
 cryptography>=42.0

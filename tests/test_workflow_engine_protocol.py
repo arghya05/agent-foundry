@@ -103,6 +103,15 @@ def test_agent_routes_through_langgraph_workflow_engine_not_an_inline_branch():
     assert hasattr(agent.graph, "ainvoke")  # a real compiled LangGraph graph
 
 
+def test_agent_defaults_to_native_not_langgraph():
+    """Locks the "pip install agent-foundry with zero extras is a complete,
+    working agent" claim — Agent()'s runtime default must stay "native" so
+    it never needs the langgraph extra unless a caller opts in."""
+    agent = Agent("t", "hi", llm=LLMGateway(provider=ScriptedProvider(["hello"])))
+    assert agent.runtime == "native"
+    assert isinstance(agent.graph, _NativeGraph)
+
+
 def test_agent_role_reaches_the_native_graphs_own_config():
     """_NativeGraph holds the whole AgentConfig object directly, so this
     direction always worked — the real regression was the langgraph path,

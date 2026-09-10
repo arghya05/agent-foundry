@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-foundry"
 version = "0.1.0"
-description = "A vendor-neutral, governed runtime for building and operating enterprise agents."
+description = "Python-native runtime and control plane for governed enterprise agents, with pluggable execution engines (native, LangGraph) and model providers."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

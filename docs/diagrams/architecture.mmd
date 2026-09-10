@@ -101,8 +101,8 @@ flowchart TD
     Spec --> Core
     Quick & Serve & Channels & A2A --> Loop
     Core --> Registry
-    Registry -- "langgraph (default)" --> Loop
-    Registry -- "native" --> NativeLoop
+    Registry -- "langgraph (opt-in)" --> Loop
+    Registry -- "native (default)" --> NativeLoop
     Core --> ExecCtx
     Core -. "agent.start(msg)" .-> RunLifecycle
     Core -. "run_eval(agent, cases)" .-> EvalGate

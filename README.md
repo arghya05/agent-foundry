@@ -10,21 +10,35 @@ taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
 scratch each time.
 
-**Agent Foundry is an opinionated production runtime for governed AI
-agents, not a framework built on top of any one of them.** `Agent`, the
-domain model (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/
-`Memory`/`Guardrail`/`Evaluator`), and the governance/eval/observability
-layers are plain Python — dataclasses and `Protocol`s, no LangChain or
-LangGraph import anywhere in that path (verified: `grep` for either across
-`orchestration.py`/`core/agent.py` returns nothing). Execution is pluggable
-behind one seam (`core.protocols.WorkflowEngine`, dispatched through a
-`RUNTIMES` registry — see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
-`runtime="native"` is a complete, from-scratch implementation of the same
-think/act/critique loop with zero LangGraph dependency; `runtime="langgraph"`
-(the default) runs the identical loop through LangGraph's `StateGraph` for
-its persistence/streaming/HITL machinery. Define an agent once; run it as a
-single agent, supervisor, swarm, debate, DAG, or agent-as-tool, on whichever
-backend you choose — per `Agent`, or per call.
+**Agent Foundry is an open-source runtime and control plane for building,
+governing, and operating enterprise AI agents — a Python-native core with
+pluggable execution engines, model providers, and agent frameworks, not a
+framework built on top of any one of them.** `Agent`, the domain model
+(`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/`Memory`/
+`Guardrail`/`Evaluator`), and the governance/eval/observability layers are
+plain Python — dataclasses and `Protocol`s, no LangChain or LangGraph
+import anywhere in that path (verified: `grep` for either across
+`orchestration.py`/`core/agent.py` returns nothing), and neither is a
+base-install dependency — `pip install agent-foundry` pulls in
+`cryptography` only. Execution is pluggable behind one seam
+(`core.protocols.WorkflowEngine`, dispatched through a `RUNTIMES` registry
+— see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
+`runtime="native"` (the default) is a complete, from-scratch implementation
+of the think/act/critique loop with zero LangGraph dependency, so the base
+install is a complete, working agent; `runtime="langgraph"`
+(`pip install agent-foundry[langgraph]`) runs the identical loop through
+LangGraph's `StateGraph` for its persistence/streaming/HITL machinery, and
+is required for the multi-agent `Workflow` topologies below. Define an
+agent once; run it as a single agent, supervisor, swarm, debate, DAG, or
+agent-as-tool, on whichever backend you choose — per `Agent`, or per call.
+
+| | |
+|---|---|
+| **Native Python** | first-class runtime (the default, zero LangGraph dependency) |
+| **LangGraph** | optional adapter — `pip install agent-foundry[langgraph]`, needed for multi-agent topologies |
+| **MCP** | tool interoperability — any MCP server's tools as `ToolSpec`s |
+| **A2A** | agent interoperability — Agent2Agent protocol bridge |
+| **AutoGen / CrewAI** | external-agent interoperability — their agents as tools, and vice versa |
 
 LangChain shows up in exactly one place: `quickstart.py`'s
 `plug_and_play_agent()`, a deliberately separate, minimal entry point built
@@ -36,22 +50,22 @@ entirely optional (`pip install agent-foundry[langchain]`), and nothing
 > **36+ modules** · a Python-native domain model (`Agent`/`AgentSpec`/
 > `Model`/`Message`/`Policy`/`ToolRegistry`/`ExecutionContext`) behind a
 > pluggable `WorkflowEngine` seam · two real execution backends today
-> (native Python, zero LangGraph dependency, and LangGraph, chosen per-`Agent`
-> or per-call) · **7 multi-agent topologies** · a declarative `AgentSpec`
-> (YAML/JSON) alongside the Python API, with structured tool metadata and
-> named critique evaluators · `arun`/`astream` and concurrent same-turn tool
-> dispatch · a formal run lifecycle and eval-as-release-gate (KPI board,
-> trajectory checks, versioned datasets, baseline regression comparison,
-> pairwise comparison, failure attribution) on one shared core · **460+
-> tests passing**, ruff/mypy-clean CI · MCP / A2A / AutoGen / CrewAI
-> protocol interop built in
+> (native Python, zero LangGraph dependency and the default, and LangGraph,
+> chosen per-`Agent` or per-call) · **7 multi-agent topologies** · a
+> declarative `AgentSpec` (YAML/JSON) alongside the Python API, with
+> structured tool metadata and named critique evaluators · `arun`/`astream`
+> and concurrent same-turn tool dispatch · a formal run lifecycle and
+> eval-as-release-gate (KPI board, trajectory checks, versioned datasets,
+> baseline regression comparison, pairwise comparison, failure attribution)
+> on one shared core · **460+ tests passing**, ruff/mypy-clean CI · MCP /
+> A2A / AutoGen / CrewAI protocol interop built in
 
 ```mermaid
 flowchart TD
     A["Your code\nAgent(...) / AgentSpec.from_yaml(...)"] --> B["Domain model — plain Python\nAgentConfig · Policy · Model · Message · ToolRegistry\n(no LangChain/LangGraph import here)"]
     B --> C{"WorkflowEngine seam\nRUNTIMES[runtime]"}
-    C -->|"runtime='native' (default-free)"| D["Native — core/native_engine.py\nzero LangGraph dependency"]
-    C -->|"runtime='langgraph' (default)"| E["LangGraph — StateGraph\npersistence · streaming · HITL"]
+    C -->|"runtime='native' (default)"| D["Native — core/native_engine.py\nzero LangGraph dependency"]
+    C -->|"runtime='langgraph' (opt-in)"| E["LangGraph — StateGraph\npersistence · streaming · HITL"]
     C -.->|"not shipped yet"| F["Temporal (seam supports it)"]
 ```
 
@@ -214,8 +228,8 @@ flowchart TD
     Spec --> Core
     Quick & Serve & Channels & A2A --> Loop
     Core --> Registry
-    Registry -- "langgraph (default)" --> Loop
-    Registry -- "native" --> NativeLoop
+    Registry -- "langgraph (opt-in)" --> Loop
+    Registry -- "native (default)" --> NativeLoop
     Core --> ExecCtx
     Core -. "agent.start(msg)" .-> RunLifecycle
     Core -. "run_eval(agent, cases)" .-> EvalGate
@@ -564,12 +578,14 @@ only covers the single-agent shape (`workflow="react"`, the default); the
 
 #### Runtime backends: native, LangGraph, and what plugs in next
 
-Pass `runtime="native"` for a second, genuinely framework-free implementation
-of the same think/act/critique loop (`core/native_engine.py` — a plain Python
-while-loop, no `StateGraph`, no `interrupt()`, no LangGraph import at all):
+`Agent(...)` defaults to `runtime="native"` — `core/native_engine.py`, a
+plain Python while-loop implementation of the same think/act/critique loop
+(no `StateGraph`, no `interrupt()`, no LangGraph import at all), so
+`pip install agent-foundry` with zero extras already gives you a complete,
+working agent:
 
 ```python
-agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead], runtime="native")
+agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead])
 result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"))
 ```
 
@@ -582,9 +598,14 @@ than just both existing. It covers the single-agent react loop only (not
 `self_verify`, not the multi-agent `Workflow` topologies, and multiple
 *simultaneously* pending tool approvals in one turn are resolved one
 `.resume()` call at a time rather than LangGraph's queued-multi-interrupt
-support) and keeps its own in-memory per-thread state (no `checkpointer=`
-option — same MemorySaver-equivalent, non-restart-durable default every
-`build_*_graph` already has).
+support), keeps its own in-memory per-thread state (no `checkpointer=`
+option — non-restart-durable, so a process restart loses in-flight state),
+and streams by running the turn to completion and yielding one final chunk
+rather than incremental steps. Pass `runtime="langgraph"`
+(`pip install agent-foundry[langgraph]`) when you need durable
+checkpointing, real incremental streaming, or any of the multi-agent
+`Workflow` topologies below — none of which the native engine implements
+yet.
 
 Both backends dispatch through the same seam: `core.protocols.WorkflowEngine`
 (`build`/`run`/`stream`/`resume`, `@runtime_checkable` and satisfied by both
@@ -621,13 +642,13 @@ of our tools to their agent — no adapter needed either way, since a
 `ToolSpec` is just a name, a description, and a Python callable underneath.
 
 The runtime choice isn't locked in at construction either — `agent.run(msg,
-runtime="native")` overrides the `Agent`'s own default for one call, lazily
-building and caching a second runner the first time a non-default runtime is
-actually used:
+runtime="langgraph")` overrides the `Agent`'s own default for one call,
+lazily building and caching a second runner the first time a non-default
+runtime is actually used:
 
 ```python
-agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead])  # runtime="langgraph", the default
-result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"), runtime="native")
+agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead])  # runtime="native", the default
+result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"), runtime="langgraph")
 ```
 
 `arun`/`astream`/`resume`/`aresume` all take the same `runtime=` keyword.
