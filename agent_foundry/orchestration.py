@@ -45,12 +45,43 @@ import operator
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Callable, Mapping, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Mapping, TypedDict
 
-from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, Send, interrupt
+# LangGraph is an optional dependency (pip install agent-foundry[langgraph])
+# — runtime="native" (core/native_engine.py) never imports langgraph at all,
+# and reuses several pure-Python helpers from this module (_dispatch_tool_
+# calls, _finalize_turn, _get_all_tool_calls, _resolve_identity,
+# _tool_param_names, _tool_timeout, _default_idempotency_key, CLARIFY_PREFIX,
+# AgentConfig — none of them touch a LangGraph symbol). For importing THOSE
+# names to not require langgraph either, none of the actual langgraph
+# imports below can live at module top level — each is local to the
+# specific make_router/make_critique_router/make_act_node/make_critique_node/
+# build_*_graph function that needs it, imported lazily on first call.
+# BaseCheckpointSaver appears only as a type hint (checkpointer: ... | None)
+# across those functions, never instantiated, so — under this module's own
+# `from __future__ import annotations` — it needs no runtime import at all;
+# only a TYPE_CHECKING one, for static analysis.
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
+# Send is the one exception to "local import only": build_fanout_graph's
+# dispatch() function is annotated `-> list[Send]`, and LangGraph's own
+# set_conditional_entry_point() resolves that annotation via
+# typing.get_type_hints(dispatch) at graph-build time — which looks Send up
+# in dispatch.__globals__ (this MODULE's namespace, always, regardless of
+# how deeply dispatch is nested), not in build_fanout_graph's own local
+# scope. A local-only import breaks that resolution with a NameError the
+# instant anyone actually calls Workflow.fanout — found live, not
+# theoretical (test_orchestration.py's fanout tests caught it immediately).
+# Guarded, not a plain top-level import: build_fanout_graph is LangGraph-
+# only regardless (like every other build_*_graph function here), so this
+# degrades to a clear ModuleNotFoundError only when build_fanout_graph is
+# actually called without langgraph installed — importing this module never
+# requires it.
+try:
+    from langgraph.types import Send
+except ImportError:
+    Send = None  # type: ignore[assignment,misc]
 
 from .blackboard import Blackboard, parse_post
 from .context import ContextEngine, MemoryStore
@@ -469,6 +500,8 @@ def _dispatch_tool_calls(
 
 
 def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
+    from langgraph.types import interrupt
+
     def tool_msg(content: Any, *, tool_call_id: str | None, ok: bool = True) -> dict:
         msg: dict[str, Any] = {"role": "tool", "content": content}
         if tool_call_id is not None:
@@ -677,6 +710,7 @@ def make_critique_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
     Only reached when config.critique is set (see make_router) and think
     produced a final, tool-call-free answer — never runs mid-tool-loop."""
+    from langgraph.types import interrupt
 
     def critique(state: AgentState) -> dict:
         assert config.critique is not None
@@ -815,6 +849,7 @@ def make_router(config: AgentConfig) -> Callable[[AgentState], str]:
     config.critique is set; a final answer routes straight to END
     (finalizing the turn here) otherwise, exactly as before critique
     existed."""
+    from langgraph.graph import END
 
     def route(state: AgentState) -> str:
         if _get_all_tool_calls(state["messages"][-1]):
@@ -836,6 +871,7 @@ def make_critique_router(config: AgentConfig) -> Callable[[AgentState], str]:
     appended a retry prompt (make_critique_node's retry branch always
     appends it as role="user") -> back to "think" for another attempt;
     anything else (passed, flagged, or a CLARIFY question) -> END."""
+    from langgraph.graph import END
 
     def route(state: AgentState) -> str:
         if state["messages"][-1]["role"] == "user":
@@ -904,6 +940,9 @@ def build_agent_graph(
     instead of the default think -> act -> ... -> critique -> END. See
     make_self_verify_node's own docstring for when this is worth the extra
     LLM call (agents with a deliberately loose critique.escalate_threshold)."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
+
     if self_verify and critique is None:
         raise ValueError("self_verify=True requires critique to be set — it reuses critique.context")
     config = AgentConfig(
@@ -958,6 +997,9 @@ def build_supervisor_graph(
     primitive langgraph-supervisor uses. Each specialist keeps its own tools,
     guardrails, policy, budget and memory; nothing is shared unless you choose
     to pass the same object into more than one AgentConfig."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
+    from langgraph.types import Command
 
     def supervisor(state: AgentState) -> Command[Any]:
         options = ", ".join(agents)
@@ -999,6 +1041,9 @@ def build_swarm_graph(*, agents: dict[str, AgentConfig], entry: str, checkpointe
     directly to a named peer (see make_swarm_router). Complements
     build_supervisor_graph's centralized routing; same AgentConfig/node-factory
     primitives either way."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
+
     graph = StateGraph(AgentState)
     for name, config in agents.items():
         others = [n for n in agents if n != name]
@@ -1034,6 +1079,11 @@ def build_fanout_graph(*, config: AgentConfig, checkpointer: BaseCheckpointSaver
     complex as it can be": one specialist applied to N inputs at once, instead of
     N specialists applied to one input (build_supervisor_graph/build_swarm_graph).
     """
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
+
+    if Send is None:
+        raise ModuleNotFoundError("build_fanout_graph needs langgraph — install with `pip install agent-foundry[langgraph]`")
     if config.critique is not None:
         # See the "critique deliberately NOT wired in" comment below — fail
         # loud at build time instead of a router returning an unmapped
@@ -1107,6 +1157,8 @@ def build_blackboard_graph(*, agents: dict[str, AgentConfig], blackboard: Blackb
     contributes with `POST <section>: <text>`, instead of talking to each other
     directly. Runs `rounds` full passes, sequentially per round (a shared,
     mutable Blackboard isn't given concurrent writers within a round)."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
 
     def collaborate(state: BlackboardState) -> dict:
         parent_thread = state.get("thread_id") or "blackboard"
@@ -1137,6 +1189,8 @@ def build_blackboard_graph(*, agents: dict[str, AgentConfig], blackboard: Blackb
 def build_debate_graph(*, debaters: dict[str, AgentConfig], judge: AgentConfig, checkpointer: BaseCheckpointSaver | None = None):
     """N debaters answer independently; the judge (AgentRole.VERIFIER by
     convention) reviews every answer and picks or synthesizes the final one."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, StateGraph
 
     def debate(state: AgentState) -> dict:
         results = []
@@ -1179,6 +1233,8 @@ def build_dag_graph(steps: list[DAGStep], *, checkpointer: BaseCheckpointSaver |
     that need a reliable pipeline (fetch -> validate -> transform -> notify) rather
     than judgment at every hop. Independent steps (no shared dependency) run in
     parallel automatically, same as build_fanout_graph's Send-based concurrency."""
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.graph import END, START, StateGraph
 
     class DAGState(TypedDict):
         results: Annotated[dict[str, Any], operator.or_]

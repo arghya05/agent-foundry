@@ -7,9 +7,18 @@ compiled graph and the same Command(resume=...) contract.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from langgraph.types import Command
+
+@dataclass
+class _ResumePayload:
+    """langgraph-free stand-in for langgraph.types.Command(resume=...), for
+    when `graph` is a native_engine._NativeGraph — see core.agent's own
+    _ResumePayload (same shim, duplicated rather than imported: this module
+    only ever takes a bare compiled `graph`, no dependency on core.agent)."""
+
+    resume: dict[str, Any]
 
 
 def handle_interrupt(graph: Any, config: dict, state: dict) -> dict:
@@ -18,7 +27,12 @@ def handle_interrupt(graph: Any, config: dict, state: dict) -> dict:
         print(f"\n[approval needed] tool={i.value['tool']} args={i.value['args']}")
         print(f"reason: {i.value['reason']}")
         approved = input("approve? [y/N] ").strip().lower() == "y"
-        state = graph.invoke(Command(resume={"approved": approved}), config)
+        if hasattr(graph, "ainvoke"):  # a real LangGraph compiled graph — needs a real Command
+            from langgraph.types import Command
+            command: Any = Command(resume={"approved": approved})
+        else:
+            command = _ResumePayload(resume={"approved": approved})
+        state = graph.invoke(command, config)
     return state
 
 

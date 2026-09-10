@@ -12,14 +12,26 @@ needs no engine-specific branching either.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
-
-from langgraph.types import Command
 
 from ..orchestration import AgentConfig, build_agent_graph
 from .execution_context import ExecutionContext
 from .native_engine import _NativeGraph
 from .result import RunResult, result_from_graph_output
+
+
+@dataclass
+class _ResumePayload:
+    """A langgraph-free stand-in for langgraph.types.Command(resume=...) —
+    same shim core.agent._CompiledWorkflow uses, duplicated here rather than
+    imported (this module is a separate, parallel WorkflowEngine
+    implementation, not layered on core.agent — see this module's own
+    docstring). native_engine._NativeGraph.invoke() duck-types on exactly
+    the `.resume` attribute, never a real Command, so this satisfies it
+    identically without requiring langgraph installed."""
+
+    resume: dict[str, Any]
 
 
 def _invoke(compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:
@@ -38,7 +50,12 @@ def _invoke_resume(compiled: Any, *, approved: bool, decision: dict[str, Any] | 
     # only ever read `.get("approved")` off this dict, so extra keys are
     # additive and never break either.
     payload = {"approved": approved, **(decision or {})}
-    raw = compiled.invoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
+    if hasattr(compiled, "ainvoke"):  # a real LangGraph compiled graph — needs a real Command
+        from langgraph.types import Command
+        command: Any = Command(resume=payload)
+    else:
+        command = _ResumePayload(resume=payload)
+    raw = compiled.invoke(command, {"configurable": {"thread_id": thread_id}})
     return result_from_graph_output(raw, thread_id=thread_id)
 
 

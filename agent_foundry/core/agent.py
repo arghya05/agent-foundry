@@ -24,9 +24,8 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Iterator, cast
-
-from langgraph.types import Command
 
 if TYPE_CHECKING:
     from .run import Run
@@ -125,6 +124,18 @@ def _default_policy(tool_names: list[str]) -> Policy:
     return Policy(allowed_tools=frozenset(tool_names))
 
 
+@dataclass
+class _ResumePayload:
+    """A langgraph-free stand-in for langgraph.types.Command(resume=...),
+    used only against native_engine._NativeGraph. That engine's own .invoke()
+    duck-types on exactly one attribute — `getattr(state_or_command,
+    "resume", None)` (see its own docstring) — never constructs or checks
+    against a real Command, so this satisfies it identically without
+    requiring langgraph to be installed for runtime="native"."""
+
+    resume: dict[str, Any]
+
+
 class _CompiledWorkflow:
     """Shared run/stream/resume/batch/schedule/as_tool/serve surface over one
     compiled LangGraph graph — the thing that actually removes
@@ -215,6 +226,18 @@ class _CompiledWorkflow:
         for chunk in await asyncio.to_thread(lambda: list(self.stream(message, context=context))):
             yield chunk
 
+    def _resume_command(self, payload: dict[str, Any]) -> Any:
+        # Same hasattr(self._graph, "ainvoke") discriminator arun()/astream()/
+        # aresume() already use for LangGraph-vs-native — a real LangGraph
+        # graph needs a real Command (its own .invoke() checks against it);
+        # _NativeGraph duck-types on just a `.resume` attribute (see
+        # native_engine.py's own docstring) and never needs langgraph
+        # installed at all.
+        if hasattr(self._graph, "ainvoke"):
+            from langgraph.types import Command
+            return Command(resume=payload)
+        return _ResumePayload(resume=payload)
+
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         # `decision` layers richer resume payloads (an event's data, a
         # clarification answer, a payment confirmation id) on top of the
@@ -222,7 +245,7 @@ class _CompiledWorkflow:
         # for why extra keys are always safe to add here.
         thread_id = context.resolved_thread_id()
         payload = {"approved": approved, **(decision or {})}
-        raw = self._graph.invoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
+        raw = self._graph.invoke(self._resume_command(payload), {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
     async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
@@ -231,7 +254,7 @@ class _CompiledWorkflow:
         thread_id = context.resolved_thread_id()
         payload = {"approved": approved, **(decision or {})}
         if hasattr(self._graph, "ainvoke"):
-            raw = await self._graph.ainvoke(Command(resume=payload), {"configurable": {"thread_id": thread_id}})
+            raw = await self._graph.ainvoke(self._resume_command(payload), {"configurable": {"thread_id": thread_id}})
             return result_from_graph_output(raw, thread_id=thread_id)
         return await asyncio.to_thread(self.resume, approved=approved, decision=decision, context=context)
 
