@@ -58,12 +58,12 @@ class PolicyDecisionPoint:
         data_classification: str = "internal",
     ) -> GuardrailResult:
         # ToolSpec.scopes: the identity must carry at least one of the
-        # tool's declared scopes — previously this field was pure metadata,
-        # never checked against Identity.roles at all.
+        # tool's declared scopes — enforced here, not left as pure metadata
+        # never checked against Identity.roles.
         if scopes and not (scopes & set(identity.roles)):
             return GuardrailResult(False, f"{tool_name!r} requires one of scopes {sorted(scopes)} — identity {identity.id!r} has none of them", "action")
         # ToolSpec.data_classification: confidential/restricted tools need a
-        # matching "data:<classification>" role — same never-enforced-before gap.
+        # matching "data:<classification>" role — enforced the same way.
         if data_classification in _RESTRICTED_CLASSIFICATIONS:
             required_role = f"data:{data_classification}"
             if required_role not in identity.roles:

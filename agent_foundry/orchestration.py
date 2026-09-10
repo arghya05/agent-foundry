@@ -1061,10 +1061,10 @@ def _run_governed_turn(config: AgentConfig, messages: list[dict], *, thread_id: 
     governed single-agent graph (build_agent_graph) on a fresh, ephemeral
     graph instance — the guardrail/tool/critique-covered replacement for a
     bare config.llm.complete(...) call. Used by build_blackboard_graph and
-    build_debate_graph below, neither of which used to run a specialist's
-    turn through anything but a raw completion — no input/output guardrails,
-    no tool exposure, no critique gate, unlike every other topology in this
-    module. `thread_id` should be stable across repeated calls for the same
+    build_debate_graph below — without it, both topologies would run a
+    specialist's turn through nothing but a raw completion: no input/output
+    guardrails, no tool exposure, no critique gate, unlike every other
+    topology in this module. `thread_id` should be stable across repeated calls for the same
     agent (not re-randomized per call) so config.budget's per-thread cost/step
     ceiling actually accumulates across rounds instead of resetting each time
     — the graph object itself is rebuilt fresh each call (cheap: it's just
@@ -1228,7 +1228,7 @@ def _get_all_tool_calls(message: dict) -> list[tuple[str, dict, str | None]]:
     tool_result in the very next message, or Anthropic's API rejects any
     later request built from that history outright ('each tool_use block
     must have a corresponding tool_result block') — silently dropping all
-    but the first call here used to corrupt a session's conversation state
+    but the first call here would corrupt a session's conversation state
     permanently after its very first multi-tool-call turn. Falls back to
     the single CALL <tool> {json} text convention for providers that don't
     return native tool calls (tool_call_id is None there — no provider-

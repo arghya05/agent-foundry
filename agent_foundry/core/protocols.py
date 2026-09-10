@@ -1,7 +1,7 @@
 """Core — the framework's protocol seam. Re-exports the protocols that already
 exist under their established names elsewhere in the package — Evaluator
-(eval.py), EventBus (events.py), PolicyEngine (policy_engine.py; the memo's
-"Policy" role — the name `Policy` itself is already the dataclass in
+(eval.py), EventBus (events.py), PolicyEngine (policy_engine.py — a distinct
+role from the name `Policy`, which is already the dataclass in
 contracts.py) — and adds the two that didn't exist yet: `Tool`/`Memory`
 (restating ToolSpec's and MemoryStore's own established shapes as protocols,
 so anything structurally matching — not just those two concrete types — is
@@ -54,9 +54,9 @@ class WorkflowEngine(Protocol):
     build_agent_graph/_NativeGraph directly, unchanged, to avoid touching
     already-tested code paths) — these are the seam's verification-facing
     adapters, proving `isinstance(engine, WorkflowEngine)` is real for both
-    engines, not just documentation. (This class was NOT `@runtime_checkable`
-    until this was actually checked — isinstance() against it used to raise
-    TypeError instead of returning False.)"""
+    engines, not just documentation. (`@runtime_checkable` is required here
+    — without it, `isinstance()` against a Protocol class raises `TypeError`
+    instead of returning `False`, a real gotcha with Protocol classes.)"""
 
     def build(self, spec: Any, *, checkpointer: Any = None) -> Any: ...
     def run(self, compiled: Any, *, message: str, context: ExecutionContext) -> RunResult: ...

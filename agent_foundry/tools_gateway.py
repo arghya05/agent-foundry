@@ -254,8 +254,8 @@ class ToolRegistry:
         .invoke(), tests included, would need to move), not a quick fix.
 
         Raises TypeError for an `async def` tool function — use ainvoke()
-        for those; previously this silently returned the unawaited
-        coroutine object as `output`, a real bug, not just an omission."""
+        for those; calling an async tool through here would otherwise
+        silently return the unawaited coroutine object as `output`."""
         pre = self._pre_invoke(name, args, identity=identity, policy=policy, idempotency_key=idempotency_key)
         if isinstance(pre, ToolResult):
             return pre

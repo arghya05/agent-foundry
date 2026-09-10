@@ -77,9 +77,9 @@ class NativeEngine:
     Thread-safe: `run`/`resume`/`get_state`/`update_state` on the SAME
     thread_id are serialized via a per-thread lock (two concurrent requests
     racing on one conversation would otherwise interleave appends to the
-    same `messages` list) — a genuine, previously-unguarded race, not a
-    hypothetical one, since this engine (unlike LangGraph's checkpointer) is
-    a plain in-process dict. Different thread_ids never block each other."""
+    same `messages` list) — a genuine race, not a hypothetical one, since
+    this engine (unlike LangGraph's checkpointer) is a plain in-process
+    dict. Different thread_ids never block each other."""
 
     def __init__(self) -> None:
         self._threads: dict[str, dict[str, Any]] = {}

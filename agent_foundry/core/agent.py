@@ -87,11 +87,10 @@ def _coerce_tools(tools: Any) -> ToolRegistry:
 
 
 def _coerce_memory(memory: Any) -> MemoryStore | None:
-    """Regression: a caller passing the wrong type here used to get a
-    silently substituted, brand-new MemoryStore() — any real memory they
-    thought they configured was quietly dropped, with no error to explain
-    why their agent "forgot everything." Now it fails loudly, naming what
-    was actually passed."""
+    """A caller passing the wrong type here must fail loudly, naming what
+    was actually passed — silently substituting a brand-new MemoryStore()
+    instead would quietly drop any real memory they configured, with no
+    error to explain why their agent "forgot everything.\""""
     if not memory:
         return None
     if isinstance(memory, Memory):
@@ -161,7 +160,7 @@ class _CompiledWorkflow:
         raw = self._graph.invoke(state, {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
-    invoke = run  # alias for API parity with the memo's run()/invoke() — same call, not a distinct one
+    invoke = run  # alias for API parity — run/invoke are the same call, not a distinct one
 
     async def arun(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
         """Non-blocking run() for an async caller. `self._graph` is either a
