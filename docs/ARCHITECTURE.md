@@ -9,7 +9,7 @@
 
 Agent Foundry is a modular framework for building LLM agents — support bots, sales assistants, research agents, operations copilots, anything — on a single reusable core. Every layer is a small contract (a Python `Protocol`), not a mandate. A team wires in what a given agent needs and leaves the rest at its default.
 
-It is built on **LangGraph** for orchestration and, where a lighter on-ramp matters more than control, on real **LangChain** abstractions (`langchain.agents.create_agent`, native structured tool-calling) rather than a bespoke convention.
+Its domain model and governance/eval/observability layers are plain Python — dataclasses and `Protocol`s, no LangChain or LangGraph import anywhere in that path. Execution is pluggable behind one seam (`core.protocols.WorkflowEngine`, dispatched through a `RUNTIMES` registry in `core/engines.py`): `runtime="native"` is a complete, from-scratch implementation of the think/act/critique loop with zero LangGraph dependency; `runtime="langgraph"` (the default) runs the identical loop through LangGraph's `StateGraph` for its persistence/streaming/HITL machinery, chosen per-`Agent` or per call. Where a lighter on-ramp matters more than control, `quickstart.py`'s `plug_and_play_agent()` is a separate, optional entry point on real **LangChain** abstractions (`langchain.agents.create_agent`) — nothing `Agent` itself does depends on it.
 
 The organizing idea is a strict split between two kinds of code:
 

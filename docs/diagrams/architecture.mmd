@@ -2,11 +2,19 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
-        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=langgraph (default) or native\n(no LangGraph in this surface)"]
-        Quick["quickstart.py\nplug_and_play_agent()"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime chosen per-Agent or per-call\nno LangGraph/LangChain import in this surface"]
+        Spec["agent_spec.py — AgentSpec\ndeclarative YAML/JSON/dict:\nstructured tools, named critique evaluators"]
+        Quick["quickstart.py\nplug_and_play_agent() — the one place\nreal LangChain (create_agent) is used"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
-        Channels["channels.py\nSlack / SMS / email / any surface"]
+        Channels["channels.py\nSlack (concrete adapter) — same pattern extends to SMS/email/Teams"]
         A2A["a2a_bridge.py\nAgent2Agent protocol"]
+    end
+
+    subgraph Engines["core/engines.py — the RUNTIMES seam Agent actually dispatches through"]
+        direction LR
+        WFEngine["core.protocols.WorkflowEngine\nbuild/run/stream/resume, @runtime_checkable"]
+        Registry["RUNTIMES = {native: NativeWorkflowEngine(),\nlanggraph: LangGraphWorkflowEngine()}\n— a 3rd backend (Temporal) is one more entry"]
+        WFEngine --> Registry
     end
 
     subgraph Loop["orchestration.py — runtime=langgraph (LangGraph StateGraph)"]
@@ -86,13 +94,15 @@ flowchart TD
         I18n["i18n.py — locale-aware prompts & formatting"]
         Batch["batch.py — batch & scheduled runs\n(Agent.batch()/.schedule() delegate here)"]
         Scaffold["scaffold.py — generate a new agent's starting files"]
-        Contracts["contracts.py — Identity, Policy, ToolSpec, LLMResponse…\nthe types every layer plugs into"]
+        Contracts["contracts.py — Identity, Policy, ToolSpec,\nModel (=Provider), Message, LLMResponse…\nthe types every layer plugs into"]
     end
 
-    User --> Core & Quick & Serve & Channels & A2A
+    User --> Core & Spec & Quick & Serve & Channels & A2A
+    Spec --> Core
     Quick & Serve & Channels & A2A --> Loop
-    Core --> Loop
-    Core -. "runtime=native" .-> NativeLoop
+    Core --> Registry
+    Registry -- "langgraph (default)" --> Loop
+    Registry -- "native" --> NativeLoop
     Core --> ExecCtx
     Core -. "agent.start(msg)" .-> RunLifecycle
     Core -. "run_eval(agent, cases)" .-> EvalGate
