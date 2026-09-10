@@ -1,0 +1,24 @@
+{
+  "name": "research_agent",
+  "version": "v1",
+  "cases": [
+    {
+      "input": "How does Agent Foundry enforce cost limits?",
+      "name": "cost_limits",
+      "expected_substring": "BudgetExceeded",
+      "expected_tool": "search_docs"
+    },
+    {
+      "input": "What happens when a destructive tool is called?",
+      "name": "destructive_tool_approval",
+      "expected_substring": "approval",
+      "expected_tool": "search_docs"
+    },
+    {
+      "input": "What proves the native runtime is a real seam?",
+      "name": "native_runtime_seam",
+      "expected_substring": "native",
+      "expected_tool": "search_docs"
+    }
+  ]
+}

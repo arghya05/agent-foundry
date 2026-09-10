@@ -1,0 +1,25 @@
+{
+  "name": "commerce_agent",
+  "version": "v1",
+  "cases": [
+    {
+      "input": "I need trail running shoes",
+      "name": "search",
+      "expected_substring": "sku:1",
+      "expected_tool": "search_products",
+      "expected_tool_sequence": ["search_products"]
+    },
+    {
+      "input": "What goes well with sku:1?",
+      "name": "cross_sell",
+      "expected_substring": "sku:2",
+      "expected_tool": "recommend",
+      "expected_tool_sequence": ["recommend"]
+    },
+    {
+      "input": "Order 2 of sku:1",
+      "name": "order_requires_approval",
+      "must_request_approval": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+# Declarative equivalent of build_agent() in agent.py — MINUS the critique/
+# self-verification gate. AgentSpec has no `critique:` field (see
+# agent_spec.py): a self-verify-then-escalate gate is a Python-level
+# construction detail (it needs a KPI object and a context callable, neither
+# of which is JSON/YAML-expressible today), not something meant to be
+# declaratively swappable per deployment. This spec still runs the same
+# check_order_status tool with the same instructions — it just answers
+# directly instead of self-checking against the tool's own evidence first.
+#
+# Run (from the repo root, so the dotted tool reference below resolves):
+#   export ANTHROPIC_API_KEY=...
+#   python -m agent_foundry.cli run --spec examples/autonomous_workflow/agent.yaml \
+#       --message "What's the status of order O-500?"
+name: order_monitor
+instructions: >
+  You monitor order status. Call check_order_status, then report the status
+  plainly — don't invent details the tool didn't return.
+provider: anthropic
+tools:
+  - examples.autonomous_workflow.agent:check_order_status
+policy:
+  allowed_tools: [check_order_status]
+  max_cost_usd_per_thread: 0.5
+  max_steps_per_thread: 10

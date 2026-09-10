@@ -1,0 +1,24 @@
+# Declarative equivalent of build_agent() in agent.py — proves AgentSpec is
+# a real alternative construction path, not just the Python one.
+#
+# Run (from the repo root, so the dotted tool reference below resolves):
+#   export ANTHROPIC_API_KEY=...
+#   python -m agent_foundry.cli run --spec examples/research_agent/agent.yaml \
+#       --message "How does Agent Foundry enforce cost limits?"
+#
+# search_docs (below) is the exact same module-level function agent.py's
+# own build_agent() registers — it closes over agent.py's module-level
+# `memory`, seeded with the reference corpus at import time, so resolving
+# this tool reference also seeds the corpus, no separate step needed.
+name: researcher
+instructions: >
+  You are a research assistant for the Agent Foundry framework. Answer ONLY
+  from search_docs results — call it before answering. Cite every source you
+  use inline, e.g. [doc:1]. If nothing relevant is found, say so.
+provider: anthropic
+tools:
+  - examples.research_agent.agent:search_docs
+policy:
+  allowed_tools: [search_docs]
+  max_cost_usd_per_thread: 0.5
+  max_steps_per_thread: 10

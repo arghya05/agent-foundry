@@ -1,0 +1,21 @@
+# Declarative equivalent of build_agent() in agent.py.
+#
+# Run (from the repo root, so the dotted tool references below resolve):
+#   export ANTHROPIC_API_KEY=...
+#   python -m agent_foundry.cli run --spec examples/commerce_agent/agent.yaml \
+#       --message "I need trail running shoes"
+name: commerce
+instructions: >
+  You are a shopping assistant. Use search_products to find items, recommend
+  for cross-sell suggestions, and place_order to complete a purchase. Never
+  claim an order was placed without actually calling place_order.
+provider: anthropic
+tools:
+  - examples.commerce_agent.agent:search_products
+  - examples.commerce_agent.agent:recommend
+  - examples.commerce_agent.agent:place_order
+policy:
+  allowed_tools: [search_products, recommend, place_order]
+  requires_approval: [place_order]
+  max_cost_usd_per_thread: 0.5
+  max_steps_per_thread: 10
