@@ -20,12 +20,18 @@ python -m agent_foundry.cli run --spec examples/commerce_agent/agent.yaml \
     --message "I need trail running shoes"
 ```
 
-Note: `AgentSpec.tools` resolves plain callables (see `agent_spec.py`), so
-the declarative `place_order` loses `ToolSpec.destructive=True` — but
-`Policy.requires_approval` is a fully independent approval trigger
-(`guardrails.GuardrailEngine.check_action` checks it regardless of the
-destructive flag), so the approval pause still fires. Verified in
-`tests/test_examples_commerce_agent.py::test_agent_spec_yaml_still_requires_approval_for_place_order`.
+`agent.yaml`'s `place_order` is a structured tool entry (`implementation` +
+`destructive`/`requires_confirmation`), not a bare `"module:function"`
+string — `AgentSpec.tools` accepts both (see `agent_spec.py`'s
+`_tool_from_entry`), and the structured form is what lets the declarative
+path carry `ToolSpec`-level approval metadata that a bare string never
+could. `Policy.requires_approval` (below) is a second, fully independent
+approval trigger (`guardrails.GuardrailEngine.check_action` checks it
+regardless of the destructive/requires_confirmation flags) — either alone
+is enough to pause `place_order`; this spec sets both, deliberately
+redundant, the same way `agent.py`'s own `ToolSpec(..., destructive=True)`
++ `Policy.requires_approval=frozenset({"place_order"})` already are.
+Verified in `tests/test_examples_commerce_agent.py::test_agent_spec_yaml_still_requires_approval_for_place_order`.
 
 ## Score it
 

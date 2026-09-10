@@ -13,7 +13,15 @@ provider: anthropic
 tools:
   - examples.commerce_agent.agent:search_products
   - examples.commerce_agent.agent:recommend
-  - examples.commerce_agent.agent:place_order
+  # Structured entry (agent_spec.py's _tool_from_entry) — the ToolSpec-level
+  # approval metadata agent.py's own place_order carries (destructive=True)
+  # now survives the declarative path too, not just policy.requires_approval
+  # below. requires_confirmation is what actually triggers the PDP's
+  # approval interrupt unconditionally (see policy_engine.py) — destructive
+  # alone only matters at AutonomyLevel.L2_DRAFT.
+  - implementation: examples.commerce_agent.agent:place_order
+    destructive: true
+    requires_confirmation: true
 policy:
   allowed_tools: [search_products, recommend, place_order]
   requires_approval: [place_order]

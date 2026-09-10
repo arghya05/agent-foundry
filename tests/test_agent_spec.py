@@ -132,3 +132,63 @@ def test_build_agent_rejects_unknown_provider():
     spec = AgentSpec(name="x", instructions="y", provider="not-a-real-provider")
     with pytest.raises(ValueError, match="not-a-real-provider"):
         build_agent(spec)
+
+
+def test_structured_tool_entry_builds_a_destructive_toolspec():
+    """The gap examples/commerce_agent/agent.yaml's own comment documents:
+    a bare "module:function" string can't express ToolSpec-level approval
+    metadata. A structured entry can (requires_confirmation is the field
+    that unconditionally triggers the PDP's approval interrupt — destructive
+    alone only matters at AutonomyLevel.L2_DRAFT, see policy_engine.py) —
+    proven by a real interrupt, not just inspecting the built ToolSpec."""
+    spec = AgentSpec(
+        name="tooled", instructions="Use tools.",
+        tools=[{"implementation": "_spec_fixture_tools:echo", "destructive": True, "requires_confirmation": True}],
+        policy={"allowed_tools": ["echo"]},
+    )
+    provider = ScriptedProvider([
+        LLMResponse(text="", model="m", input_tokens=1, output_tokens=1, cost_usd=0.0,
+                    tool_calls=[ToolCall(id="c1", name="echo", args={"text": "hi"})]),
+    ])
+    agent = build_agent(spec, llm=LLMGateway(provider=provider))
+
+    result = agent.run("call echo")
+
+    assert result.awaiting_approval
+    assert result.raw["__interrupt__"][0].value["tool"] == "echo"
+
+
+def test_structured_tool_entry_mixes_with_bare_string_entries():
+    spec = AgentSpec(
+        name="mixed", instructions="x",
+        tools=["_spec_fixture_tools:echo", {"implementation": "_spec_fixture_tools:echo", "name": "echo2"}],
+    )
+    agent = build_agent(spec)
+
+    assert agent.config.tools.has("echo")
+    assert agent.config.tools.has("echo2")
+
+
+def test_critique_groundedness_evaluator_uses_composite_grounding_kpi():
+    spec = AgentSpec(name="researcher", instructions="x", critique={"evaluator": "groundedness", "threshold": 0.3})
+    agent = build_agent(spec, llm=LLMGateway(provider=ScriptedProvider([])))
+
+    assert agent.config.critique is not None
+    assert agent.config.critique.kpi.name == "groundedness"
+
+
+def test_critique_named_evaluator_escalates_via_llm_judge_kpi():
+    """A non-"groundedness" evaluator name falls through to the fully
+    generic llm_judge_kpi(judge=make_llm_judge(llm, name)) — "correctness"
+    here is just a criterion string, not a hardcoded special case."""
+    spec = AgentSpec(
+        name="checked", instructions="x",
+        critique={"evaluator": "correctness", "threshold": 0.9, "escalate_threshold": 0.5},
+    )
+    responses = ["a confident but wrong answer", "2"]  # judge rates it 2/10 -> 0.2, below escalate_threshold
+    agent = build_agent(spec, llm=LLMGateway(provider=ScriptedProvider(responses)))
+
+    result = agent.run("what's the answer?")
+
+    assert result.awaiting_approval
+    assert result.raw["__interrupt__"][0].value["reason"] == "low_confidence"

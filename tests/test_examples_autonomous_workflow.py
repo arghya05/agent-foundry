@@ -101,17 +101,30 @@ def test_event_wiring_triggers_a_turn_and_the_decorated_handler():
     assert "delayed at customs" in state.values["messages"][-1]["content"]
 
 
-def test_agent_spec_yaml_runs_the_same_tool_without_the_critique_gate():
-    """agent.yaml deliberately has no critique gate (AgentSpec has no
-    critique: field) — confirms it still runs the tool and answers, just
-    without self-verification."""
+def test_agent_spec_yaml_critique_gate_grounds_the_answer():
+    """agent.yaml's critique gate is the "groundedness" named evaluator
+    (composite_grounding_kpi + llm_gateway.make_grounding_judge) — a
+    well-grounded answer, judged well by the (scripted) judge call, passes
+    through normally."""
     from agent_foundry.agent_spec import AgentSpec, build_agent as build_agent_from_spec
 
     spec = AgentSpec.from_yaml(Path(__file__).resolve().parent.parent / "examples" / "autonomous_workflow" / "agent.yaml")
-    responses = [_call("O-500"), "Order O-500 is in transit."]
+    responses = [_call("O-500"), "Order O-500 is in transit.", "9"]  # judge rates it 9/10
     agent = build_agent_from_spec(spec, llm=LLMGateway(provider=ScriptedProvider(responses)))
 
-    result = agent.run("What's the status of order O-500?", context=ExecutionContext(thread_id="autonomous-spec"))
+    result = agent.run("What's the status of order O-500?", context=ExecutionContext(thread_id="autonomous-spec-grounded"))
 
     assert result.content == "Order O-500 is in transit."
     assert not result.awaiting_approval
+
+
+def test_agent_spec_yaml_critique_gate_escalates_on_ungrounded_answer():
+    from agent_foundry.agent_spec import AgentSpec, build_agent as build_agent_from_spec
+
+    spec = AgentSpec.from_yaml(Path(__file__).resolve().parent.parent / "examples" / "autonomous_workflow" / "agent.yaml")
+    responses = [_call("O-500"), "Everything is totally fine, nothing to worry about.", "0"]  # ungrounded, judge rates it 0/10
+    agent = build_agent_from_spec(spec, llm=LLMGateway(provider=ScriptedProvider(responses)))
+
+    result = agent.run("What's the status of order O-500?", context=ExecutionContext(thread_id="autonomous-spec-ungrounded"))
+
+    assert result.awaiting_approval

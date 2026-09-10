@@ -1,11 +1,15 @@
-# Declarative equivalent of build_agent() in agent.py — MINUS the critique/
-# self-verification gate. AgentSpec has no `critique:` field (see
-# agent_spec.py): a self-verify-then-escalate gate is a Python-level
-# construction detail (it needs a KPI object and a context callable, neither
-# of which is JSON/YAML-expressible today), not something meant to be
-# declaratively swappable per deployment. This spec still runs the same
-# check_order_status tool with the same instructions — it just answers
-# directly instead of self-checking against the tool's own evidence first.
+# Declarative equivalent of build_agent() in agent.py — with a NAMED
+# critique gate instead of agent.py's hand-written one. AgentSpec.critique
+# (agent_spec.py) resolves `evaluator: groundedness` into a real
+# composite_grounding_kpi, using llm_gateway.make_grounding_judge(llm) as
+# the judge, and a default context callable (every tool-result message this
+# turn produced) — the same idea as agent.py's own CritiqueConfig, but not
+# identical: agent.py's is a cheaper, fully deterministic reference_check_
+# kpi (no extra LLM call); the declarative "groundedness" evaluator blends
+# that same deterministic check with an LLM judge (composite_grounding_kpi's
+# default weighting), since a live custom KPI object still isn't
+# JSON/YAML-expressible — a named evaluator is the declarative middle
+# ground.
 #
 # Run (from the repo root, so the dotted tool reference below resolves):
 #   export ANTHROPIC_API_KEY=...
@@ -22,3 +26,7 @@ policy:
   allowed_tools: [check_order_status]
   max_cost_usd_per_thread: 0.5
   max_steps_per_thread: 10
+critique:
+  evaluator: groundedness
+  threshold: 0.3
+  escalate_threshold: 0.1

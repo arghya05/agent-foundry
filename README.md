@@ -663,6 +663,33 @@ construction needs no extra dependency. See `examples/research_agent/`,
 `examples/commerce_agent/`, and `examples/autonomous_workflow/` for full
 `agent.py` + `agent.yaml` pairs, each with a versioned eval dataset.
 
+A `tools:` entry can also be a dict instead of a bare string, carrying real
+`ToolSpec` metadata a plain import-path reference can't express:
+
+```yaml
+tools:
+  - implementation: shop.tools:place_order
+    destructive: true
+    requires_confirmation: true
+    timeout_s: 10
+    max_retries: 2
+    permissions: [orders.write]
+```
+
+And `critique: {evaluator: groundedness, threshold: 0.5, escalate_threshold:
+0.2}` builds a real `CritiqueConfig` — `evaluator` resolves through a small
+named mapping (`agent_spec._named_evaluator_kpi`): `"groundedness"` gets
+`kpi.composite_grounding_kpi` with `llm_gateway.make_grounding_judge(llm)`
+as the judge; any other name (`"correctness"`, `"tool-selection"`,
+whatever) falls through to `kpi.llm_judge_kpi(judge=make_llm_judge(llm,
+name))` — already fully generic over any judged criterion, so it needs no
+per-name special case. The `context` callable `CritiqueConfig` also
+requires has no generic JSON/YAML equivalent (there's no live-Python-object
+shape for it), so a declarative critique gate always uses one default
+implementation: ground the draft against every tool-result message the
+turn produced — see `examples/autonomous_workflow/agent.yaml`'s own
+comment for exactly how this compares to a hand-written `CritiqueConfig`.
+
 `run_eval(agent, cases)` (`core/evalgate.py`) is evaluation-as-release-gate —
 also available as the `foundry eval` CLI subcommand:
 

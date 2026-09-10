@@ -24,10 +24,14 @@ python -m agent_foundry.cli run --spec examples/autonomous_workflow/agent.yaml \
     --message "What's the status of order O-500?"
 ```
 
-The spec deliberately has no critique gate — `AgentSpec` has no `critique:`
-field (a self-verify-then-escalate gate needs a `KPI` object and a context
-callable, neither JSON/YAML-expressible today). It still runs the same tool
-with the same instructions, just without self-verification.
+The spec's critique gate uses a *named* evaluator (`critique: {evaluator:
+groundedness, ...}`, resolved by `agent_spec._named_evaluator_kpi` into a
+real `composite_grounding_kpi` with `llm_gateway.make_grounding_judge(llm)`
+as the judge) rather than agent.py's hand-written, fully deterministic
+`reference_check_kpi` gate — a live custom `KPI` object still isn't
+JSON/YAML-expressible, but a name naming one of the built-in evaluators is.
+See `agent.yaml`'s own comment for exactly how the two differ (the named
+one blends in an extra LLM-judge call the deterministic one doesn't make).
 
 ## Score it
 
