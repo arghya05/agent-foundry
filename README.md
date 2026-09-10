@@ -10,18 +10,25 @@ taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
 scratch each time.
 
-A modular, SOTA-2026 framework for building governed LLM agents on
-[LangGraph](https://github.com/langchain-ai/langgraph)/[LangChain](https://github.com/langchain-ai/langchain). Every layer — model routing, tools,
-memory, budgets, guardrails, eval, observability — is a slot you fill with
-your own implementation or one of the ones shipped here. Nothing about the
-core primitives assumes a single fixed agent shape: one agent, a supervisor
-of specialists, a swarm, a debate, a blackboard, or a DAG of steps are all
-the same `think`/`act` building blocks wired differently.
+**Agent Foundry is an opinionated production runtime for governed AI
+agents.** Define an agent once; run it as a single agent, supervisor,
+swarm, debate, DAG, or agent-as-tool, with common memory, tools, policies,
+evals, budgets, and observability. It's built on
+[LangGraph](https://github.com/langchain-ai/langgraph)/[LangChain](https://github.com/langchain-ai/langchain)
+(plus a second, LangGraph-free execution engine for the single-agent case —
+see [runtime="native"](#4-agent-agent_foundrycore--the-same-governed-path-no-langgraph-in-the-api)),
+but every layer — model routing, tools, memory, budgets, guardrails, eval,
+observability — is a slot you fill with your own implementation or one of
+the ones shipped here. Nothing about the core primitives assumes a single
+fixed agent shape.
 
-> **36 modules** · **two interchangeable single-agent execution engines**
+> **36+ modules** · **two interchangeable single-agent execution engines**
 > (LangGraph and native Python — advanced multi-agent topologies currently
-> use LangGraph only) · **7 multi-agent topologies** · a formal run
-> lifecycle and eval-as-release-gate on one shared core · **381 tests
+> use LangGraph only) · **7 multi-agent topologies** · a declarative
+> `AgentSpec` (YAML/JSON) alongside the Python API · `arun`/`astream` and
+> concurrent same-turn tool dispatch · a formal run lifecycle and
+> eval-as-release-gate (KPI board, trajectory checks, versioned datasets,
+> baseline regression comparison) on one shared core · **420+ tests
 > passing** · MCP / A2A / AutoGen / CrewAI protocol interop built in
 
 **Jump to:** [Why this helps a startup](#why-this-helps-a-0-to-1-startup) ·
@@ -66,8 +73,12 @@ skip never has to happen:
   path, so a team can start on the left and grow into the right without
   rewriting tools.
 
-See `examples/support_agent.py` for a complete agent built from these pieces,
-and `PLAN.md`/`docs/ARCHITECTURE.md` for the full design rationale.
+See `examples/support_agent.py` for a complete agent built from these
+pieces, `examples/research_agent/`, `examples/commerce_agent/`, and
+`examples/autonomous_workflow/` for three fuller reference apps (each with
+an imperative `agent.py`, a declarative `agent.yaml`, and a versioned eval
+dataset), and `PLAN.md`/`docs/ARCHITECTURE.md` for the full design
+rationale.
 
 ## Architecture
 
@@ -79,7 +90,7 @@ flowchart TD
         Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime=langgraph (default) or native\n(no LangGraph in this surface)"]
         Quick["quickstart.py\nplug_and_play_agent()"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
-        Channels["channels.py\nSlack / SMS / email / any surface"]
+        Channels["channels.py\nSlack (concrete adapter) — same pattern extends to SMS/email/Teams"]
         A2A["a2a_bridge.py\nAgent2Agent protocol"]
     end
 
@@ -562,8 +573,81 @@ execution is synchronous in both engines, so there's no distinct "waiting on
 a tool" state. `tests/test_run_lifecycle.py` covers every transition on both
 engines.
 
+### Async — `arun`/`astream`, async tools, concurrent tool dispatch
+
+`Agent.arun`/`.astream` are non-blocking counterparts to `.run`/`.stream`:
+
+```python
+result = await agent.arun("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1"))
+async for chunk in agent.astream("any updates on lead L200?", context=ExecutionContext(thread_id="thread-1")):
+    ...
+```
+
+On `runtime="langgraph"` this is genuinely non-blocking — LangGraph's
+compiled graph exposes real `.ainvoke()`/`.astream()` and runs the plain-sync
+`think`/`act`/`critique` node functions off-thread on its own, so nothing in
+`orchestration.py` needed to become `async def` for this to work. On
+`runtime="native"` it's `asyncio.to_thread(...)` around the sync path — still
+non-blocking for the caller, just without LangGraph's own off-thread
+scheduling underneath.
+
+Tool functions can be `async def` — `ToolRegistry.ainvoke()` awaits them
+(and runs a plain sync tool unchanged); calling the sync `invoke()` on an
+async tool raises a clear `TypeError` instead of silently returning an
+unawaited coroutine. When a turn's tool calls are independent (no
+`Policy.requires_approval`/`ToolSpec.requires_confirmation` in the way),
+`make_act_node`/`NativeEngine._act` dispatch them **concurrently** — real
+wall-clock parallelism, not just non-blocking syntax — while keeping every
+approval gate, breaker/audit/eval bookkeeping side effect, and result
+ordering exactly as sequential execution would produce. Two deliberate
+tradeoffs from this: the PDP's `cost_so_far` is computed once per turn
+rather than re-read per call, and two concurrent calls to the same tool name
+don't see each other's circuit-breaker state before both start.
+
+### 5. AgentSpec — build an agent from YAML/JSON instead of Python
+
+Everything `Agent(...)` takes as constructor kwargs, as a serializable spec:
+
+```yaml
+# sales_agent.yaml
+name: sales_agent
+instructions: You are a sales agent...
+provider: anthropic
+tools:
+  - mymodule.tools:lookup_lead
+policy:
+  allowed_tools: [lookup_lead]
+  max_cost_usd_per_thread: 0.5
+```
+
+```bash
+foundry run --spec sales_agent.yaml --message "any updates on lead L200?"
+```
+
+or in Python:
+
+```python
+from agent_foundry import AgentSpec, build_agent
+
+spec = AgentSpec.from_yaml("sales_agent.yaml")   # or .from_json / .from_dict
+agent = build_agent(spec)
+```
+
+`tools:` entries are `"module:function"` import-path strings (the same
+convention `uvicorn`/`gunicorn` use for naming code from outside Python) —
+`resolve_tool()` imports and executes that module, the same trust boundary
+`foundry run <script>` already has. `policy`/`identity` are plain dicts
+mapped onto `contracts.Policy`/`Identity`; `provider: anthropic|openai`
+selects the LLM provider. `build_agent(spec, llm=...)` accepts an explicit
+`LLMGateway` override for anything a spec can't itself express (a
+pre-configured cache/rate-limiter, or a test's scripted provider). The YAML
+path needs `pip install agent-foundry[spec]` (PyYAML); JSON/dict
+construction needs no extra dependency. See `examples/research_agent/`,
+`examples/commerce_agent/`, and `examples/autonomous_workflow/` for full
+`agent.py` + `agent.yaml` pairs, each with a versioned eval dataset.
+
 `run_eval(agent, cases)` (`core/evalgate.py`) is evaluation-as-release-gate —
-the `foundry eval` idea in the memo, as a Python API (no CLI exists here):
+also available as the `foundry eval` CLI subcommand:
 
 ```python
 from agent_foundry import EvalCase, run_eval
@@ -577,9 +661,31 @@ ok, reasons = scorecard.passes({"task_success_rate_min": 0.9, "p95_latency_ms_ma
 Every metric is measured from a real `Agent.run()` call, not a mocked
 scorer: task success (substring match), tool accuracy (the right tool
 actually got called, via the same tool-call parsing `native_engine.py`
-reuses), an optional `KPI` (groundedness or anything else), P95 latency, and
-real per-case cost off `AgentConfig.budget`. `.compare_to(baseline)` reports
-per-metric deltas against a prior `Scorecard`. See `tests/test_evalgate.py`.
+reuses), trajectory accuracy (`expected_tool_sequence`/`expected_args`/
+`forbidden_tools`/`max_tool_calls`/`must_request_approval` — was this the
+*correct* trajectory, not just the right final answer), an optional `KPI`
+(groundedness or anything else), P95 latency, and real per-case cost off
+`AgentConfig.budget`. `.compare_to(baseline)` reports per-metric deltas
+against a prior `Scorecard`. See `tests/test_evalgate.py`.
+
+`kpi.py` ships ~20 KPI builders beyond the generic mechanism — grounding
+(`reference_check_kpi`/`fact_check_kpi`/`composite_grounding_kpi`),
+`retrieval_recall_precision_kpi` (F1 over retrieved-vs-relevant ids),
+`citation_correctness_kpi` (do a reply's citation markers name real
+sources), `judge_calibration_kpi` (does an LLM judge agree with a human
+label), `llm_judge_kpi`, `tool_error_rate_kpi`, `hallucination_rate_kpi`,
+and more. `EvalCase.kpi` holds a live `KPI` object, so it isn't
+JSON-serializable — `agent_foundry.eval_dataset.EvalDataset` gives the
+`foundry eval` CLI a named/versioned `{"name","version","cases"}` dataset
+file for the JSON-expressible checks, plus `--save-baseline DIR`/
+`--baseline DIR` flags to persist a `Scorecard`'s metrics and diff a later
+run against it — a lightweight regression gate across releases, not just
+within one run:
+
+```bash
+foundry eval agent.py eval_dataset.json --save-baseline baselines/
+foundry eval agent.py eval_dataset.json --baseline baselines/   # prints deltas vs the saved run
+```
 
 Then pick a topology for how multiple agents (if any) cooperate — all built
 from the exact same `AgentConfig`/`think`/`act` primitives:
@@ -597,7 +703,7 @@ from the exact same `AgentConfig`/`think`/`act` primitives:
 Every builder accepts a real `checkpointer` (`SqliteSaver`/`PostgresSaver`)
 for restart-durable sessions — see `orchestration.py`'s module docstring.
 
-### 5. UI/UX — a minimal reference chat UI, not a polished product
+### 6. UI/UX — a minimal reference chat UI, not a polished product
 
 `serve.py`'s `build_http_app` serves any compiled graph behind a real browser
 chat UI at `GET /`, with human-in-the-loop approval wired to `POST /resume`.
@@ -613,8 +719,11 @@ python examples/serve_http.py
 For an actual product UI, build your own against `POST /chat` (and
 `POST /resume` for approvals) — this reference page is meant to be replaced,
 not polished. `channels.py` covers the other direction: wiring the same
-compiled graph into an existing surface (Slack, SMS, email) instead of a
-custom web frontend.
+compiled graph into an existing surface instead of a custom web frontend.
+Slack (`build_slack_app()`, `verify_slack_signature()`) is the one concrete
+adapter shipped today — SMS/email/Teams are the same pattern (verify the
+surface's signature, turn its event into a turn, wire `POST /resume` for
+approvals) but aren't implemented here yet.
 
 Or containerize it — nothing in `agent_foundry/` imports a cloud-specific SDK,
 so this runs on ECS/Fargate, Cloud Run, Azure Container Apps, any Kubernetes,
