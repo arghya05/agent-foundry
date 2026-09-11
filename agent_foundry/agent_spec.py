@@ -27,10 +27,8 @@ from .contracts import AutonomyLevel, Identity, Policy, ToolSpec
 from .context import MemoryStore
 from .core.agent import Agent, _toolspec_from_callable
 from .kpi import KPI, composite_grounding_kpi, llm_judge_kpi
-from .llm_gateway import AnthropicProvider, LLMGateway, OpenAIProvider, make_grounding_judge, make_llm_judge
+from .llm_gateway import PROVIDERS, AnthropicProvider, LLMGateway, make_grounding_judge, make_llm_judge
 from .orchestration import CritiqueConfig
-
-_PROVIDERS: dict[str, Callable[[], Any]] = {"anthropic": AnthropicProvider, "openai": OpenAIProvider}
 
 
 def resolve_tool(ref: str) -> Callable[..., Any]:
@@ -155,7 +153,7 @@ class AgentSpec:
     policy: dict[str, Any] | None = None
     identity: dict[str, Any] | None = None
     memory: dict[str, Any] | None = None  # {"enabled": true} -> MemoryStore(); see module docstring
-    runtime: str = "langgraph"
+    runtime: str = "native"
     workflow: str = "react"
     # {"evaluator": "groundedness"|"correctness"|..., "threshold": float,
     # "escalate_threshold": float?, "max_retries": int?} -> a real
@@ -197,9 +195,9 @@ def build_agent(spec: AgentSpec, *, llm: LLMGateway | None = None) -> Agent:
     rate limiter, model registry) or, in tests, a scripted provider. When
     given, it wins outright and `spec.provider` is ignored."""
     if llm is None and spec.provider is not None:
-        if spec.provider not in _PROVIDERS:
-            raise ValueError(f"AgentSpec.provider {spec.provider!r} must be one of {sorted(_PROVIDERS)}")
-        llm = LLMGateway(provider=_PROVIDERS[spec.provider]())
+        if spec.provider not in PROVIDERS:
+            raise ValueError(f"AgentSpec.provider {spec.provider!r} must be one of {sorted(PROVIDERS)}")
+        llm = LLMGateway(provider=PROVIDERS[spec.provider]())
 
     critique_config = None
     if spec.critique:

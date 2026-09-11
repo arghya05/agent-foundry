@@ -266,6 +266,18 @@ class OpenAIProvider:
                 yield delta
 
 
+# Name -> Provider constructor, resolved lazily (each Provider's own
+# __init__ does the actual `import anthropic`/`import openai`, not this
+# dict) — the registry Agent(provider=...)/AgentSpec.provider both resolve
+# against, so picking a non-Anthropic vendor never requires hand-building
+# an LLMGateway yourself. Deliberately not "vendor resolution from model="
+# — Agent.__init__'s `model` kwarg is already AgentConfig.task, LLMGateway's
+# routing key (task="cheap"/"default"/"hard"), not a literal model name;
+# overloading it with a second, incompatible meaning would be a worse bug
+# than the one this registry fixes.
+PROVIDERS: dict[str, Callable[[], Any]] = {"anthropic": AnthropicProvider, "openai": OpenAIProvider}
+
+
 @dataclass
 class MultiProvider:
     """Dispatches by model name to whichever vendor client owns it — the seam that makes

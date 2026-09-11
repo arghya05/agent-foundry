@@ -16,23 +16,25 @@ pluggable execution engines, model providers, and agent frameworks, not a
 framework built on top of any one of them.** `Agent`, the domain model
 (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/`Memory`/
 `Guardrail`/`Evaluator`), and the governance/eval/observability layers are
-plain Python — dataclasses and `Protocol`s, with no LangChain or LangGraph
-import at module level anywhere in that path (verified: `grep` for a
-top-level `import`/`from` of either across `orchestration.py`/`core/agent.py`
-returns nothing) and neither is a base-install dependency — `pip install
-agent-foundry` pulls in `cryptography` only. The one exception is a single
-function-local `from langgraph.types import Command` inside
-`core/agent.py`'s `_resume_command`, reached only when `runtime="langgraph"`
-is actually in use for that call — never on the native default path.
-Execution is pluggable behind one seam
-(`core.protocols.WorkflowEngine`, dispatched through a `RUNTIMES` registry
-— see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
+plain Python — dataclasses and `Protocol`s. **The native execution path has
+no LangGraph dependency; LangGraph imports are isolated to the optional
+LangGraph adapter path** (one function-local `from langgraph.types import
+Command` inside `core/agent.py`'s `_resume_command`, reached only when
+`runtime="langgraph"` is actually in use — never on the native default
+path), and neither LangGraph nor LangChain is a base-install dependency —
+`pip install agent-foundry` pulls in `cryptography` only. Execution is
+pluggable behind one seam (`core.protocols.WorkflowEngine`, dispatched
+through a `RUNTIMES` registry — see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
 `runtime="native"` (the default) is a complete, from-scratch implementation
-of the think/act/critique loop with zero LangGraph dependency, so the base
-install is a complete, working agent; `runtime="langgraph"`
-(`pip install agent-foundry[langgraph]`) runs the identical loop through
-LangGraph's `StateGraph` for its persistence/streaming/HITL machinery, and
-is required for the multi-agent `Workflow` topologies below. Define an
+of the think/act/critique loop with zero LangGraph dependency;
+`runtime="langgraph"` (`pip install agent-foundry[langgraph]`) runs the
+identical loop through LangGraph's `StateGraph` for its
+persistence/streaming/HITL machinery, and is required for the multi-agent
+`Workflow` topologies below. Either way, running an actual turn still needs
+an LLM provider — `pip install agent-foundry[anthropic]` (or `[openai]`,
+or `Agent(llm=...)` with your own `LLMGateway`) for that part; "no
+LangGraph dependency" is a claim about the execution engine, not a claim
+that zero extras gets you a fully working agent with zero setup. Define an
 agent once; run it as a single agent, supervisor, swarm, debate, DAG, or
 agent-as-tool, on whichever backend you choose — per `Agent`, or per call.
 
@@ -593,6 +595,14 @@ result = agent.run("any updates on lead L200?", context=ExecutionContext(thread_
 print(result.content)
 ```
 
+With no `llm=`, `Agent(...)` defaults to `LLMGateway(provider=AnthropicProvider())` — needing
+`pip install agent-foundry[anthropic]`. For a different vendor without hand-building an
+`LLMGateway`, pass `provider="openai"` (`pip install agent-foundry[openai]`) — the same
+name/registry (`llm_gateway.PROVIDERS`) `AgentSpec.provider` resolves against, so the
+Python and declarative paths pick a vendor the same way. `llm=`/`provider=` are mutually
+exclusive; for anything beyond the two built-in vendors, construct your own `LLMGateway`
+and pass `llm=`.
+
 Multi-agent topologies (a specialist router, peer handoff, a shared
 blackboard, a debate, parallel fan-out, a deterministic DAG) are `Workflow`
 factories composing several `Agent`s' underlying `.config` — see
@@ -606,8 +616,10 @@ only covers the single-agent shape (`workflow="react"`, the default); the
 `Agent(...)` defaults to `runtime="native"` — `core/native_engine.py`, a
 plain Python while-loop implementation of the same think/act/critique loop
 (no `StateGraph`, no `interrupt()`, no LangGraph import at all), so
-`pip install agent-foundry` with zero extras already gives you a complete,
-working agent:
+`pip install agent-foundry` with zero extras needs no LangGraph install to
+run an agent. It still needs an LLM provider, same as `runtime="langgraph"`
+does — `pip install agent-foundry[anthropic]` for the zero-config default
+below, `[openai]` + `provider="openai"`, or your own `llm=`:
 
 ```python
 agent = Agent("sales_agent", "You are a sales agent...", tools=[lookup_lead])
@@ -619,18 +631,38 @@ working unchanged), same RBAC/guardrails/budget/critique behavior, same
 `RunResult` shape — see `tests/test_native_engine.py`, which runs the same
 scenarios `test_core_agent.py` runs against `runtime="langgraph"` against
 this engine instead, to prove the two are actually interchangeable rather
-than just both existing. It covers the single-agent react loop only (not
-`self_verify`, not the multi-agent `Workflow` topologies, and multiple
+than just both existing. `.stream()`/`.astream()` are real per-step
+incremental streaming too, not one chunk after the whole turn completes —
+`core/native_engine.py`'s `_drive_stream` yields the full state after every
+think/act/critique step, matching LangGraph's own `stream_mode="values"`
+granularity chunk-for-chunk (verified empirically:
+`tests/test_agent_stream.py`'s parity test runs the identical scripted
+tool-call scenario on both engines and asserts they yield the same chunk
+count — 4, for input → think → act → think — not just "at least one"), and
+`astream()` delivers each chunk to the caller as soon as it's produced (a
+background thread feeding an `asyncio.Queue`), not all at once after the
+turn finishes in the background. It covers the single-agent react loop only
+(not `self_verify`, not the multi-agent `Workflow` topologies, and multiple
 *simultaneously* pending tool approvals in one turn are resolved one
 `.resume()` call at a time rather than LangGraph's queued-multi-interrupt
-support), keeps its own in-memory per-thread state (no `checkpointer=`
-option — non-restart-durable, so a process restart loses in-flight state),
-and streams by running the turn to completion and yielding one final chunk
-rather than incremental steps. Pass `runtime="langgraph"`
-(`pip install agent-foundry[langgraph]`) when you need durable
-checkpointing, real incremental streaming, or any of the multi-agent
-`Workflow` topologies below — none of which the native engine implements
-yet.
+support), and keeps its own in-memory per-thread state (no `checkpointer=`
+option — non-restart-durable, so a process restart loses in-flight state).
+`core.protocols.StateStore` (`load`/`save`/`delete`, `@runtime_checkable`)
+plus a reference `MemoryStateStore` (`core/state_store.py`) is a real,
+tested seam for this — the same "prove the Protocol first" step
+`WorkflowEngine` went through before `Agent` routed through it — but it
+isn't wired into `NativeEngine`'s own state storage yet: that storage is a
+lock-guarded in-process dict with its own documented thread-safety
+discipline (see `NativeEngine`'s class docstring in `native_engine.py`),
+and swapping what's underneath that lock is real surgery on a hot path
+that deserves its own change and test pass, not a rider on this one. A
+Redis/Postgres-backed `StateStore` is separate, larger work still (real
+connection lifecycle and error handling, verified against a live process
+like this repo's other real external integrations) that the Protocol makes
+possible without touching `NativeEngine`'s state shape, but doesn't itself
+ship today. Pass `runtime="langgraph"` (`pip install agent-foundry[langgraph]`)
+when you need durable checkpointing or any of the multi-agent `Workflow`
+topologies below — the native engine doesn't implement either yet.
 
 Both backends dispatch through the same seam: `core.protocols.WorkflowEngine`
 (`build`/`run`/`stream`/`resume`, `@runtime_checkable` and satisfied by both

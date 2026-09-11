@@ -109,6 +109,28 @@ class NativeEngine:
             state["messages"].append({"role": "user", "content": message})
             return self._drive(config, state, thread_id)
 
+    def stream_run(self, config: AgentConfig, message: str, *, thread_id: str, request_identity: dict[str, Any] | None = None) -> Iterator[dict[str, Any]]:
+        """Streaming counterpart to run() — same lock-for-the-whole-turn
+        discipline (see the class docstring), but yields the full raw state
+        after every think/act/critique step instead of only the final one.
+        Matches LangGraph's own `stream_mode="values"` granularity (full
+        accumulated state after each node, not per-token — LangGraph's
+        think/act/critique nodes each call `config.llm.complete()` once too,
+        not a streaming completion), so this is genuine step-level parity,
+        not a fabricated approximation of LangGraph's own behavior. Confirmed
+        empirically (not just by reading LangGraph's docs): a real compiled
+        LangGraph graph's `stream_mode="values"` yields the just-appended
+        input state BEFORE the first node runs, then one chunk per node —
+        e.g. 4 chunks for a think->act->think turn, not 3 — so this yields
+        that same leading chunk too, not just the post-node ones."""
+        with self._lock_for(thread_id):
+            state = self._state_for(thread_id)
+            if request_identity is not None:
+                state["request_identity"] = request_identity
+            state["messages"].append({"role": "user", "content": message})
+            yield self._raw(state)  # the input state, before any node runs — matches LangGraph's own leading chunk
+            yield from self._drive_stream(config, state, thread_id)
+
     def resume(self, config: AgentConfig, *, approved: bool, decision: dict[str, Any] | None = None, thread_id: str) -> dict[str, Any]:
         # `decision` is accepted for signature parity with the LangGraph
         # engine's WorkflowEngine.resume (core/engines.py) — like
@@ -145,23 +167,48 @@ class NativeEngine:
     # ---- the loop -----------------------------------------------------------
 
     def _drive(self, config: AgentConfig, state: dict[str, Any], thread_id: str) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(config, state, thread_id):
+            pass
+        assert last is not None  # _drive_stream always yields at least once (every path ends in a yield before returning)
+        return last
+
+    def _drive_stream(self, config: AgentConfig, state: dict[str, Any], thread_id: str) -> Iterator[dict[str, Any]]:
+        """Same control flow as _drive(), as a generator yielding the full
+        raw state after every step — see stream_run()'s docstring for why
+        this is genuine parity with LangGraph's own stream granularity, not
+        a lesser approximation of it. One yield per node transition, same as
+        LangGraph's `stream_mode="values"`: a plain single-turn reply with no
+        tool calls and no critique gate is ONE node (think -> END) and
+        yields exactly once, not once for "think" and again for "finalize"
+        — finalize_turn() is bookkeeping on the way to END, not a node of
+        its own, so it doesn't get a second yield."""
         while True:
             self._think(config, state, thread_id)
             last = state["messages"][-1]
-            if _get_all_tool_calls(last):
+            has_tool_calls = bool(_get_all_tool_calls(last))
+            has_critique = config.critique is not None
+            if has_tool_calls or has_critique:
+                yield self._raw(state)  # a further step follows — this "think" chunk is genuine mid-turn state
+            if has_tool_calls:
                 act_raw = self._act(config, state, thread_id)
                 if act_raw is not None:
-                    return act_raw  # paused for tool approval
+                    yield act_raw  # paused for tool approval
+                    return
+                yield self._raw(state)  # tool results committed this step
                 continue  # act -> think
 
-            if config.critique is not None:
+            if has_critique:
                 critique_raw = self._critique(config, state, thread_id)
                 if critique_raw is not None:
-                    return critique_raw  # clarify / escalate-paused / finalized
+                    yield critique_raw  # clarify / escalate-paused / finalized
+                    return
+                yield self._raw(state)  # critique requested a retry this step
                 continue  # critique retry -> think
 
             _finalize_turn(config, thread_id, budget=config.budget, outcome="completed")
-            return self._raw(state)
+            yield self._raw(state)
+            return
 
     def _raw(self, state: dict[str, Any], *, interrupt: dict[str, Any] | None = None) -> dict[str, Any]:
         raw: dict[str, Any] = {"messages": list(state["messages"]), "thread_id": state["thread_id"]}
@@ -449,11 +496,27 @@ class _NativeGraph:
         return self._engine.run(self._config, message, thread_id=thread_id, request_identity=request_identity)
 
     def stream(self, state_or_command: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        """One chunk only — this engine has no per-node incremental
-        streaming, unlike LangGraph's real one. `**kwargs` accepts (and
-        ignores) `stream_mode=` etc. so callers can pass the same kwargs to
-        either engine uniformly (see core.agent._CompiledWorkflow.stream())."""
-        yield self.invoke(state_or_command, run_config)
+        """Real per-step incremental streaming — one chunk after every
+        think/act/critique step (NativeEngine.stream_run/_drive_stream),
+        matching LangGraph's own `stream_mode="values"` granularity (full
+        state after each node, not per-token — see stream_run()'s
+        docstring). `**kwargs` accepts (and ignores) `stream_mode=` etc. so
+        callers can pass the same kwargs to either engine uniformly (see
+        core.agent._CompiledWorkflow.stream()).
+
+        Only the fresh-run shape streams incrementally — `Agent.stream()`
+        (core/agent.py) only ever calls this with a brand-new `{"messages":
+        [...]}` state, never a resume Command, so a resume passed here (not
+        reachable through any public API today) falls back to one chunk via
+        invoke() rather than a half-built streaming-resume path."""
+        resume_payload = getattr(state_or_command, "resume", None)
+        if resume_payload is not None:
+            yield self.invoke(state_or_command, run_config)
+            return
+        thread_id = run_config["configurable"]["thread_id"]
+        message = state_or_command["messages"][-1]["content"]
+        request_identity = state_or_command.get("request_identity")
+        yield from self._engine.stream_run(self._config, message, thread_id=thread_id, request_identity=request_identity)
 
     def get_state(self, run_config: dict[str, Any]) -> "_StateSnapshot":
         """Matches LangGraph's own `compiled.get_state(config).values` shape

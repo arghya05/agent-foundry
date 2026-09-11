@@ -16,16 +16,20 @@ of the Agent instances passed in.
 `runtime="native"` (default) or `runtime="langgraph"` picks which
 WorkflowEngine actually runs that AgentConfig — native_engine.NativeEngine is
 the framework-free implementation of the think/act/critique loop that ships
-as the default so `pip install agent-foundry` with zero extras is a complete,
-working agent; `runtime="langgraph"` opts into LangGraph's StateGraph for its
-persistence/streaming/HITL machinery (and is the only runtime the multi-agent
-Workflow topologies below support). Both produce the same RunResult shape;
-Agent's own public methods below don't know or care which one is underneath.
+as the default, needing no LangGraph install; `runtime="langgraph"` opts
+into LangGraph's StateGraph for its persistence/streaming/HITL machinery
+(and is the only runtime the multi-agent Workflow topologies below
+support). Neither choice removes the need for an LLM provider — `llm=`/
+`provider=` below, or the `AnthropicProvider` default (needs
+`agent-foundry[anthropic]`), same requirement either runtime. Both engines
+produce the same RunResult shape; Agent's own public methods below don't
+know or care which one is underneath.
 """
 from __future__ import annotations
 
 import asyncio
 import inspect
+import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Iterator, cast
 
@@ -39,7 +43,7 @@ from ..context import MemoryStore
 from ..eval import EvalHarness
 from ..events import EventBus, InMemoryEventBus, wire_event_driven
 from ..guardrails import GuardrailEngine
-from ..llm_gateway import AnthropicProvider, LLMGateway
+from ..llm_gateway import PROVIDERS, AnthropicProvider, LLMGateway
 from ..observability import Tracer
 from ..orchestration import (
     AgentConfig,
@@ -224,8 +228,37 @@ class _CompiledWorkflow:
             async for chunk in self._graph.astream(state, {"configurable": {"thread_id": thread_id}}, stream_mode="values"):
                 yield chunk
             return
-        for chunk in await asyncio.to_thread(lambda: list(self.stream(message, context=context))):
-            yield chunk
+        # Native: bridge the sync per-step generator (self.stream(), now
+        # genuinely incremental — see native_engine.NativeEngine.stream_run)
+        # to the event loop via a background thread + asyncio.Queue, so each
+        # chunk reaches the caller as soon as it's produced. A plain
+        # `asyncio.to_thread(lambda: list(self.stream(...)))` (the previous
+        # approach) would run the WHOLE turn to completion inside the
+        # thread first and only then yield the already-collected chunks —
+        # non-blocking for the caller's event loop, but not actually
+        # incremental delivery. This is.
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
+        _DONE = object()
+        error: list[BaseException] = []
+
+        def worker() -> None:
+            try:
+                for chunk in self.stream(message, context=context):
+                    loop.call_soon_threadsafe(queue.put_nowait, chunk)
+            except BaseException as exc:  # noqa: BLE001 — re-raised on the event loop below, not swallowed
+                error.append(exc)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+        threading.Thread(target=worker, daemon=True).start()
+        while True:
+            item = await queue.get()
+            if item is _DONE:
+                if error:
+                    raise error[0]
+                return
+            yield item
 
     def _resume_command(self, payload: dict[str, Any]) -> Any:
         # Same hasattr(self._graph, "ainvoke") discriminator arun()/astream()/
@@ -341,6 +374,7 @@ class Agent:
         critique: CritiqueConfig | None = None,
         user_id: str | Callable[[Any], str] | None = None,
         llm: LLMGateway | None = None,
+        provider: str | None = None,
         guardrails: Any = None,
         eval_harness: EvalHarness | None = None,
         tracer: Tracer | None = None,
@@ -357,6 +391,10 @@ class Agent:
             raise ValueError(f"unknown runtime {runtime!r} — use one of {sorted(RUNTIMES)}")
         if runtime == "native" and checkpointer is not None:
             raise ValueError("runtime='native' keeps its own in-memory per-thread state and doesn't accept a checkpointer")
+        if llm is not None and provider is not None:
+            raise ValueError("pass either llm= or provider=, not both — llm= is an already-configured LLMGateway, provider= picks the vendor for a new one")
+        if provider is not None and provider not in PROVIDERS:
+            raise ValueError(f"provider={provider!r} must be one of {sorted(PROVIDERS)}, or pass llm= for anything else")
         self.name = name
         self.workflow = workflow
         self.runtime = runtime
@@ -366,7 +404,7 @@ class Agent:
 
         self.config = AgentConfig(
             system_prompt=instructions,
-            llm=llm or LLMGateway(provider=AnthropicProvider()),
+            llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
             tools=registry,
             guardrails=guardrails or GuardrailEngine(resolved_policy),
             eval_harness=eval_harness or EvalHarness(),

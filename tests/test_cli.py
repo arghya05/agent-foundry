@@ -168,7 +168,7 @@ def test_cli_eval_compares_against_a_saved_baseline(capsys):
 def test_cli_run_spec_builds_and_runs_an_agent(tmp_path, monkeypatch, capsys):
     from agent_foundry import agent_spec
 
-    monkeypatch.setitem(agent_spec._PROVIDERS, "anthropic", lambda: _StaticProvider())
+    monkeypatch.setitem(agent_spec.PROVIDERS, "anthropic", lambda: _StaticProvider())
     spec_path = tmp_path / "agent.json"
     spec_path.write_text(json.dumps({"name": "cli-agent", "instructions": "Help.", "provider": "anthropic"}))
 

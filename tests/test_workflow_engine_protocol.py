@@ -104,12 +104,36 @@ def test_agent_routes_through_langgraph_workflow_engine_not_an_inline_branch():
 
 
 def test_agent_defaults_to_native_not_langgraph():
-    """Locks the "pip install agent-foundry with zero extras is a complete,
-    working agent" claim — Agent()'s runtime default must stay "native" so
-    it never needs the langgraph extra unless a caller opts in."""
+    """Agent()'s runtime default must stay "native" so a caller never needs
+    the langgraph extra installed unless they opt into runtime="langgraph"."""
     agent = Agent("t", "hi", llm=LLMGateway(provider=ScriptedProvider(["hello"])))
     assert agent.runtime == "native"
     assert isinstance(agent.graph, _NativeGraph)
+
+
+def test_agent_provider_resolves_a_named_vendor_without_a_hand_built_llmgateway(monkeypatch):
+    """Agent(provider="openai") is the same symmetry AgentSpec.provider
+    already had (agent_spec.py) — promoted onto Agent.__init__ itself so
+    picking a non-Anthropic vendor never requires constructing an
+    LLMGateway by hand. Patches llm_gateway.PROVIDERS (the shared registry
+    both Agent and AgentSpec resolve against) rather than needing a real
+    OpenAI SDK installed."""
+    from agent_foundry import llm_gateway
+
+    monkeypatch.setitem(llm_gateway.PROVIDERS, "openai", lambda: ScriptedProvider(["hello"]))
+    agent = Agent("t", "hi", provider="openai")
+    result = agent.run("hi", context=ExecutionContext(thread_id="provider-kwarg"))
+    assert result.content == "hello"
+
+
+def test_agent_rejects_llm_and_provider_together():
+    with pytest.raises(ValueError, match="either llm= or provider="):
+        Agent("t", "hi", llm=LLMGateway(provider=ScriptedProvider(["hello"])), provider="openai")
+
+
+def test_agent_rejects_unknown_provider_name():
+    with pytest.raises(ValueError, match="provider='not-a-real-vendor'"):
+        Agent("t", "hi", provider="not-a-real-vendor")
 
 
 def test_agent_role_reaches_the_native_graphs_own_config():

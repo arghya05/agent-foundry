@@ -34,14 +34,20 @@ tool-side counterpart.
 
 `Agent(runtime=...)` picks a default execution backend — `"native"` (the
 default: a from-scratch, zero-LangGraph-dependency implementation of the
-think/act/critique loop, so `pip install agent-foundry` with no extras is
-a complete, working agent) or `"langgraph"` (opts into LangGraph's
-StateGraph for its persistence/streaming/HITL machinery, required for the
-multi-agent Workflow topologies); `agent.run(msg, runtime=...)` overrides
-it for one call. Both dispatch through `core.protocols.WorkflowEngine` +
-the `RUNTIMES` registry (`core/engines.py`) — the seam a new backend
-(Temporal, say) plugs into by implementing `WorkflowEngine` and adding one
-registry entry, not by touching `Agent` itself. `Model` (`contracts.py`) is
+think/act/critique loop) or `"langgraph"` (opts into LangGraph's StateGraph
+for its persistence/streaming/HITL machinery, required for the multi-agent
+Workflow topologies); `agent.run(msg, runtime=...)` overrides it for one
+call. Neither choice removes the need for an LLM provider — `Agent(...)`
+still defaults to `LLMGateway(provider=AnthropicProvider())` unless given
+`llm=` (an already-configured `LLMGateway`) or `provider=` (a name —
+`"anthropic"`/`"openai"` today — resolved via `llm_gateway.PROVIDERS`),
+so `pip install agent-foundry[anthropic]` (or `[openai]`, or your own
+`llm=`) is still required to actually run a turn; "native" only means the
+execution engine itself needs no LangGraph. Both runtime backends dispatch
+through `core.protocols.WorkflowEngine` + the `RUNTIMES` registry
+(`core/engines.py`) — the seam a new backend (Temporal, say) plugs into by
+implementing `WorkflowEngine` and adding one registry entry, not by
+touching `Agent` itself. `Model` (`contracts.py`) is
 the same `Provider` Protocol `AnthropicProvider`/`OpenAIProvider`/
 `MultiProvider` already implement, under the name most readers reach for
 first; `Message` documents the `{"role": ..., "content": ...}` shape every
