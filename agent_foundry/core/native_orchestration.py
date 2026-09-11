@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Iterator
 
 from ..blackboard import Blackboard, parse_post
-from ..orchestration import AgentConfig, DAGStep
+from ..orchestration import AgentConfig, DAGStep, _resolve_supervisor_route
 from ..llm_gateway import LLMGateway
 from .native_engine import NativeEngine
 
@@ -99,11 +99,15 @@ class _NativeSupervisorGraph:
     own think/act/critique loop to completion — no per-specialist node/edge
     wiring needed the way the LangGraph version requires)."""
 
-    def __init__(self, *, supervisor_prompt: str, agents: dict[str, AgentConfig], llm: LLMGateway, task: str = "default") -> None:
+    def __init__(
+        self, *, supervisor_prompt: str, agents: dict[str, AgentConfig], llm: LLMGateway, task: str = "default",
+        fallback_agent: str | None = None,
+    ) -> None:
         self._prompt = supervisor_prompt
         self._agents = agents
         self._llm = llm
         self._task = task
+        self._fallback_agent = fallback_agent
         self._threads: dict[str, list[dict]] = {}
         self._threads_lock = threading.Lock()
         self._locks = _ThreadLocks()
@@ -117,15 +121,10 @@ class _NativeSupervisorGraph:
         with self._locks.lock_for(thread_id):  # serializes the WHOLE turn for this thread_id, not just history's own dict access
             history = self._history_for(thread_id)
             history.append(state["messages"][-1])
-            options = ", ".join(self._agents)
-            route_messages = [
-                {"role": "system", "content": f"{self._prompt}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
-                *history,
-            ]
-            resp = self._llm.complete(route_messages, task=self._task)
-            name = resp.text.strip().removeprefix("ROUTE ").strip()
-            if name not in self._agents:
-                name = next(iter(self._agents))  # unrecognized routing decision -> fall back, don't crash
+            name = _resolve_supervisor_route(
+                self._llm, task=self._task, agents=list(self._agents), prompt=self._prompt,
+                messages=list(history), fallback_agent=self._fallback_agent,
+            )
             text = native_run_governed_turn(self._agents[name], list(history), thread_id=f"{thread_id}-{name}")
             history.append({"role": "assistant", "content": text})
             return {"messages": list(history), "thread_id": thread_id}

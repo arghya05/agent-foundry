@@ -12,7 +12,7 @@ from agent_foundry import Agent, ExecutionContext, Workflow
 from agent_foundry.blackboard import Blackboard
 from agent_foundry.kpi import KPI
 from agent_foundry.llm_gateway import LLMGateway
-from agent_foundry.orchestration import CritiqueConfig, DAGStep
+from agent_foundry.orchestration import CritiqueConfig, DAGStep, SupervisorRoutingError
 
 from conftest import ScriptedProvider
 
@@ -192,6 +192,43 @@ def test_workflow_supervisor_routes_to_the_right_specialist():
     result = workflow.run("refund please", context=ExecutionContext(thread_id="sup-core"))
 
     assert result.content == "Refund handled."
+
+
+def test_workflow_supervisor_retries_once_then_routes_on_a_corrected_reply():
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE billing", "Handled after retry."])
+    llm = LLMGateway(provider=provider)
+    billing = Agent("billing", "You are the billing agent.", llm=llm)
+
+    workflow = Workflow.supervisor(prompt="route", agents={"billing": billing}, llm=llm)
+    result = workflow.run("refund please", context=ExecutionContext(thread_id="sup-core-retry"))
+
+    assert result.content == "Handled after retry."
+
+
+def test_workflow_supervisor_fails_closed_when_no_fallback_configured():
+    """An unresolved routing decision must not silently pick whichever agent
+    happens to be first in `agents` — see orchestration.SupervisorRoutingError's
+    own docstring for why that's genuinely unsafe once specialists carry
+    different tool/permission scopes."""
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE still_nobody"])
+    llm = LLMGateway(provider=provider)
+    billing = Agent("billing", "You are the billing agent.", llm=llm)
+
+    workflow = Workflow.supervisor(prompt="route", agents={"billing": billing}, llm=llm)
+
+    with pytest.raises(SupervisorRoutingError, match="could not resolve"):
+        workflow.run("refund please", context=ExecutionContext(thread_id="sup-core-fail-closed"))
+
+
+def test_workflow_supervisor_uses_fallback_agent_after_failed_retry():
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE still_nobody", "Handled via fallback."])
+    llm = LLMGateway(provider=provider)
+    billing = Agent("billing", "You are the billing agent.", llm=llm)
+
+    workflow = Workflow.supervisor(prompt="route", agents={"billing": billing}, llm=llm, fallback_agent="billing")
+    result = workflow.run("refund please", context=ExecutionContext(thread_id="sup-core-fallback"))
+
+    assert result.content == "Handled via fallback."
 
 
 def test_workflow_swarm_handoff_between_peers():

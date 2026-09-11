@@ -549,16 +549,24 @@ class Workflow:
     @staticmethod
     def supervisor(
         *, prompt: str, agents: dict[str, Agent], llm: LLMGateway, task: str = "default",
-        checkpointer: Any = None, runtime: str = "langgraph",
+        fallback_agent: str | None = None, checkpointer: Any = None, runtime: str = "langgraph",
     ) -> _CompiledWorkflow:
+        """`fallback_agent`: see orchestration._resolve_supervisor_route — an
+        unrecognized routing decision retries once, then routes here if set,
+        else raises orchestration.SupervisorRoutingError. None (default)
+        means fail closed rather than silently picking whichever agent is
+        first in `agents` — the previous behavior, unsafe once specialists
+        carry different tool/permission scopes."""
         _validate_workflow_runtime(runtime, checkpointer)
         if runtime == "native":
             graph: Any = _NativeSupervisorGraph(
                 supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task,
+                fallback_agent=fallback_agent,
             )
         else:
             graph = build_supervisor_graph(
-                supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task, checkpointer=checkpointer,
+                supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task,
+                fallback_agent=fallback_agent, checkpointer=checkpointer,
             )
         return _CompiledWorkflow(graph, name="supervisor")
 

@@ -13,7 +13,7 @@ import pytest
 from agent_foundry import Agent, ExecutionContext, Workflow
 from agent_foundry.blackboard import Blackboard
 from agent_foundry.llm_gateway import LLMGateway
-from agent_foundry.orchestration import CritiqueConfig, DAGStep
+from agent_foundry.orchestration import CritiqueConfig, DAGStep, SupervisorRoutingError
 
 from conftest import ScriptedProvider
 
@@ -33,15 +33,39 @@ def test_workflow_supervisor_native_routes_to_named_specialist():
     assert result.content == "Refund handled."
 
 
-def test_workflow_supervisor_native_falls_back_on_unrecognized_route():
-    provider = ScriptedProvider(["ROUTE nobody", "Handled anyway."])
+def test_workflow_supervisor_native_retries_once_then_routes_on_a_corrected_reply():
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE billing", "Handled after retry."])
     llm = LLMGateway(provider=provider)
     billing = Agent("billing", "You are the billing agent.", llm=llm)
 
     workflow = Workflow.supervisor(prompt="route", agents={"billing": billing}, llm=llm, runtime="native")
+    result = workflow.run("refund please", context=ExecutionContext(thread_id="sup-native-retry"))
+
+    assert result.content == "Handled after retry."
+
+
+def test_workflow_supervisor_native_fails_closed_when_no_fallback_configured():
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE still_nobody"])
+    llm = LLMGateway(provider=provider)
+    billing = Agent("billing", "You are the billing agent.", llm=llm)
+
+    workflow = Workflow.supervisor(prompt="route", agents={"billing": billing}, llm=llm, runtime="native")
+
+    with pytest.raises(SupervisorRoutingError, match="could not resolve"):
+        workflow.run("refund please", context=ExecutionContext(thread_id="sup-native-fail-closed"))
+
+
+def test_workflow_supervisor_native_uses_fallback_agent_after_failed_retry():
+    provider = ScriptedProvider(["ROUTE nobody", "ROUTE still_nobody", "Handled via fallback."])
+    llm = LLMGateway(provider=provider)
+    billing = Agent("billing", "You are the billing agent.", llm=llm)
+
+    workflow = Workflow.supervisor(
+        prompt="route", agents={"billing": billing}, llm=llm, fallback_agent="billing", runtime="native",
+    )
     result = workflow.run("refund please", context=ExecutionContext(thread_id="sup-native-fallback"))
 
-    assert result.content == "Handled anyway."
+    assert result.content == "Handled via fallback."
 
 
 def test_workflow_swarm_native_handoff_between_peers():

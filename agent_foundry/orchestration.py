@@ -986,33 +986,79 @@ def build_agent_graph(
     return graph.compile(checkpointer=checkpointer or MemorySaver())
 
 
+class SupervisorRoutingError(RuntimeError):
+    """Raised by _resolve_supervisor_route when the router's reply can't be
+    resolved to a known agent even after one retry, and no fallback_agent is
+    configured — fail closed instead of silently picking whichever agent
+    happens to be first in the dict. Silent first-agent selection is
+    genuinely unsafe once specialists carry different tool/permission
+    scopes (found live: nothing stopped an unrecognized routing decision
+    from landing on, say, a finance agent with wire-transfer tools a triage
+    misroute was never meant to reach)."""
+
+
+def _resolve_supervisor_route(
+    llm: LLMGateway, *, task: str, agents: list[str], prompt: str, messages: list[dict], fallback_agent: str | None,
+) -> str:
+    """Parses a supervisor router's `ROUTE <name>` reply against the known
+    agent names. On an unrecognized name: retries ONCE with a corrective
+    prompt (the model gets a real chance to self-correct, not just an
+    immediate fallback); if still unrecognized, routes to `fallback_agent`
+    when one is configured, else raises SupervisorRoutingError. Shared by
+    both build_supervisor_graph (LangGraph) and
+    core.native_orchestration._NativeSupervisorGraph so the two runtimes
+    behave identically here, same as native_run_governed_turn/
+    _run_governed_turn's pairing elsewhere in this module."""
+    options = ", ".join(agents)
+
+    def ask(correction: str = "") -> str:
+        route_messages = [
+            {"role": "system", "content": f"{prompt}{correction}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
+            *messages,
+        ]
+        resp = llm.complete(route_messages, task=task)
+        return resp.text.strip().removeprefix("ROUTE ").strip()
+
+    name = ask()
+    if name in agents:
+        return name
+    name = ask(f"\n\n(Your previous reply {name!r} was not one of the available agents. Reply again, exactly.)")
+    if name in agents:
+        return name
+    if fallback_agent is not None and fallback_agent in agents:
+        return fallback_agent
+    raise SupervisorRoutingError(
+        f"could not resolve a routing reply to a known agent after a retry (last reply: {name!r}, "
+        f"known agents: {options}) — pass fallback_agent= to route unresolved cases instead of failing closed"
+    )
+
+
 def build_supervisor_graph(
     *,
     supervisor_prompt: str,
     agents: dict[str, AgentConfig],
     llm: LLMGateway,
     task: str = "default",
+    fallback_agent: str | None = None,
     checkpointer: BaseCheckpointSaver | None = None,
 ):
     """A real multi-agent supervisor: one router LLM call decides which named
     specialist handles a turn, via LangGraph's Command(goto=...) — the same
     primitive langgraph-supervisor uses. Each specialist keeps its own tools,
     guardrails, policy, budget and memory; nothing is shared unless you choose
-    to pass the same object into more than one AgentConfig."""
+    to pass the same object into more than one AgentConfig.
+
+    `fallback_agent`: see _resolve_supervisor_route — None (default) means an
+    unrecognized routing decision that survives one retry raises
+    SupervisorRoutingError rather than silently picking an arbitrary agent."""
     from langgraph.checkpoint.memory import MemorySaver
     from langgraph.graph import END, StateGraph
     from langgraph.types import Command
 
     def supervisor(state: AgentState) -> Command[Any]:
-        options = ", ".join(agents)
-        messages = [
-            {"role": "system", "content": f"{supervisor_prompt}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
-            *state["messages"],
-        ]
-        resp = llm.complete(messages, task=task)
-        name = resp.text.strip().removeprefix("ROUTE ").strip()
-        if name not in agents:
-            name = next(iter(agents))  # unrecognized routing decision -> fall back, don't crash the graph
+        name = _resolve_supervisor_route(
+            llm, task=task, agents=list(agents), prompt=supervisor_prompt, messages=list(state["messages"]), fallback_agent=fallback_agent,
+        )
         return Command(goto=f"{name}_think")
 
     graph = StateGraph(AgentState)

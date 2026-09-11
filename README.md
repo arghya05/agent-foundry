@@ -664,6 +664,18 @@ only covers the single-agent shape (`workflow="react"`, the default); the
 `build_*_graph` functions below remain directly importable for anything
 `Agent`/`Workflow` doesn't cover yet.
 
+`Workflow.supervisor`'s router fails closed by default: an unrecognized
+routing reply gets one retry with a corrective prompt, and if that's still
+unresolved, raises `orchestration.SupervisorRoutingError` rather than
+silently picking whichever agent happens to be first in `agents` — unsafe
+once specialists carry different tool/permission scopes (a misrouted
+"triage" turn landing on a finance agent with wire-transfer tools, say).
+Pass `fallback_agent="some_agent_name"` to route unresolved cases there
+explicitly instead of failing closed. Same behavior on both runtimes —
+`orchestration._resolve_supervisor_route` is the one shared, framework-
+agnostic implementation `build_supervisor_graph` and
+`core/native_orchestration.py`'s `_NativeSupervisorGraph` both call.
+
 #### Runtime backends: native, LangGraph, and what plugs in next
 
 `Agent(...)` defaults to `runtime="native"` — `core/native_engine.py`, a
