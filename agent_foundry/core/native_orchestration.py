@@ -12,11 +12,23 @@ these instead: they already only ever call `.invoke()`/`.stream()` on
 whatever `self._graph` is, LangGraph-compiled or not (see engines.py's own
 docstring for the established version of this same trick, one layer down).
 
-`.stream()` on every class below yields exactly one chunk (the final
-result) — real per-step incremental streaming exists for single-agent
-(native_engine.stream_run), but reproducing it for 5 more topologies is out
-of scope here; this is honest single-chunk parity, not a claim of full
-step-level streaming.
+`.stream()` on every class below yields real, discrete progress events
+(a mix of `{"event": "...", ...}` dicts and, as the LAST item, the same
+plain `{"messages": [...], ...}`/`{"results": {...}}` state dict `.invoke()`
+itself returns) — a deliberate, documented DIVERGENCE from single-agent
+streaming's chunk shape: `native_engine.stream_run` yields the full
+accumulated `{"messages": [...], "thread_id": ...}` state after every step
+(matching LangGraph's own `stream_mode="values"`), but a topology has no
+single shared "state" the way one agent's think/act loop does — each
+specialist/step is its own distinct thing happening, which a named event
+describes more honestly than another full-state snapshot would.
+`_CompiledWorkflow.stream()` (core/agent.py) is confirmed to be a pure
+pass-through with no structural expectations on chunk shape, so nothing
+downstream breaks from this — it only needs calling out, not reconciling.
+Supervisor/swarm/blackboard/debate stream real events on a resumed turn
+too (the same _drive_stream generator handles both); fanout/dag have no
+resume concept at all (same as they have none for critique — see each
+class's own docstring).
 
 Governed per-specialist turns (supervisor/swarm/blackboard/debate all need
 one) go through _PausableTurns, the native counterpart of
@@ -31,7 +43,7 @@ human-in-the-loop needed (see _PausableTurns' own docstring).
 from __future__ import annotations
 
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
 from ..blackboard import Blackboard, parse_post
@@ -169,6 +181,16 @@ class _NativeSupervisorGraph:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None  # _drive_stream always yields at least once
+        return last
+
+    def stream(self, state: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: Any, run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         with self._locks.lock_for(thread_id):  # serializes the WHOLE turn for this thread_id, not just history's own dict access
@@ -186,20 +208,20 @@ class _NativeSupervisorGraph:
                     self._llm, task=self._task, agents=list(self._agents), prompt=self._prompt,
                     messages=list(history), fallback_agent=self._fallback_agent,
                 )
+                yield {"event": "router.selected", "agent": name}
                 result = self._turns.run(self._agents[name], list(history), key=f"{thread_id}-{name}")
 
             if result.get("__interrupt__"):
                 with self._threads_lock:
                     self._paused[thread_id] = name
-                return {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                return
 
             with self._threads_lock:
                 self._paused.pop(thread_id, None)
             history.append({"role": "assistant", "content": result["messages"][-1]["content"]})
-            return {"messages": list(history), "thread_id": thread_id}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+            yield {"event": "specialist.completed", "agent": name}
+            yield {"messages": list(history), "thread_id": thread_id}
 
 
 class _NativeSwarmGraph:
@@ -226,6 +248,16 @@ class _NativeSwarmGraph:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None
+        return last
+
+    def stream(self, state: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: Any, run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         with self._locks.lock_for(thread_id):
@@ -246,15 +278,18 @@ class _NativeSwarmGraph:
                 if result.get("__interrupt__"):
                     with self._threads_lock:
                         self._paused[thread_id] = {"name": name, "hops_done": hops_done}
-                    return {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                    yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                    return
 
                 text = result["messages"][-1]["content"]
                 history.append({"role": "assistant", "content": text})
                 hops_done += 1
+                yield {"event": "agent.completed", "agent": name}
                 if isinstance(text, str) and text.startswith("HANDOFF ") and hops_done < self._max_handoffs:
                     target = text[len("HANDOFF "):].strip()
                     if target in self._agents and target != name:
                         self._agents[name].eval_harness.record("component", "handoff", target, 1.0)
+                        yield {"event": "handoff", "from": name, "to": target}
                         name = target
                         result = self._turns.run(self._agents[name], list(history), key=f"{thread_id}-{name}")
                         continue
@@ -262,10 +297,7 @@ class _NativeSwarmGraph:
 
             with self._threads_lock:
                 self._paused.pop(thread_id, None)
-            return {"messages": list(history), "thread_id": thread_id}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+            yield {"messages": list(history), "thread_id": thread_id}
 
 
 class _NativeBlackboardGraph:
@@ -297,6 +329,16 @@ class _NativeBlackboardGraph:
         )
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None
+        return last
+
+    def stream(self, state: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: Any, run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         agent_names = list(self._agents)
@@ -320,7 +362,8 @@ class _NativeBlackboardGraph:
                 if result.get("__interrupt__"):
                     with self._threads_lock:
                         self._paused[thread_id] = {"round": round_i, "agent_index": agent_i}
-                    return {"messages": list(history), "thread_id": thread_id, "round": round_i, "__interrupt__": result["__interrupt__"]}
+                    yield {"messages": list(history), "thread_id": thread_id, "round": round_i, "__interrupt__": result["__interrupt__"]}
+                    return
 
                 config = self._agents[name]
                 text = result["messages"][-1]["content"]
@@ -328,8 +371,10 @@ class _NativeBlackboardGraph:
                 if parsed:
                     self._blackboard.post(*parsed)
                     config.eval_harness.record("component", name, "posted", 1.0, section=parsed[0])
+                    yield {"event": "agent.posted", "agent": name, "section": parsed[0]}
                 else:
                     config.eval_harness.record("component", name, "posted", 0.0)
+                    yield {"event": "agent.post_failed", "agent": name}
 
                 agent_i += 1
                 if agent_i >= len(agent_names):
@@ -342,10 +387,7 @@ class _NativeBlackboardGraph:
 
             with self._threads_lock:
                 self._paused.pop(thread_id, None)
-            return {"messages": list(history), "thread_id": thread_id, "round": self._rounds}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+            yield {"messages": list(history), "thread_id": thread_id, "round": self._rounds}
 
 
 class _NativeDebateGraph:
@@ -367,6 +409,16 @@ class _NativeDebateGraph:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None
+        return last
+
+    def stream(self, state: Any, run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: Any, run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         debater_names = list(self._debaters)
@@ -394,13 +446,15 @@ class _NativeDebateGraph:
                 if result.get("__interrupt__"):
                     with self._threads_lock:
                         self._paused[thread_id] = {"phase": phase, "index": index}
-                    return {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                    yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
+                    return
 
                 if phase == "debater":
                     name = debater_names[index]
                     text = result["messages"][-1]["content"]
                     history.append({"role": "assistant", "content": f"[{name}] {text}"})
                     self._debaters[name].eval_harness.record("component", name, "answered", 1.0)
+                    yield {"event": "debater.answered", "debater": name}
                     index += 1
                     if index < len(debater_names):
                         name = debater_names[index]
@@ -415,14 +469,12 @@ class _NativeDebateGraph:
                 judge_text = result["messages"][-1]["content"]
                 self._judge.eval_harness.record("flow", thread_id, "judged", 1.0)
                 history.append({"role": "assistant", "content": judge_text})
+                yield {"event": "judge.decided"}
                 break
 
             with self._threads_lock:
                 self._paused.pop(thread_id, None)
-            return {"messages": list(history), "thread_id": thread_id}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+            yield {"messages": list(history), "thread_id": thread_id}
 
 
 class _NativeFanoutGraph:
@@ -446,19 +498,33 @@ class _NativeFanoutGraph:
         self._max_concurrency = max_concurrency
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None
+        return last
+
+    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: dict[str, Any], run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         thread_id = run_config["configurable"]["thread_id"]
         items = state["items"]
+        all_messages: list[dict] = []
         # ThreadPoolExecutor(max_workers=N) only ever runs N submitted
         # callables concurrently regardless of how many are queued up — no
         # separate chunking/semaphore layer needed, same reasoning as
-        # batch.run_batch's own max_workers cap (batch.py).
+        # batch.run_batch's own max_workers cap (batch.py). as_completed
+        # (not "submit everything, then block on each in submission order")
+        # is what actually lets `item.completed` stream out as each item
+        # finishes, rather than all arriving together at the end.
         with ThreadPoolExecutor(max_workers=min(len(items), self._max_concurrency) or 1) as pool:
-            futures = [pool.submit(_native_run_worker_messages, self._config, item, thread_id=thread_id) for item in items]
-            all_messages = [msg for future in futures for msg in future.result()]
-        return {"messages": all_messages, "thread_id": thread_id, "items": items}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+            future_to_item = {pool.submit(_native_run_worker_messages, self._config, item, thread_id=thread_id): item for item in items}
+            for future in as_completed(future_to_item):
+                item = future_to_item[future]
+                all_messages.extend(future.result())
+                yield {"event": "item.completed", "item": item}
+        yield {"messages": all_messages, "thread_id": thread_id, "items": items}
 
 
 class _NativeDagGraph:
@@ -473,6 +539,16 @@ class _NativeDagGraph:
         self._max_concurrency = max_concurrency
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
+        last: dict[str, Any] | None = None
+        for last in self._drive_stream(state, run_config):
+            pass
+        assert last is not None
+        return last
+
+    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield from self._drive_stream(state, run_config)
+
+    def _drive_stream(self, state: dict[str, Any], run_config: dict[str, Any]) -> Iterator[dict[str, Any]]:
         results: dict[str, Any] = dict(state.get("results") or {})
         remaining = {step.name: step for step in self._steps if step.name not in results}
         while remaining:
@@ -480,12 +556,10 @@ class _NativeDagGraph:
             if not ready:
                 raise RuntimeError("DAG has unsatisfiable dependencies (a cycle, or a step depending on an unknown step)")
             with ThreadPoolExecutor(max_workers=min(len(ready), self._max_concurrency) or 1) as pool:
-                futures = {pool.submit(step.fn, dict(results)): step.name for step in ready}
-                computed = {futures[future]: future.result() for future in futures}
-            results.update(computed)
-            for name in computed:
-                del remaining[name]
-        return {"results": results}
-
-    def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
-        yield self.invoke(state, run_config)
+                future_to_name = {pool.submit(step.fn, dict(results)): step.name for step in ready}
+                for future in as_completed(future_to_name):
+                    name = future_to_name[future]
+                    results[name] = future.result()
+                    del remaining[name]
+                    yield {"event": "step.completed", "step": name}
+        yield {"results": results}

@@ -43,8 +43,12 @@ of the think/act/critique loop with zero LangGraph dependency;
 identical loop through LangGraph's `StateGraph` for its
 persistence/streaming/HITL machinery. Every multi-agent `Workflow` topology
 below runs on either runtime (`runtime="native"` or `"langgraph"`,
-per-call); LangGraph is only required for durable checkpointing across a
-restart, or a topology-hop approval interrupt (see
+per-call), including durable state now that `state_store=` is wired into
+`NativeEngine` (Redis/Postgres/in-memory) and topology-level pause/resume
+for supervisor/swarm on both runtimes and blackboard/debate natively —
+LangGraph is still needed specifically for durable checkpointing via its
+own mechanism, or for a blackboard/debate topology-hop approval interrupt
+(a confirmed, documented gap — see
 [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)).
 Either way, running an actual turn still needs
 an LLM provider — `pip install agent-foundry[anthropic]` (or `[openai]`,
@@ -57,7 +61,7 @@ agent-as-tool, on whichever backend you choose — per `Agent`, or per call.
 | | |
 |---|---|
 | **Native Python** | first-class runtime (the default, zero LangGraph dependency) |
-| **LangGraph** | optional adapter — `pip install agent-foundry[langgraph]`, needed for durable checkpointing or a topology-hop approval interrupt |
+| **LangGraph** | optional adapter — `pip install agent-foundry[langgraph]`, needed for its own durable checkpointing mechanism or a blackboard/debate topology-hop approval interrupt |
 | **MCP** | tool interoperability — any MCP server's tools as `ToolSpec`s |
 | **A2A** | agent interoperability — Agent2Agent protocol bridge |
 | **AutoGen / CrewAI** | external-agent interoperability — their agents as tools, and vice versa |
@@ -429,7 +433,8 @@ repo, not just the concept:
 |---|---|---|
 | `orchestration.py` | `AgentConfig`, `CritiqueConfig`, `AgentState`, `make_think_node`, `make_act_node`, `make_critique_node`, `make_self_verify_node`, and all 7 `build_*_graph` topology builders | The think/act/critique loop itself — everything else in this repo is a slot it calls into |
 | `core/native_engine.py` | `NativeEngine` | A second, framework-free implementation of the same think/act/critique loop — `Agent(..., runtime="native")` |
-| `core/native_orchestration.py` | `native_run_governed_turn`, and a native counterpart of each multi-agent `build_*_graph` | The same framework-free idea as `native_engine.py`, one layer up — `Workflow.supervisor(..., runtime="native")` etc. |
+| `core/native_orchestration.py` | `_PausableTurns`, and a native counterpart of each multi-agent `build_*_graph` — pausable/resumable, bounded-concurrency, real event streaming | The same framework-free idea as `native_engine.py`, one layer up — `Workflow.supervisor(..., runtime="native")` etc. |
+| `core/state_store.py` | `MemoryStateStore`, `PostgresStateStore` | `core.protocols.StateStore` implementations — `Agent(..., runtime="native", state_store=...)` |
 | `core/run.py` | `Run`, `RunStatus` | `Agent.start()`'s formal run lifecycle — pause/unpause/cancel/retry/fork/replay/wait_for_event |
 | `core/evalgate.py` | `run_eval()`, `EvalCase`, `Scorecard` | Evaluation-as-release-gate — score an Agent against a dataset, `.passes(thresholds)` |
 
@@ -438,7 +443,7 @@ repo, not just the concept:
 | Module | Provides | For |
 |---|---|---|
 | `runtime.py` | `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker` — each with a swappable `*Like` Protocol | Per-thread cost/step/latency budgets, retries, circuit breaking |
-| `distributed.py` | `RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`, `RedisSLATracker`, `RedisCostLedger` | Real cross-replica versions of the above, backed by Redis — for a genuine multi-node deployment |
+| `distributed.py` | `RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`, `RedisSLATracker`, `RedisCostLedger`, `RedisStateStore` | Real cross-replica versions of the above, backed by Redis — for a genuine multi-node deployment |
 | `tools_gateway.py` | `ToolRegistry`, `ToolCache`, `InMemoryIdempotencyStore`, `tool_json_schema` | RBAC-scoped tool invocation, result caching, idempotency |
 | `mcp_tools.py` | `MCPToolSource` | Any stdio/HTTP MCP server's tools, registered into a `ToolRegistry` |
 | `http_tools.py` | `http_tool()` | Wraps any REST endpoint as a `ToolSpec`, no MCP server needed |
@@ -718,33 +723,78 @@ provider, not a probabilistic timing test) the same guarantee
 `NativeEngine` already had for single-agent: two turns on the SAME
 thread_id never execute concurrently (each topology's own `_ThreadLocks`
 serializes the whole turn, not just its history dict's own access), while
-different thread_ids run fully in parallel. Two things are still LangGraph-only: durable
-checkpointing (below), and mid-turn PDP-approval interrupts *across* a
-topology hop (a specialist pausing for tool approval inside a
-supervisor/swarm run) — single-agent native already supports pausing, but
-nesting that through a topology's own workflow-level state is real
-additional surgery, not done yet. Multiple *simultaneously* pending tool
-approvals in one single-agent turn are resolved one `.resume()` call at a
-time rather than LangGraph's queued-multi-interrupt support, and every
-native engine (single-agent or topology) keeps its own in-memory per-thread
-state (no `checkpointer=` option — non-restart-durable, so a process
-restart loses in-flight state).
-`core.protocols.StateStore` (`load`/`save`/`delete`, `@runtime_checkable`)
-plus a reference `MemoryStateStore` (`core/state_store.py`) is a real,
-tested seam for this — the same "prove the Protocol first" step
-`WorkflowEngine` went through before `Agent` routed through it — but it
-isn't wired into `NativeEngine`'s own state storage yet: that storage is a
-lock-guarded in-process dict with its own documented thread-safety
-discipline (see `NativeEngine`'s class docstring in `native_engine.py`),
-and swapping what's underneath that lock is real surgery on a hot path
-that deserves its own change and test pass, not a rider on this one. A
-Redis/Postgres-backed `StateStore` is separate, larger work still (real
-connection lifecycle and error handling, verified against a live process
-like this repo's other real external integrations) that the Protocol makes
-possible without touching `NativeEngine`'s state shape, but doesn't itself
-ship today. Pass `runtime="langgraph"` (`pip install agent-foundry[langgraph]`)
-when you need durable checkpointing across restarts, or a topology-hop
-approval interrupt — the two gaps called out above.
+different thread_ids run fully in parallel.
+
+**Durable state — a real cross-restart backend, not just a seam.**
+`core.protocols.StateStore` (`load`/`save`/`delete`) is wired into
+`NativeEngine` for real: `_state_for` is cache-first (the in-process dict
+stays the fast path within one process) with load-on-miss from the store,
+and `_raw()` — the one function every mutating call path already funnels
+through, at the same granularity LangGraph's own checkpointer persists at
+(after every think/act/critique step) — saves on every step. Pass
+`Agent(..., runtime="native", state_store=<a StateStore>)`.
+`core/state_store.py`'s `MemoryStateStore` (in-process reference) and
+`PostgresStateStore` (`pip install agent-foundry[postgres]`), plus
+`distributed.py`'s `RedisStateStore`, are all real, live-process-verified
+backends (`tests/test_state_store_backends.py` runs the full contract
+against a real reachable Redis/Postgres, skipping cleanly when neither is
+up) — `tests/test_native_engine_state_store.py` is the actual
+process-restart proof: a brand-new `NativeEngine` sharing only the store
+continues an earlier one's thread, including a mid-turn tool-approval
+pause surviving that "restart."
+
+**Topology-level human-in-the-loop.** Native supervisor/swarm/blackboard/
+debate now genuinely pause and resume across a specialist's tool-approval
+interrupt — `core/native_orchestration.py`'s `_PausableTurns` keeps a
+specialist's `NativeEngine` alive across the call boundary instead of the
+old ephemeral-per-call model, which silently discarded any interrupt the
+instant the call returned. `tests/test_native_orchestration_hitl.py` proves
+it end-to-end for all four. On LangGraph: supervisor/swarm already worked
+here (specialists are first-class nodes of one compiled graph/checkpointer
+— verified, not assumed, by `test_supervisor_pauses_for_a_specialists_tool_
+approval_and_resumes`/`test_swarm_pauses_inside_the_handed_off_specialist_
+and_resumes` in `tests/test_orchestration.py`), but blackboard/debate do
+not — they route each participant through `_run_governed_turn`'s ephemeral
+inner graph, which silently swallows an interrupt exactly the way native's
+old model did. Confirmed by direct reproduction, not assumed:
+`test_debate_silently_loses_a_debaters_tool_approval_interrupt_KNOWN_GAP`.
+Not fixed in this pass — the correct shape needs each participant on an
+ISOLATED view of the conversation (confirmed by re-reading the actual call
+pattern: every debater/blackboard participant gets the identical fixed
+input, never chained through each other's replies), which means
+LangGraph's `Send`-based fan-out, whose interrupt/resume behavior for a
+paused task inside a `Send` branch is real, unverified LangGraph-version-
+specific behavior — flagged rather than guessed at.
+
+**Real progress events for native multi-agent streaming**, not one final
+chunk — `Workflow.*(runtime="native").stream()` now yields a genuine
+sequence: `router.selected`/`specialist.completed` (supervisor),
+`agent.completed`/`handoff` (swarm), `agent.posted`/`agent.post_failed`
+(blackboard, per participant per round), `debater.answered`/`judge.decided`
+(debate), `item.completed` (fanout, emitted via `as_completed` as each item
+actually finishes — not after the whole batch), `step.completed` (DAG,
+same). The last chunk is always the same `{"messages"/"results": ...}`
+state dict `.invoke()` itself returns. This is a deliberate divergence from
+single-agent streaming's shape (full accumulated state after every step) —
+a topology has no single shared "state" the way one agent's think/act loop
+does, so a named event describes what's actually happening more honestly
+than another full-state snapshot would. `tests/test_native_orchestration_
+streaming.py` asserts the exact event sequence per topology.
+
+**Bounded concurrency.** `Workflow.fanout`/`.dag(runtime="native",
+max_concurrency=32)` caps how many workers/DAG-wave-steps run at once
+(`ThreadPoolExecutor(max_workers=min(n, cap))`) — before this, a
+`workflow.run(<thousands of items>)` could request thousands of threads.
+`tests/test_native_orchestration_max_concurrency.py` proves the bound
+holds (deterministically, same forced-interleaving technique) while still
+completing every item/step.
+
+Multiple *simultaneously* pending tool approvals in one single-agent turn
+are still resolved one `.resume()` call at a time rather than LangGraph's
+queued-multi-interrupt support. Pass `runtime="langgraph"`
+(`pip install agent-foundry[langgraph]`) specifically for durable
+checkpointing via LangGraph's own mechanism, or for blackboard/debate
+topology-hop HITL (the one confirmed remaining gap above).
 
 #### Native vs LangGraph — measured, not claimed
 
