@@ -17,14 +17,13 @@ framework built on top of any one of them.** `Agent`, the domain model
 (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/`Memory`/
 `Guardrail`/`Evaluator`), and the governance/eval/observability layers are
 plain Python — dataclasses and `Protocol`s. **The native execution path has
-no LangGraph dependency; every LangGraph import in this codebase is
-function-local, guarded, and isolated to the optional LangGraph adapter
-path** — verified, not just documented: `grep -rn "from langgraph\|import
-langgraph" agent_foundry/` turns up every occurrence inside a function body,
-never at module top level, so importing `agent_foundry` at all never
-imports LangGraph. Two shapes: `orchestration.py`'s `build_*_graph`
-functions (the LangGraph-only topology builders — never called at all on
-the native path, since `Workflow.*`/`Agent` dispatch to
+no LangGraph dependency; no LangGraph import in this codebase is mandatory
+or unguarded at module import time** — verified, not just documented:
+`grep -rn "from langgraph\|import langgraph" agent_foundry/` turns up
+three shapes, none of which requires LangGraph installed just to `import
+agent_foundry`. Most are function-local — `orchestration.py`'s
+`build_*_graph` functions (the LangGraph-only topology builders — never
+called at all on the native path, since `Workflow.*`/`Agent` dispatch to
 `core/native_orchestration.py`'s counterparts instead when
 `runtime="native"`), and a handful of `hasattr(graph, "ainvoke")`-guarded
 resume shims (`core/agent.py`'s `_resume_command`, `core/engines.py`,
@@ -32,7 +31,13 @@ resume shims (`core/agent.py`'s `_resume_command`, `core/engines.py`,
 `langgraph.types.Command` when `graph` actually is one — a native
 `_NativeGraph` gets the langgraph-free `_ResumePayload` stand-in instead,
 same `.resume` attribute, so `core.agent.result_from_graph_output` and
-every caller need no engine-specific branching. Neither LangGraph nor
+every caller need no engine-specific branching. One exception is module-
+level, not function-local, for a real reason: `orchestration.py`'s
+`build_fanout_graph` needs `Send` as an actual name at class-definition
+time for a type hint LangGraph itself resolves via `typing.get_type_hints`
+at graph-build time (not import time) — so it's a top-level `try: from
+langgraph.types import Send except ImportError: Send = None`, guarded the
+same way, not a hard dependency. Neither LangGraph nor
 LangChain is a base-install dependency —
 `pip install agent-foundry` pulls in `cryptography` only. Execution is
 pluggable behind one seam (`core.protocols.WorkflowEngine`, dispatched
