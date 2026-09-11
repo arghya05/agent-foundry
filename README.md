@@ -5,7 +5,7 @@
 [![Security](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 
-Built by **Arghya Mukherjee**, Senior Director, AI Product Engineering at Algonomy — a reference architecture for
+Built by **Arghya Mukherjee** — a reference architecture for
 taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
 scratch each time.
@@ -48,12 +48,20 @@ of the think/act/critique loop with zero LangGraph dependency;
 identical loop through LangGraph's `StateGraph` for its
 persistence/streaming/HITL machinery. Every multi-agent `Workflow` topology
 below runs on either runtime (`runtime="native"` or `"langgraph"`,
-per-call), including durable state now that `state_store=` is wired into
-`NativeEngine` (Redis/Postgres/in-memory) and topology-level pause/resume
-for supervisor/swarm on both runtimes and blackboard/debate natively —
-LangGraph is still needed specifically for durable checkpointing via its
-own mechanism, or for a blackboard/debate topology-hop approval interrupt
-(a confirmed, documented gap — see
+per-call), with topology-level pause/resume for supervisor/swarm on both
+runtimes and blackboard/debate natively. Being precise about durability,
+not just capability: native single-agent state IS restart-durable when you
+pass `state_store=` (Redis/Postgres/in-memory) — a killed and restarted
+process picks the conversation back up through the shared store. Native
+multi-agent *topology* state (which specialist is active, a paused
+approval, blackboard/debate round position — `core/native_orchestration.py`'s
+`_PausableTurns`/per-topology history) is NOT wired to any `StateStore` yet
+and stays process-local, so a killed process loses topology-level
+in-flight state even though the underlying specialist's own turn state
+would otherwise be recoverable. LangGraph is still needed specifically for
+durable checkpointing via its own mechanism (single-agent or multi-agent),
+or for a blackboard/debate topology-hop approval interrupt (a confirmed,
+documented gap — see
 [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)).
 Either way, running an actual turn still needs
 an LLM provider — `pip install agent-foundry[anthropic]` (or `[openai]`,
@@ -217,7 +225,7 @@ flowchart TD
     User["Client / End User"]
 
     subgraph Entry["Entry Points"]
-        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime chosen per-Agent or per-call\nno module-level LangGraph/LangChain import"]
+        Core["agent_foundry.core — Agent / Workflow\nrun/stream/resume/batch/schedule/as_tool/on\nruntime chosen per-Agent or per-call\nno mandatory LangGraph/LangChain dependency"]
         Spec["agent_spec.py — AgentSpec\ndeclarative YAML/JSON/dict:\nstructured tools, named critique evaluators"]
         Quick["quickstart.py\nplug_and_play_agent() — the one place\nreal LangChain (create_agent) is used"]
         Serve["serve.py\nFastAPI + browser chat UI + HITL"]
@@ -754,7 +762,11 @@ interrupt — `core/native_orchestration.py`'s `_PausableTurns` keeps a
 specialist's `NativeEngine` alive across the call boundary instead of the
 old ephemeral-per-call model, which silently discarded any interrupt the
 instant the call returned. `tests/test_native_orchestration_hitl.py` proves
-it end-to-end for all four. On LangGraph: supervisor/swarm already worked
+it end-to-end for all four. This pause/resume is process-local, same as
+the rest of a native topology's state (see the durable-state paragraph
+above) — `_PausableTurns` doesn't take a `state_store`, so a killed
+process during a pending approval loses it; single-agent state under
+`state_store=` survives that, topology state doesn't yet. On LangGraph: supervisor/swarm already worked
 here (specialists are first-class nodes of one compiled graph/checkpointer
 — verified, not assumed, by `test_supervisor_pauses_for_a_specialists_tool_
 approval_and_resumes`/`test_swarm_pauses_inside_the_handed_off_specialist_
