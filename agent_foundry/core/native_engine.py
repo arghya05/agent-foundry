@@ -109,7 +109,19 @@ class NativeEngine:
         with self._threads_lock:
             if thread_id in self._threads:
                 return self._threads[thread_id]
-            loaded = self._state_store.load(thread_id) if self._state_store is not None else None
+        # Cache miss: state_store.load() is potentially slow network I/O
+        # (Redis/Postgres) — done OUTSIDE _threads_lock, which guards the
+        # WHOLE dict, not just this one thread_id, so holding it here would
+        # block every OTHER thread_id's unrelated _state_for/_persist call
+        # for as long as this one load takes. Every actual caller already
+        # holds ITS OWN per-thread_id lock (_lock_for) for the duration of
+        # this call, so two concurrent _state_for(thread_id) calls for the
+        # SAME thread_id can't happen in practice — the re-check below is
+        # defensive, not a fix for a reachable race.
+        loaded = self._state_store.load(thread_id) if self._state_store is not None else None
+        with self._threads_lock:
+            if thread_id in self._threads:
+                return self._threads[thread_id]
             state = loaded if loaded is not None else {
                 "messages": [], "thread_id": thread_id, "critique_retries": 0, "critique_last_score": None, "_pending": None,
             }
@@ -121,8 +133,15 @@ class NativeEngine:
             return
         with self._threads_lock:
             state = self._threads.get(thread_id)
+            # A real backend's save() should serialize its own snapshot
+            # (json.dumps, etc.), so a plain reference here is fine — this
+            # dict is never handed to two concurrent save() calls at once
+            # (same per-thread_id serialization as above), unlike
+            # MemoryStateStore's own deep-copy guarantee, which exists for
+            # a DIFFERENT reason: isolating what a caller does with what
+            # load() returns, not concurrent-save safety.
         if state is not None:
-            self._state_store.save(thread_id, state)
+            self._state_store.save(thread_id, state)  # network I/O, deliberately outside _threads_lock — see above
 
     def run(self, config: AgentConfig, message: str, *, thread_id: str, request_identity: dict[str, Any] | None = None) -> dict[str, Any]:
         with self._lock_for(thread_id):

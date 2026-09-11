@@ -69,27 +69,34 @@ class PostgresStateStore:
 
     def __init__(self, *, dsn: str = "dbname=agent_foundry", table: str = "agent_foundry_state"):
         import psycopg2
+        from psycopg2 import sql
 
-        self._table = table
+        self._table_ident = sql.Identifier(table)  # never f-string a table name into raw SQL — table= is caller-supplied
         self._conn = psycopg2.connect(dsn)
         self._conn.autocommit = True
         with self._conn.cursor() as cur:
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {self._table} (run_id TEXT PRIMARY KEY, state JSONB NOT NULL)")
+            cur.execute(sql.SQL("CREATE TABLE IF NOT EXISTS {} (run_id TEXT PRIMARY KEY, state JSONB NOT NULL)").format(self._table_ident))
 
     def load(self, run_id: str) -> dict[str, Any] | None:
+        from psycopg2 import sql
+
         with self._conn.cursor() as cur:
-            cur.execute(f"SELECT state FROM {self._table} WHERE run_id = %s", (run_id,))
+            cur.execute(sql.SQL("SELECT state FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))
             row = cur.fetchone()
         return None if row is None else (row[0] if isinstance(row[0], dict) else json.loads(row[0]))
 
     def save(self, run_id: str, state: dict[str, Any]) -> None:
+        from psycopg2 import sql
+
         with self._conn.cursor() as cur:
             cur.execute(
-                f"INSERT INTO {self._table} (run_id, state) VALUES (%s, %s) "
-                f"ON CONFLICT (run_id) DO UPDATE SET state = EXCLUDED.state",
+                sql.SQL("INSERT INTO {} (run_id, state) VALUES (%s, %s) ON CONFLICT (run_id) DO UPDATE SET state = EXCLUDED.state")
+                .format(self._table_ident),
                 (run_id, json.dumps(state)),
             )
 
     def delete(self, run_id: str) -> None:
+        from psycopg2 import sql
+
         with self._conn.cursor() as cur:
-            cur.execute(f"DELETE FROM {self._table} WHERE run_id = %s", (run_id,))
+            cur.execute(sql.SQL("DELETE FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))

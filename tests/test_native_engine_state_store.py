@@ -6,7 +6,11 @@ one must be able to continue that earlier instance's thread_id.
 """
 from __future__ import annotations
 
+import threading
+import time
+
 from agent_foundry import Agent, ExecutionContext
+from agent_foundry.core.native_engine import NativeEngine
 from agent_foundry.core.state_store import MemoryStateStore
 from agent_foundry.llm_gateway import LLMGateway
 
@@ -72,3 +76,47 @@ def test_state_store_round_trips_a_tool_approval_pause_across_a_fresh_engine():
     resumed = second.resume(approved=True, context=ExecutionContext(thread_id="pause-thread"))
 
     assert resumed.content == "done"
+
+
+def test_a_slow_state_store_load_for_one_thread_does_not_block_a_different_thread_id():
+    """_state_for()'s cache-miss load() is potentially slow network I/O
+    (Redis/Postgres) — it must happen OUTSIDE the shared _threads_lock, or
+    one thread_id's slow load blocks every OTHER thread_id's unrelated
+    _state_for/_persist call too, defeating the whole point of NativeEngine's
+    own per-thread_id locking design."""
+
+    class _BlockingLoadStore:
+        def __init__(self) -> None:
+            self.entered = threading.Event()
+            self.release = threading.Event()
+
+        def load(self, run_id):
+            if run_id == "slow-thread":
+                self.entered.set()
+                self.release.wait(timeout=5)
+            return None
+
+        def save(self, run_id, state):
+            pass
+
+        def delete(self, run_id):
+            pass
+
+    store = _BlockingLoadStore()
+    engine = NativeEngine(state_store=store)
+    config_a = Agent("bot", "chat", llm=LLMGateway(provider=ScriptedProvider(["slow reply"]))).config
+    config_b = Agent("bot", "chat", llm=LLMGateway(provider=ScriptedProvider(["fast reply"]))).config
+
+    thread_a = threading.Thread(target=lambda: engine.run(config_a, "hi", thread_id="slow-thread"))
+    thread_a.start()
+    store.entered.wait(timeout=5)  # thread A is now blocked inside store.load()
+
+    start = time.time()
+    result_b = engine.run(config_b, "hi", thread_id="fast-thread")
+    elapsed = time.time() - start
+
+    assert result_b["messages"][-1]["content"] == "fast reply"
+    assert elapsed < 1.0, f"thread B was blocked by thread A's slow store.load() ({elapsed:.2f}s)"
+
+    store.release.set()
+    thread_a.join(timeout=5)
