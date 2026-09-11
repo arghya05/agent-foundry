@@ -13,6 +13,18 @@ from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 from .contracts import Identity
 
+
+@dataclass
+class _ResumePayload:
+    """langgraph-free stand-in for langgraph.types.Command(resume=...), for
+    when `graph` is a native_engine._NativeGraph — same shim as core.agent's
+    own _ResumePayload/ui.console's own, duplicated rather than imported
+    (this module only ever takes a bare compiled `graph`, no dependency on
+    core.agent). Without this, /resume would import langgraph unconditionally
+    and break a native-runtime deployment that never installed it."""
+
+    resume: dict[str, Any]
+
 if TYPE_CHECKING:
     from fastapi import Request
     from pydantic import BaseModel
@@ -292,14 +304,18 @@ def build_http_app(
     if serve_resume_route:
         @app.post("/resume", response_model=ChatResponse)
         def resume(req: ResumeRequest, request: Request) -> ChatResponse:
-            from langgraph.types import Command
-
             from .runtime import BudgetExceeded
 
             identity = _resolve_caller(request)
             thread_id = _namespaced_thread_id(req.thread_id, identity)
+            payload = {"approved": req.approved}
+            if hasattr(graph, "ainvoke"):  # a real LangGraph compiled graph — needs a real Command
+                from langgraph.types import Command
+                command: Any = Command(resume=payload)
+            else:
+                command = _ResumePayload(resume=payload)
             try:
-                result = graph.invoke(Command(resume={"approved": req.approved}), {"configurable": {"thread_id": thread_id}})
+                result = graph.invoke(command, {"configurable": {"thread_id": thread_id}})
             except BudgetExceeded as e:  # same as invoke_graph_chat_turn — see its docstring
                 raise HTTPException(status_code=429, detail=str(e)) from e
             return chat_response_from_result(result)

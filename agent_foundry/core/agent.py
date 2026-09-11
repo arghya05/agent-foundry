@@ -58,6 +58,14 @@ from ..orchestration import (
 )
 from ..runtime import RunBudget, RunBudgetLike
 from ..tools_gateway import ToolRegistry
+from .native_orchestration import (
+    _NativeBlackboardGraph,
+    _NativeDagGraph,
+    _NativeDebateGraph,
+    _NativeFanoutGraph,
+    _NativeSupervisorGraph,
+    _NativeSwarmGraph,
+)
 from .engines import RUNTIMES
 from .execution_context import ExecutionContext
 from .protocols import Memory, Tool
@@ -518,41 +526,82 @@ class Agent:
         return decorator
 
 
+def _validate_workflow_runtime(runtime: str, checkpointer: Any) -> None:
+    if runtime not in ("native", "langgraph"):
+        raise ValueError(f"runtime must be 'native' or 'langgraph', got {runtime!r}")
+    if runtime == "native" and checkpointer is not None:
+        raise ValueError("runtime='native' keeps its own in-memory state and doesn't accept a checkpointer")
+
+
 class Workflow:
     """Factories for the multi-agent topologies that take several AgentConfigs
     (or, for dag, none) plus topology-specific arguments — see the module
-    docstring for why these aren't Agent(...) constructor options."""
+    docstring for why these aren't Agent(...) constructor options.
+
+    `runtime="langgraph"` (default, unchanged) or `runtime="native"` — same
+    two choices as Agent's own `runtime=`, now available for every topology
+    here too (core.native_orchestration), not just the single-agent case."""
 
     @staticmethod
-    def supervisor(*, prompt: str, agents: dict[str, Agent], llm: LLMGateway, task: str = "default", checkpointer: Any = None) -> _CompiledWorkflow:
-        graph = build_supervisor_graph(
-            supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task, checkpointer=checkpointer,
-        )
+    def supervisor(
+        *, prompt: str, agents: dict[str, Agent], llm: LLMGateway, task: str = "default",
+        checkpointer: Any = None, runtime: str = "langgraph",
+    ) -> _CompiledWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            graph: Any = _NativeSupervisorGraph(
+                supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task,
+            )
+        else:
+            graph = build_supervisor_graph(
+                supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task, checkpointer=checkpointer,
+            )
         return _CompiledWorkflow(graph, name="supervisor")
 
     @staticmethod
-    def swarm(*, agents: dict[str, Agent], entry: str, checkpointer: Any = None) -> _CompiledWorkflow:
-        graph = build_swarm_graph(agents={n: a.config for n, a in agents.items()}, entry=entry, checkpointer=checkpointer)
+    def swarm(*, agents: dict[str, Agent], entry: str, checkpointer: Any = None, runtime: str = "langgraph") -> _CompiledWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            graph: Any = _NativeSwarmGraph(agents={n: a.config for n, a in agents.items()}, entry=entry)
+        else:
+            graph = build_swarm_graph(agents={n: a.config for n, a in agents.items()}, entry=entry, checkpointer=checkpointer)
         return _CompiledWorkflow(graph, name="swarm")
 
     @staticmethod
-    def blackboard(*, agents: dict[str, Agent], blackboard: Blackboard, rounds: int = 2, checkpointer: Any = None) -> _CompiledWorkflow:
-        graph = build_blackboard_graph(
-            agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds, checkpointer=checkpointer,
-        )
+    def blackboard(
+        *, agents: dict[str, Agent], blackboard: Blackboard, rounds: int = 2,
+        checkpointer: Any = None, runtime: str = "langgraph",
+    ) -> _CompiledWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            graph: Any = _NativeBlackboardGraph(agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds)
+        else:
+            graph = build_blackboard_graph(
+                agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds, checkpointer=checkpointer,
+            )
         return _CompiledWorkflow(graph, name="blackboard", extra_state={"round": 0})
 
     @staticmethod
-    def debate(*, debaters: dict[str, Agent], judge: Agent, checkpointer: Any = None) -> _CompiledWorkflow:
-        graph = build_debate_graph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config, checkpointer=checkpointer)
+    def debate(*, debaters: dict[str, Agent], judge: Agent, checkpointer: Any = None, runtime: str = "langgraph") -> _CompiledWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            graph: Any = _NativeDebateGraph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config)
+        else:
+            graph = build_debate_graph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config, checkpointer=checkpointer)
         return _CompiledWorkflow(graph, name="debate")
 
     @staticmethod
-    def fanout(*, agent: Agent, checkpointer: Any = None) -> _FanoutWorkflow:
+    def fanout(*, agent: Agent, checkpointer: Any = None, runtime: str = "langgraph") -> _FanoutWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            return _FanoutWorkflow(_NativeFanoutGraph(config=agent.config))
         from ..orchestration import build_fanout_graph
 
         return _FanoutWorkflow(build_fanout_graph(config=agent.config, checkpointer=checkpointer))
 
     @staticmethod
-    def dag(*, steps: list[DAGStep], checkpointer: Any = None) -> _DagWorkflow:
+    def dag(*, steps: list[DAGStep], checkpointer: Any = None, runtime: str = "langgraph") -> _DagWorkflow:
+        _validate_workflow_runtime(runtime, checkpointer)
+        if runtime == "native":
+            return _DagWorkflow(_NativeDagGraph(steps))
         return _DagWorkflow(build_dag_graph(steps, checkpointer=checkpointer))

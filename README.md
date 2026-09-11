@@ -17,11 +17,23 @@ framework built on top of any one of them.** `Agent`, the domain model
 (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`/`Tool`/`Memory`/
 `Guardrail`/`Evaluator`), and the governance/eval/observability layers are
 plain Python — dataclasses and `Protocol`s. **The native execution path has
-no LangGraph dependency; LangGraph imports are isolated to the optional
-LangGraph adapter path** (one function-local `from langgraph.types import
-Command` inside `core/agent.py`'s `_resume_command`, reached only when
-`runtime="langgraph"` is actually in use — never on the native default
-path), and neither LangGraph nor LangChain is a base-install dependency —
+no LangGraph dependency; every LangGraph import in this codebase is
+function-local, guarded, and isolated to the optional LangGraph adapter
+path** — verified, not just documented: `grep -rn "from langgraph\|import
+langgraph" agent_foundry/` turns up every occurrence inside a function body,
+never at module top level, so importing `agent_foundry` at all never
+imports LangGraph. Two shapes: `orchestration.py`'s `build_*_graph`
+functions (the LangGraph-only topology builders — never called at all on
+the native path, since `Workflow.*`/`Agent` dispatch to
+`core/native_orchestration.py`'s counterparts instead when
+`runtime="native"`), and a handful of `hasattr(graph, "ainvoke")`-guarded
+resume shims (`core/agent.py`'s `_resume_command`, `core/engines.py`,
+`ui/console.py`, `serve.py`'s `/resume` route) that only construct a real
+`langgraph.types.Command` when `graph` actually is one — a native
+`_NativeGraph` gets the langgraph-free `_ResumePayload` stand-in instead,
+same `.resume` attribute, so `core.agent.result_from_graph_output` and
+every caller need no engine-specific branching. Neither LangGraph nor
+LangChain is a base-install dependency —
 `pip install agent-foundry` pulls in `cryptography` only. Execution is
 pluggable behind one seam (`core.protocols.WorkflowEngine`, dispatched
 through a `RUNTIMES` registry — see [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)):
@@ -29,8 +41,12 @@ through a `RUNTIMES` registry — see [Runtime backends](#runtime-backends-nativ
 of the think/act/critique loop with zero LangGraph dependency;
 `runtime="langgraph"` (`pip install agent-foundry[langgraph]`) runs the
 identical loop through LangGraph's `StateGraph` for its
-persistence/streaming/HITL machinery, and is required for the multi-agent
-`Workflow` topologies below. Either way, running an actual turn still needs
+persistence/streaming/HITL machinery. Every multi-agent `Workflow` topology
+below runs on either runtime (`runtime="native"` or `"langgraph"`,
+per-call); LangGraph is only required for durable checkpointing across a
+restart, or a topology-hop approval interrupt (see
+[Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)).
+Either way, running an actual turn still needs
 an LLM provider — `pip install agent-foundry[anthropic]` (or `[openai]`,
 or `Agent(llm=...)` with your own `LLMGateway`) for that part; "no
 LangGraph dependency" is a claim about the execution engine, not a claim
@@ -41,7 +57,7 @@ agent-as-tool, on whichever backend you choose — per `Agent`, or per call.
 | | |
 |---|---|
 | **Native Python** | first-class runtime (the default, zero LangGraph dependency) |
-| **LangGraph** | optional adapter — `pip install agent-foundry[langgraph]`, needed for multi-agent topologies |
+| **LangGraph** | optional adapter — `pip install agent-foundry[langgraph]`, needed for durable checkpointing or a topology-hop approval interrupt |
 | **MCP** | tool interoperability — any MCP server's tools as `ToolSpec`s |
 | **A2A** | agent interoperability — Agent2Agent protocol bridge |
 | **AutoGen / CrewAI** | external-agent interoperability — their agents as tools, and vice versa |
@@ -53,18 +69,53 @@ possible start (see [Two entry points](#two-entry-points-by-how-much-governance-
 entirely optional (`pip install agent-foundry[langchain]`), and nothing
 `Agent` itself does depends on it.
 
+### The USP, in one glance
+
+1. **Pythonic by construction, not LangGraph with a nicer API.** The
+   domain model (`AgentConfig`/`Policy`/`Identity`/`Model`/`Message`) and the
+   default execution engine are both plain, from-scratch Python — dataclasses
+   and a `while` loop, zero `StateGraph`/`Send`/`interrupt()`. LangGraph is
+   one pluggable, optional backend behind `core.protocols.WorkflowEngine`,
+   not the thing everything else here is built on top of.
+2. **That claim is proven, not asserted.** `Agent(..., runtime="native")`
+   and `Agent(..., runtime="langgraph")` run the identical
+   `AgentConfig` — same guardrails, budget, critique, RBAC — and
+   `tests/test_native_engine.py`/`tests/test_native_orchestration.py` run
+   the *exact same test scenarios* against both engines to verify it, not
+   just document it. `benchmarks/native_vs_langgraph.py` measures the
+   difference instead of claiming one (see the
+   [benchmark table](#native-vs-langgraph--measured-not-claimed)).
+3. **All 7 multi-agent topologies, on either runtime.** Most agent
+   frameworks that offer a "lightweight mode" only give you single-agent in
+   it. Supervisor, swarm, blackboard, debate, fanout, and DAG each have a
+   real native-Python implementation (`core/native_orchestration.py`)
+   alongside the LangGraph one, picked per call with `runtime=`.
+4. **Governance is load-bearing, not a wrapper.** RBAC-scoped tools,
+   fail-closed budgets, guardrails, an audit trail, and critique-and-retry
+   run through the same `AgentConfig` on every path — there's no "fast demo
+   mode" that quietly skips them.
+5. **Interop over reimplementation.** MCP and A2A are first-class tool/agent
+   bridges; CrewAI and AutoGen agents plug in as tools (and vice versa)
+   instead of needing a rewrite into this framework's own DSL.
+6. **Eval as a release gate, not an afterthought.** `core/evalgate.py`
+   scores an `Agent` against a versioned dataset and can fail a build —
+   trajectory checks, baseline regression, pairwise comparison, failure
+   attribution — the same infrastructure a benchmark table needs, already
+   in the core.
+
 > **36+ modules** · a Python-native domain model (`Agent`/`AgentSpec`/
 > `Model`/`Message`/`Policy`/`ToolRegistry`/`ExecutionContext`) behind a
 > pluggable `WorkflowEngine` seam · two real execution backends today
 > (native Python, zero LangGraph dependency and the default, and LangGraph,
-> chosen per-`Agent` or per-call) · **7 multi-agent topologies** · a
-> declarative `AgentSpec` (YAML/JSON) alongside the Python API, with
-> structured tool metadata and named critique evaluators · `arun`/`astream`
-> and concurrent same-turn tool dispatch · a formal run lifecycle and
-> eval-as-release-gate (KPI board, trajectory checks, versioned datasets,
-> baseline regression comparison, pairwise comparison, failure attribution)
-> on one shared core · **460+ tests passing**, ruff/mypy-clean CI · MCP /
-> A2A / AutoGen / CrewAI protocol interop built in
+> chosen per-`Agent` or per-call) · **7 multi-agent topologies, each with a
+> native AND a LangGraph implementation** · a declarative `AgentSpec`
+> (YAML/JSON) alongside the Python API, with structured tool metadata and
+> named critique evaluators · `arun`/`astream` and concurrent same-turn tool
+> dispatch · a formal run lifecycle and eval-as-release-gate (KPI board,
+> trajectory checks, versioned datasets, baseline regression comparison,
+> pairwise comparison, failure attribution) on one shared core · **490+
+> tests passing**, ruff/mypy-clean CI · MCP / A2A / AutoGen / CrewAI
+> protocol interop built in
 
 ```mermaid
 flowchart TD
@@ -377,6 +428,7 @@ repo, not just the concept:
 |---|---|---|
 | `orchestration.py` | `AgentConfig`, `CritiqueConfig`, `AgentState`, `make_think_node`, `make_act_node`, `make_critique_node`, `make_self_verify_node`, and all 7 `build_*_graph` topology builders | The think/act/critique loop itself — everything else in this repo is a slot it calls into |
 | `core/native_engine.py` | `NativeEngine` | A second, framework-free implementation of the same think/act/critique loop — `Agent(..., runtime="native")` |
+| `core/native_orchestration.py` | `native_run_governed_turn`, and a native counterpart of each multi-agent `build_*_graph` | The same framework-free idea as `native_engine.py`, one layer up — `Workflow.supervisor(..., runtime="native")` etc. |
 | `core/run.py` | `Run`, `RunStatus` | `Agent.start()`'s formal run lifecycle — pause/unpause/cancel/retry/fork/replay/wait_for_event |
 | `core/evalgate.py` | `run_eval()`, `EvalCase`, `Scorecard` | Evaluation-as-release-gate — score an Agent against a dataset, `.passes(thresholds)` |
 
@@ -641,12 +693,23 @@ tool-call scenario on both engines and asserts they yield the same chunk
 count — 4, for input → think → act → think — not just "at least one"), and
 `astream()` delivers each chunk to the caller as soon as it's produced (a
 background thread feeding an `asyncio.Queue`), not all at once after the
-turn finishes in the background. It covers the single-agent react loop only
-(not `self_verify`, not the multi-agent `Workflow` topologies, and multiple
-*simultaneously* pending tool approvals in one turn are resolved one
-`.resume()` call at a time rather than LangGraph's queued-multi-interrupt
-support), and keeps its own in-memory per-thread state (no `checkpointer=`
-option — non-restart-durable, so a process restart loses in-flight state).
+turn finishes in the background. It covers the single-agent react loop (not `self_verify`), and every
+multi-agent `Workflow` topology now has a native counterpart too —
+`core/native_orchestration.py`, reached via `Workflow.supervisor(...,
+runtime="native")` (and `.swarm`/`.blackboard`/`.debate`/`.fanout`/`.dag`,
+same keyword) — see `tests/test_native_orchestration.py`, which mirrors
+`test_core_agent.py`'s own `Workflow.*` scenarios exactly, just requesting
+the native runtime. Two things are still LangGraph-only: durable
+checkpointing (below), and mid-turn PDP-approval interrupts *across* a
+topology hop (a specialist pausing for tool approval inside a
+supervisor/swarm run) — single-agent native already supports pausing, but
+nesting that through a topology's own workflow-level state is real
+additional surgery, not done yet. Multiple *simultaneously* pending tool
+approvals in one single-agent turn are resolved one `.resume()` call at a
+time rather than LangGraph's queued-multi-interrupt support, and every
+native engine (single-agent or topology) keeps its own in-memory per-thread
+state (no `checkpointer=` option — non-restart-durable, so a process
+restart loses in-flight state).
 `core.protocols.StateStore` (`load`/`save`/`delete`, `@runtime_checkable`)
 plus a reference `MemoryStateStore` (`core/state_store.py`) is a real,
 tested seam for this — the same "prove the Protocol first" step
@@ -661,8 +724,46 @@ connection lifecycle and error handling, verified against a live process
 like this repo's other real external integrations) that the Protocol makes
 possible without touching `NativeEngine`'s state shape, but doesn't itself
 ship today. Pass `runtime="langgraph"` (`pip install agent-foundry[langgraph]`)
-when you need durable checkpointing or any of the multi-agent `Workflow`
-topologies below — the native engine doesn't implement either yet.
+when you need durable checkpointing across restarts, or a topology-hop
+approval interrupt — the two gaps called out above.
+
+#### Native vs LangGraph — measured, not claimed
+
+`benchmarks/native_vs_langgraph.py` runs identical scripted scenarios
+(single-agent, single-agent with a tool call, and all 6 multi-agent
+topologies) through both runtimes and reports real numbers — a scripted,
+in-process LLM provider (no network), so this measures the two runtimes'
+own overhead, not live-model latency:
+
+| Topology | Runtime | P50 (ms) | P95 (ms) | Memory (KB) | Tool throughput (calls/s) | Cost (USD) | Eval score |
+|---|---|---|---|---|---|---|---|
+| agent | native | 0.07 | 0.11 | 49.1 | n/a | 0.0090 | 100% |
+| agent | langgraph | 1.79 | 3.12 | 2317.9 | n/a | 0.0090 | 100% |
+| agent (tool-calling) | native | 1.32 | 35.47 | 2052.7 | 110.7 | 0.0180 | 100% |
+| agent (tool-calling) | langgraph | 4.29 | 4.63 | 309.6 | 230.8 | 0.0180 | 100% |
+| supervisor | native | 0.08 | 0.10 | 20.4 | n/a | 0.0090 | 100% |
+| supervisor | langgraph | 2.29 | 2.78 | 559.6 | n/a | 0.0090 | 100% |
+| swarm | native | 0.14 | 0.16 | 80.6 | n/a | 0.0090 | 100% |
+| swarm | langgraph | 2.45 | 3.04 | 559.2 | n/a | 0.0090 | 100% |
+| blackboard | native | 0.37 | 0.42 | 151.5 | n/a | 0.0180 | 100% |
+| blackboard | langgraph | 64.07 | 69.41 | 1170.6 | n/a | 0.0180 | 100% |
+| debate | native | 0.22 | 0.28 | 168.3 | n/a | 0.0090 | 100% |
+| debate | langgraph | 47.63 | 52.86 | 916.5 | n/a | 0.0090 | 100% |
+| fanout | native | 1.82 | 1.91 | 243.9 | n/a | 0.0450 | 100% |
+| fanout | langgraph | 8.90 | 9.78 | 745.6 | n/a | 0.0450 | 100% |
+| dag | native | 0.29 | 0.34 | 16.8 | n/a | 0.0000 | 100% |
+| dag | langgraph | 3.00 | 3.17 | 311.9 | n/a | 0.0000 | 100% |
+
+Cost is a fixed per-call model (`_COST_PER_CALL_USD` in the script), not
+live billing — both runtimes make the same number of scripted LLM calls per
+scenario, so cost is identical between them, as it should be (the runtime
+doesn't change how many model calls a topology makes, only how it executes
+the loop around them). The gap that matters is latency and memory: no
+`StateGraph`/`Send`/`Command` machinery, no `MemorySaver` checkpointer per
+call — native is consistently lower on both, most sharply on
+LLM-call-heavy sequential topologies (blackboard, debate) where LangGraph's
+per-node graph-execution overhead compounds across several turns. Run it
+yourself: `python benchmarks/native_vs_langgraph.py`.
 
 Both backends dispatch through the same seam: `core.protocols.WorkflowEngine`
 (`build`/`run`/`stream`/`resume`, `@runtime_checkable` and satisfied by both
