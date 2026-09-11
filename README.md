@@ -699,7 +699,13 @@ multi-agent `Workflow` topology now has a native counterpart too —
 runtime="native")` (and `.swarm`/`.blackboard`/`.debate`/`.fanout`/`.dag`,
 same keyword) — see `tests/test_native_orchestration.py`, which mirrors
 `test_core_agent.py`'s own `Workflow.*` scenarios exactly, just requesting
-the native runtime. Two things are still LangGraph-only: durable
+the native runtime — plus `tests/test_native_orchestration_concurrency.py`,
+which deterministically proves (forced interleaving via a blocking
+provider, not a probabilistic timing test) the same guarantee
+`NativeEngine` already had for single-agent: two turns on the SAME
+thread_id never execute concurrently (each topology's own `_ThreadLocks`
+serializes the whole turn, not just its history dict's own access), while
+different thread_ids run fully in parallel. Two things are still LangGraph-only: durable
 checkpointing (below), and mid-turn PDP-approval interrupts *across* a
 topology hop (a specialist pausing for tool approval inside a
 supervisor/swarm run) — single-agent native already supports pausing, but

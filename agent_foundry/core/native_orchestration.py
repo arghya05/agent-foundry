@@ -35,6 +35,25 @@ from ..llm_gateway import LLMGateway
 from .native_engine import NativeEngine
 
 
+class _ThreadLocks:
+    """Per-thread_id locks, same two-tier pattern as NativeEngine's own
+    `_threads_lock`/`_lock_for` (native_engine.py): a creation lock guards
+    only the dict-of-locks itself, so two DIFFERENT thread_ids never block
+    each other, while `lock_for(x)` returned for the SAME thread_id is meant
+    to be held for an entire turn — not just one dict access — because the
+    conversational native graphs below mutate a per-thread history list
+    across several steps (route, run a specialist, append its reply), not
+    in one atomic operation."""
+
+    def __init__(self) -> None:
+        self._creation_lock = threading.Lock()
+        self._locks: dict[str, threading.Lock] = {}
+
+    def lock_for(self, thread_id: str) -> threading.Lock:
+        with self._creation_lock:
+            return self._locks.setdefault(thread_id, threading.Lock())
+
+
 def native_run_governed_turn(config: AgentConfig, messages: list[dict], *, thread_id: str) -> str:
     """Native counterpart of orchestration._run_governed_turn: runs `messages`
     (ending in a role="user" turn) through a fresh, ephemeral NativeEngine —
@@ -86,28 +105,30 @@ class _NativeSupervisorGraph:
         self._llm = llm
         self._task = task
         self._threads: dict[str, list[dict]] = {}
-        self._lock = threading.Lock()
+        self._threads_lock = threading.Lock()
+        self._locks = _ThreadLocks()
 
     def _history_for(self, thread_id: str) -> list[dict]:
-        with self._lock:
+        with self._threads_lock:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
         thread_id = run_config["configurable"]["thread_id"]
-        history = self._history_for(thread_id)
-        history.append(state["messages"][-1])
-        options = ", ".join(self._agents)
-        route_messages = [
-            {"role": "system", "content": f"{self._prompt}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
-            *history,
-        ]
-        resp = self._llm.complete(route_messages, task=self._task)
-        name = resp.text.strip().removeprefix("ROUTE ").strip()
-        if name not in self._agents:
-            name = next(iter(self._agents))  # unrecognized routing decision -> fall back, don't crash
-        text = native_run_governed_turn(self._agents[name], list(history), thread_id=f"{thread_id}-{name}")
-        history.append({"role": "assistant", "content": text})
-        return {"messages": list(history), "thread_id": thread_id}
+        with self._locks.lock_for(thread_id):  # serializes the WHOLE turn for this thread_id, not just history's own dict access
+            history = self._history_for(thread_id)
+            history.append(state["messages"][-1])
+            options = ", ".join(self._agents)
+            route_messages = [
+                {"role": "system", "content": f"{self._prompt}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
+                *history,
+            ]
+            resp = self._llm.complete(route_messages, task=self._task)
+            name = resp.text.strip().removeprefix("ROUTE ").strip()
+            if name not in self._agents:
+                name = next(iter(self._agents))  # unrecognized routing decision -> fall back, don't crash
+            text = native_run_governed_turn(self._agents[name], list(history), thread_id=f"{thread_id}-{name}")
+            history.append({"role": "assistant", "content": text})
+            return {"messages": list(history), "thread_id": thread_id}
 
     def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
         yield self.invoke(state, run_config)
@@ -127,28 +148,30 @@ class _NativeSwarmGraph:
         self._entry = entry
         self._max_handoffs = max_handoffs
         self._threads: dict[str, list[dict]] = {}
-        self._lock = threading.Lock()
+        self._threads_lock = threading.Lock()
+        self._locks = _ThreadLocks()
 
     def _history_for(self, thread_id: str) -> list[dict]:
-        with self._lock:
+        with self._threads_lock:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
         thread_id = run_config["configurable"]["thread_id"]
-        history = self._history_for(thread_id)
-        history.append(state["messages"][-1])
-        name = self._entry
-        for _ in range(self._max_handoffs):
-            text = native_run_governed_turn(self._agents[name], list(history), thread_id=f"{thread_id}-{name}")
-            history.append({"role": "assistant", "content": text})
-            if isinstance(text, str) and text.startswith("HANDOFF "):
-                target = text[len("HANDOFF "):].strip()
-                if target in self._agents and target != name:
-                    self._agents[name].eval_harness.record("component", "handoff", target, 1.0)
-                    name = target
-                    continue
-            break
-        return {"messages": list(history), "thread_id": thread_id}
+        with self._locks.lock_for(thread_id):
+            history = self._history_for(thread_id)
+            history.append(state["messages"][-1])
+            name = self._entry
+            for _ in range(self._max_handoffs):
+                text = native_run_governed_turn(self._agents[name], list(history), thread_id=f"{thread_id}-{name}")
+                history.append({"role": "assistant", "content": text})
+                if isinstance(text, str) and text.startswith("HANDOFF "):
+                    target = text[len("HANDOFF "):].strip()
+                    if target in self._agents and target != name:
+                        self._agents[name].eval_harness.record("component", "handoff", target, 1.0)
+                        name = target
+                        continue
+                break
+            return {"messages": list(history), "thread_id": thread_id}
 
     def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
         yield self.invoke(state, run_config)
@@ -167,30 +190,32 @@ class _NativeBlackboardGraph:
         self._blackboard = blackboard
         self._rounds = rounds
         self._threads: dict[str, list[dict]] = {}
-        self._lock = threading.Lock()
+        self._threads_lock = threading.Lock()
+        self._locks = _ThreadLocks()
 
     def _history_for(self, thread_id: str) -> list[dict]:
-        with self._lock:
+        with self._threads_lock:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
         thread_id = run_config["configurable"]["thread_id"]
-        history = self._history_for(thread_id)
-        history.append(state["messages"][-1])
-        for _ in range(self._rounds):
-            for name, config in self._agents.items():
-                prompt = (
-                    f"Shared blackboard:\n{self._blackboard.render()}"
-                    "\n\nContribute with exactly: POST <fact|hypothesis|evidence|task|contradiction|question>: <text>"
-                )
-                text = native_run_governed_turn(config, [*history, {"role": "user", "content": prompt}], thread_id=f"{thread_id}-{name}")
-                parsed = parse_post(text)
-                if parsed:
-                    self._blackboard.post(*parsed)
-                    config.eval_harness.record("component", name, "posted", 1.0, section=parsed[0])
-                else:
-                    config.eval_harness.record("component", name, "posted", 0.0)
-        return {"messages": list(history), "thread_id": thread_id, "round": self._rounds}
+        with self._locks.lock_for(thread_id):
+            history = self._history_for(thread_id)
+            history.append(state["messages"][-1])
+            for _ in range(self._rounds):
+                for name, config in self._agents.items():
+                    prompt = (
+                        f"Shared blackboard:\n{self._blackboard.render()}"
+                        "\n\nContribute with exactly: POST <fact|hypothesis|evidence|task|contradiction|question>: <text>"
+                    )
+                    text = native_run_governed_turn(config, [*history, {"role": "user", "content": prompt}], thread_id=f"{thread_id}-{name}")
+                    parsed = parse_post(text)
+                    if parsed:
+                        self._blackboard.post(*parsed)
+                        config.eval_harness.record("component", name, "posted", 1.0, section=parsed[0])
+                    else:
+                        config.eval_harness.record("component", name, "posted", 0.0)
+            return {"messages": list(history), "thread_id": thread_id, "round": self._rounds}
 
     def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
         yield self.invoke(state, run_config)
@@ -205,28 +230,30 @@ class _NativeDebateGraph:
         self._debaters = debaters
         self._judge = judge
         self._threads: dict[str, list[dict]] = {}
-        self._lock = threading.Lock()
+        self._threads_lock = threading.Lock()
+        self._locks = _ThreadLocks()
 
     def _history_for(self, thread_id: str) -> list[dict]:
-        with self._lock:
+        with self._threads_lock:
             return self._threads.setdefault(thread_id, [])
 
     def invoke(self, state: dict[str, Any], run_config: dict[str, Any]) -> dict[str, Any]:
         thread_id = run_config["configurable"]["thread_id"]
-        history = self._history_for(thread_id)
-        history.append(state["messages"][-1])
-        debate_messages = []
-        for name, config in self._debaters.items():
-            text = native_run_governed_turn(config, list(history), thread_id=f"{thread_id}-{name}")
-            debate_messages.append({"role": "assistant", "content": f"[{name}] {text}"})
-            config.eval_harness.record("component", name, "answered", 1.0)
-        history.extend(debate_messages)
-        transcript = "\n".join(f"- {m['content']}" for m in history if m["role"] == "assistant")
-        prompt = f"Candidate answers:\n{transcript}\n\nReply with the single best final answer."
-        judge_text = native_run_governed_turn(self._judge, [{"role": "user", "content": prompt}], thread_id=f"{thread_id}-judge")
-        self._judge.eval_harness.record("flow", thread_id, "judged", 1.0)
-        history.append({"role": "assistant", "content": judge_text})
-        return {"messages": list(history), "thread_id": thread_id}
+        with self._locks.lock_for(thread_id):
+            history = self._history_for(thread_id)
+            history.append(state["messages"][-1])
+            debate_messages = []
+            for name, config in self._debaters.items():
+                text = native_run_governed_turn(config, list(history), thread_id=f"{thread_id}-{name}")
+                debate_messages.append({"role": "assistant", "content": f"[{name}] {text}"})
+                config.eval_harness.record("component", name, "answered", 1.0)
+            history.extend(debate_messages)
+            transcript = "\n".join(f"- {m['content']}" for m in history if m["role"] == "assistant")
+            prompt = f"Candidate answers:\n{transcript}\n\nReply with the single best final answer."
+            judge_text = native_run_governed_turn(self._judge, [{"role": "user", "content": prompt}], thread_id=f"{thread_id}-judge")
+            self._judge.eval_harness.record("flow", thread_id, "judged", 1.0)
+            history.append({"role": "assistant", "content": judge_text})
+            return {"messages": list(history), "thread_id": thread_id}
 
     def stream(self, state: dict[str, Any], run_config: dict[str, Any], **kwargs: Any) -> Iterator[dict[str, Any]]:
         yield self.invoke(state, run_config)
