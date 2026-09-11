@@ -392,6 +392,7 @@ class Agent:
         tracer: Tracer | None = None,
         budget: RunBudgetLike | None = None,
         checkpointer: Any = None,
+        state_store: Any = None,
         event_bus: EventBus | None = None,
     ) -> None:
         if workflow != "react":
@@ -429,6 +430,7 @@ class Agent:
             critique=critique,
             user_id=user_id,
             role=role,
+            state_store=state_store,
         )
         # The actual extension point: RUNTIMES (core/engines.py) is the
         # registry a new backend (Temporal, say) gets added to — Agent
@@ -603,17 +605,26 @@ class Workflow:
         return _CompiledWorkflow(graph, name="debate")
 
     @staticmethod
-    def fanout(*, agent: Agent, checkpointer: Any = None, runtime: str = "langgraph") -> _FanoutWorkflow:
+    def fanout(*, agent: Agent, checkpointer: Any = None, runtime: str = "langgraph", max_concurrency: int = 32) -> _FanoutWorkflow:
+        """`max_concurrency` (native only — LangGraph's own Send-based
+        dispatch isn't bounded by this codebase either, out of scope here):
+        caps how many items' worker turns run at once, so
+        `workflow.run(<thousands of items>)` can't request thousands of
+        threads. Default 32, same order of magnitude as batch.run_batch's
+        own default worker cap."""
         _validate_workflow_runtime(runtime, checkpointer)
         if runtime == "native":
-            return _FanoutWorkflow(_NativeFanoutGraph(config=agent.config))
+            return _FanoutWorkflow(_NativeFanoutGraph(config=agent.config, max_concurrency=max_concurrency))
         from ..orchestration import build_fanout_graph
 
         return _FanoutWorkflow(build_fanout_graph(config=agent.config, checkpointer=checkpointer))
 
     @staticmethod
-    def dag(*, steps: list[DAGStep], checkpointer: Any = None, runtime: str = "langgraph") -> _DagWorkflow:
+    def dag(*, steps: list[DAGStep], checkpointer: Any = None, runtime: str = "langgraph", max_concurrency: int = 32) -> _DagWorkflow:
+        """`max_concurrency` (native only, see Workflow.fanout's own
+        docstring for the same reasoning): caps how many steps in one ready
+        wave run at once."""
         _validate_workflow_runtime(runtime, checkpointer)
         if runtime == "native":
-            return _DagWorkflow(_NativeDagGraph(steps))
+            return _DagWorkflow(_NativeDagGraph(steps, max_concurrency=max_concurrency))
         return _DagWorkflow(build_dag_graph(steps, checkpointer=checkpointer))

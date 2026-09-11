@@ -428,6 +428,53 @@ def test_supervisor_routes_to_the_right_specialist(identity):
     assert state["messages"][-1]["content"] == "Refund handled."
 
 
+def test_supervisor_pauses_for_a_specialists_tool_approval_and_resumes(identity):
+    """Confirms structurally what the code shape already suggests: a
+    specialist's {name}_think/{name}_act are first-class nodes of the SAME
+    compiled graph/checkpointer build_supervisor_graph produces (unlike
+    blackboard/debate, which route through _run_governed_turn's ephemeral
+    rebuild — see test_blackboard/debate's own HITL tests below for that
+    different story) — so interrupt()/Command(resume=...) already spans
+    the supervisor->specialist hop with zero extra plumbing."""
+    from langgraph.types import Command
+
+    from agent_foundry.contracts import Policy
+    from agent_foundry.eval import EvalHarness
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.llm_gateway import LLMGateway
+    from agent_foundry.observability import Tracer
+    from agent_foundry.runtime import RunBudget
+
+    def routed(messages, model):
+        system = next(m["content"] for m in messages if m["role"] == "system")
+        return "ROUTE billing" if "ROUTE" in system else "unused"
+
+    def call_wire(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                            tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 5})])
+
+    provider = ScriptedProvider([routed, call_wire, "wire sent, all done"])
+    llm = LLMGateway(provider=provider)
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("send_wire", "send a wire", {"amount_usd": "number"}, send_wire, requires_confirmation=True))
+    billing_policy = Policy(allowed_tools=frozenset({"send_wire"}))
+    billing_config = AgentConfig(system_prompt="billing", llm=llm, tools=tools, guardrails=GuardrailEngine(billing_policy),
+        eval_harness=EvalHarness(), identity=identity, policy=billing_policy, budget=RunBudget(billing_policy), tracer=Tracer("sup-hitl"))
+
+    graph = build_supervisor_graph(supervisor_prompt="route", agents={"billing": billing_config}, llm=llm)
+    state = _invoke(graph, "sup-hitl", "please pay the invoice")
+
+    assert "__interrupt__" in state
+    assert state["__interrupt__"][0].value["tool"] == "send_wire"
+
+    resumed = graph.invoke(Command(resume={"approved": True}), {"configurable": {"thread_id": "sup-hitl"}})
+    assert resumed["messages"][-1]["content"] == "wire sent, all done"
+
+
 def test_swarm_handoff_between_peers(identity):
     from agent_foundry.contracts import Policy
     from agent_foundry.eval import EvalHarness
@@ -450,6 +497,54 @@ def test_swarm_handoff_between_peers(identity):
     graph = build_swarm_graph(agents={"triage": cfg("triage"), "billing": cfg("billing")}, entry="triage")
     state = _invoke(graph, "swarm-test", "I need a refund")
     assert state["messages"][-1]["content"] == "Billing here."
+
+
+def test_swarm_pauses_inside_the_handed_off_specialist_and_resumes(identity):
+    """Same structural confirmation as the supervisor HITL test above:
+    build_swarm_graph's peer nodes are first-class nodes of the one
+    compiled graph too, so a handoff into billing followed by an
+    approval-needing tool call pauses/resumes cleanly with zero extra
+    plumbing."""
+    from langgraph.types import Command
+
+    from agent_foundry.contracts import Policy
+    from agent_foundry.eval import EvalHarness
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.llm_gateway import LLMGateway
+    from agent_foundry.observability import Tracer
+    from agent_foundry.runtime import RunBudget
+
+    def triage_reply(messages, model):
+        return "HANDOFF billing" if any(m["role"] == "user" for m in messages[-2:]) else "(should not speak again)"
+
+    def call_wire(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                            tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 5})])
+
+    provider = ScriptedProvider([triage_reply, call_wire, "wire sent, all done"])
+    llm = LLMGateway(provider=provider)
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    triage_policy = Policy(allowed_tools=frozenset())
+    triage_config = AgentConfig(system_prompt="triage", llm=llm, tools=ToolRegistry(), guardrails=GuardrailEngine(triage_policy),
+        eval_harness=EvalHarness(), identity=identity, policy=triage_policy, budget=RunBudget(triage_policy), tracer=Tracer("swarm-hitl"))
+
+    billing_tools = ToolRegistry()
+    billing_tools.register(ToolSpec("send_wire", "send a wire", {"amount_usd": "number"}, send_wire, requires_confirmation=True))
+    billing_policy = Policy(allowed_tools=frozenset({"send_wire"}))
+    billing_config = AgentConfig(system_prompt="billing", llm=llm, tools=billing_tools, guardrails=GuardrailEngine(billing_policy),
+        eval_harness=EvalHarness(), identity=identity, policy=billing_policy, budget=RunBudget(billing_policy), tracer=Tracer("swarm-hitl"))
+
+    graph = build_swarm_graph(agents={"triage": triage_config, "billing": billing_config}, entry="triage")
+    state = _invoke(graph, "swarm-hitl", "please pay the invoice")
+
+    assert "__interrupt__" in state
+    assert state["__interrupt__"][0].value["tool"] == "send_wire"
+
+    resumed = graph.invoke(Command(resume={"approved": True}), {"configurable": {"thread_id": "swarm-hitl"}})
+    assert resumed["messages"][-1]["content"] == "wire sent, all done"
 
 
 def test_fanout_dispatches_all_items_in_parallel(identity, policy):
@@ -526,6 +621,62 @@ def test_debate_judge_synthesizes_from_both_debaters(identity):
     graph = build_debate_graph(debaters={"optimist": optimist, "pessimist": pessimist}, judge=judge)
     state = _invoke(graph, "debate-test", "should we invest?")
     assert state["messages"][-1]["content"] == "Verdict: Hold."
+
+
+def test_debate_silently_loses_a_debaters_tool_approval_interrupt_KNOWN_GAP(identity):
+    """Documents, rather than hides, a confirmed real gap: unlike
+    build_supervisor_graph/build_swarm_graph (specialists are first-class
+    nodes of the one compiled graph — see
+    test_supervisor_pauses_for_a_specialists_tool_approval_and_resumes
+    above), build_debate_graph/build_blackboard_graph route each
+    participant's turn through _run_governed_turn's EPHEMERAL inner graph.
+    When a debater's tool call needs approval, interrupt() pauses THAT
+    inner graph — which is discarded the instant _run_governed_turn
+    returns, having read `.content` unconditionally — so the pause is
+    silently swallowed: no "__interrupt__" surfaces on the OUTER result,
+    and the transcript silently gets whatever partial content was there
+    instead of the debater's real answer. See _run_governed_turn's own
+    docstring for why this isn't fixed in this pass (native's equivalent
+    gap IS fixed — see test_native_orchestration_hitl.py) and what the
+    correct LangGraph-side fix would look like."""
+    from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+    from agent_foundry.eval import EvalHarness
+    from agent_foundry.guardrails import GuardrailEngine
+    from agent_foundry.llm_gateway import LLMGateway
+    from agent_foundry.observability import Tracer
+    from agent_foundry.runtime import RunBudget
+
+    def send_wire(amount_usd: float) -> str:
+        return f"sent ${amount_usd}"
+
+    def call_wire(messages, model):
+        return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                            tool_calls=[ToolCall(id="c1", name="send_wire", args={"amount_usd": 5})])
+
+    tools = ToolRegistry()
+    tools.register(ToolSpec("send_wire", "send a wire", {"amount_usd": "number"}, send_wire, requires_confirmation=True))
+    p_open = Policy(allowed_tools=frozenset())
+    p_wire = Policy(allowed_tools=frozenset({"send_wire"}))
+
+    llm = LLMGateway(provider=ScriptedProvider(["Buy.", call_wire, "confirmed", "Verdict: Hold."]))
+    optimist = AgentConfig(system_prompt="bullish", llm=llm, tools=ToolRegistry(), guardrails=GuardrailEngine(p_open),
+        eval_harness=EvalHarness(), identity=identity, policy=p_open, budget=RunBudget(p_open), tracer=Tracer("t"))
+    pessimist = AgentConfig(system_prompt="bearish", llm=llm, tools=tools, guardrails=GuardrailEngine(p_wire),
+        eval_harness=EvalHarness(), identity=identity, policy=p_wire, budget=RunBudget(p_wire), tracer=Tracer("t"))
+    judge = AgentConfig(system_prompt="judge", llm=llm, tools=ToolRegistry(), guardrails=GuardrailEngine(p_open),
+        eval_harness=EvalHarness(), identity=identity, policy=p_open, budget=RunBudget(p_open), tracer=Tracer("t"))
+
+    graph = build_debate_graph(debaters={"optimist": optimist, "pessimist": pessimist}, judge=judge)
+    result = _invoke(graph, "debate-gap", "invest?")
+
+    # The gap, made explicit: NO interrupt surfaces (it should have). Only
+    # 3 of the 4 scripted responses get consumed — pessimist's paused inner
+    # graph is silently discarded, so debate proceeds straight to the judge
+    # with a corrupted transcript, and the 3rd scripted response ("confirmed")
+    # ends up as the JUDGE's own reply instead of pessimist's real answer —
+    # "Verdict: Hold." (the 4th response) is never even reached.
+    assert "__interrupt__" not in result
+    assert result["messages"][-1]["content"] == "confirmed"
 
 
 def test_supervisor_specialist_with_critique_configured_does_not_crash(identity):

@@ -46,6 +46,7 @@ from ..orchestration import (
 )
 from ..runtime import with_timeout
 from ..tools_gateway import PermissionDenied
+from .protocols import StateStore
 
 
 @dataclass
@@ -79,12 +80,26 @@ class NativeEngine:
     racing on one conversation would otherwise interleave appends to the
     same `messages` list) — a genuine race, not a hypothetical one, since
     this engine (unlike LangGraph's checkpointer) is a plain in-process
-    dict. Different thread_ids never block each other."""
+    dict. Different thread_ids never block each other.
 
-    def __init__(self) -> None:
+    `state_store`: optional (default None — unchanged in-process-only
+    behavior, same as before this existed). When set, `_state_for` becomes
+    load-on-miss (falls back to `state_store.load(thread_id)` before
+    creating a fresh state, so a NEW NativeEngine instance — e.g. after a
+    process restart — picks up an earlier one's state through the shared
+    store) and every `_raw()` call — the one function every mutating path
+    already funnels through, at exactly the granularity a think/act/critique
+    step completes — persists via `state_store.save(...)`. This is
+    deliberately NOT a rewrite of the think/act/critique control flow
+    itself: the store sits underneath the existing in-process `self._threads`
+    cache (still the fast path for every read within one process), not in
+    place of it."""
+
+    def __init__(self, *, state_store: StateStore | None = None) -> None:
         self._threads: dict[str, dict[str, Any]] = {}
         self._threads_lock = threading.Lock()  # guards creation of the per-thread locks/entries below, not full turns
         self._thread_locks: dict[str, threading.Lock] = {}
+        self._state_store = state_store
 
     def _lock_for(self, thread_id: str) -> threading.Lock:
         with self._threads_lock:
@@ -92,9 +107,22 @@ class NativeEngine:
 
     def _state_for(self, thread_id: str) -> dict[str, Any]:
         with self._threads_lock:
-            return self._threads.setdefault(
-                thread_id, {"messages": [], "thread_id": thread_id, "critique_retries": 0, "critique_last_score": None, "_pending": None},
-            )
+            if thread_id in self._threads:
+                return self._threads[thread_id]
+            loaded = self._state_store.load(thread_id) if self._state_store is not None else None
+            state = loaded if loaded is not None else {
+                "messages": [], "thread_id": thread_id, "critique_retries": 0, "critique_last_score": None, "_pending": None,
+            }
+            self._threads[thread_id] = state
+            return state
+
+    def _persist(self, thread_id: str) -> None:
+        if self._state_store is None:
+            return
+        with self._threads_lock:
+            state = self._threads.get(thread_id)
+        if state is not None:
+            self._state_store.save(thread_id, state)
 
     def run(self, config: AgentConfig, message: str, *, thread_id: str, request_identity: dict[str, Any] | None = None) -> dict[str, Any]:
         with self._lock_for(thread_id):
@@ -211,6 +239,14 @@ class NativeEngine:
             return
 
     def _raw(self, state: dict[str, Any], *, interrupt: dict[str, Any] | None = None) -> dict[str, Any]:
+        # Every mutating call path (_drive_stream's own yields, _act/
+        # _critique's pause branches, _resume_locked's critique-reject
+        # branch) already funnels through this one function at exactly the
+        # granularity a think/act/critique step completes — the same
+        # points LangGraph's own checkpointer persists at — so this is the
+        # one place state_store persistence needs to hook in, not a change
+        # to the actual think/act/critique control flow.
+        self._persist(state["thread_id"])
         raw: dict[str, Any] = {"messages": list(state["messages"]), "thread_id": state["thread_id"]}
         if interrupt is not None:
             raw["__interrupt__"] = [_Interrupt(interrupt)]
@@ -483,7 +519,7 @@ class _NativeGraph:
 
     def __init__(self, config: AgentConfig) -> None:
         self._config = config
-        self._engine = NativeEngine()
+        self._engine = NativeEngine(state_store=config.state_store)
 
     def invoke(self, state_or_command: Any, run_config: dict[str, Any]) -> dict[str, Any]:
         thread_id = run_config["configurable"]["thread_id"]

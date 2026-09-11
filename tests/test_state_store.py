@@ -1,10 +1,12 @@
-"""core.protocols.StateStore + core.state_store.MemoryStateStore — a
-standalone, real durable-state seam (not yet wired into NativeEngine's own
-in-process storage; see both modules' docstrings for the scope boundary and
-why). These tests prove the Protocol is a real, satisfiable seam and that
+"""core.protocols.StateStore + core.state_store.MemoryStateStore — the
+in-process reference implementation of the durable-state seam that IS wired
+into NativeEngine now (see native_engine.py's own docstring, and
+test_native_engine_state_store.py for the actual process-restart-durability
+proof). These tests prove the Protocol is a real, satisfiable seam and that
 the reference implementation behaves correctly on its own, the same way
 test_workflow_engine_protocol.py proved WorkflowEngine was real before
-Agent ever routed through it."""
+Agent ever routed through it. See test_state_store_backends.py for the
+same contract run against RedisStateStore/PostgresStateStore."""
 from __future__ import annotations
 
 from agent_foundry.core.protocols import StateStore

@@ -272,6 +272,14 @@ class AgentConfig:
     # behaviorally identical to the old check_action-only gate for anyone who
     # doesn't configure OPA/Cedar/egress; pass one explicitly to compose those in.
     pdp: PolicyDecisionPoint | None = None
+    # A core.protocols.StateStore, typed loosely here (not imported) for the
+    # same reason AgentState's own request_cancellation_token is: orchestration.py
+    # doesn't import core/ (core/ already imports orchestration.py). None
+    # (default): NativeEngine keeps state in-process only, unchanged behavior.
+    # Read by core.engines.NativeWorkflowEngine.build (spec.state_store) to
+    # construct NativeEngine(state_store=...) — ignored on runtime="langgraph",
+    # which gets its own durability from `checkpointer=` instead.
+    state_store: Any = None
 
     def __post_init__(self) -> None:
         if self.pdp is None:
@@ -1007,8 +1015,8 @@ def _resolve_supervisor_route(
     when one is configured, else raises SupervisorRoutingError. Shared by
     both build_supervisor_graph (LangGraph) and
     core.native_orchestration._NativeSupervisorGraph so the two runtimes
-    behave identically here, same as native_run_governed_turn/
-    _run_governed_turn's pairing elsewhere in this module."""
+    behave identically here, same as _run_governed_turn/_PausableTurns'
+    pairing elsewhere in this module."""
     options = ", ".join(agents)
 
     def ask(correction: str = "") -> str:
@@ -1180,7 +1188,40 @@ def _run_governed_turn(config: AgentConfig, messages: list[dict], *, thread_id: 
     — the graph object itself is rebuilt fresh each call (cheap: it's just
     node/edge wiring, no LLM call), only budget/tracing state is expected to
     persist, and it does, since config.budget/config.tracer are the same
-    shared objects every call."""
+    shared objects every call.
+
+    Known, confirmed gap: a specialist's tool call requiring approval mid-
+    turn pauses THIS ephemeral inner graph (interrupt() fires and this
+    call's own graph.invoke() returns with "__interrupt__" set) — but that
+    inner graph is discarded the instant this function returns, and the
+    line below reads `.content` unconditionally, so the interrupt is
+    silently swallowed rather than surfaced: build_blackboard_graph/
+    build_debate_graph's outer turn continues as if the specialist had
+    answered normally, with a corrupted (empty or partial) answer in the
+    transcript. Reproduced directly, not assumed: build_debate_graph with a
+    debater whose tool requires confirmation returns a completed result
+    with no "__interrupt__" key at all, silently consuming the wrong number
+    of scripted LLM calls in the process. Native's own supervisor/swarm/
+    blackboard/debate topologies fixed the equivalent gap via
+    core.native_orchestration._PausableTurns (keep the specialist's engine
+    alive across the call boundary instead of ephemeral-per-call); fixing
+    it here needs blackboard/debate's specialists to become real nodes of
+    the outer graph the way build_supervisor_graph/build_swarm_graph's
+    already are — not attempted in this pass. The correct shape for that
+    (each debater/blackboard-participant needs an ISOLATED view of the
+    conversation, not a chained one — confirmed by re-reading this
+    function's own callers: every participant is called with the SAME
+    fixed `messages`/`history` snapshot, never chained through each other's
+    replies, so a supervisor-style sequential node chain would be a real
+    semantic regression) is LangGraph's Send-based fan-out
+    (build_fanout_graph's own mechanism), whose interrupt/resume behavior
+    for a paused task inside a Send-dispatched branch is real, separate
+    LangGraph-version-specific behavior this pass didn't verify live —
+    flagged rather than guessed at. LangGraph supervisor/swarm topology-hop
+    approval (a genuinely different, already-node-based shape) IS verified
+    working: see test_orchestration.py's own
+    test_supervisor_pauses_for_a_specialists_tool_approval_and_resumes /
+    test_swarm_pauses_inside_the_handed_off_specialist_and_resumes."""
     graph = build_agent_graph(
         system_prompt=config.system_prompt, llm=config.llm, tools=config.tools, guardrails=config.guardrails,
         eval_harness=config.eval_harness, identity=config.identity, policy=config.policy, budget=config.budget,

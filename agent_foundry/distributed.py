@@ -268,6 +268,34 @@ class RedisIdempotencyStore:
         self._r.set(f"{self._prefix}:{key}", json.dumps(asdict(result)), ex=int(self.ttl_s) or 1)
 
 
+class RedisStateStore:
+    """core.protocols.StateStore, Redis-backed — the real cross-restart (and
+    cross-replica) durability MemoryStateStore can't give you: pass this as
+    `Agent(..., runtime="native", state_store=RedisStateStore(...))` and a
+    NativeEngine's per-thread state survives a process restart, same
+    contract (load/save/delete), same isinstance-checkable Protocol,
+    verified in tests/test_state_store.py's own contract-test shape. State
+    is a plain dict (messages/thread_id/critique_retries/critique_last_score/
+    _pending) — already JSON-safe, so this needs no custom serialization
+    beyond json.dumps/loads, same convention as RedisIdempotencyStore above."""
+
+    def __init__(self, *, redis_url: str = "redis://localhost:6379/0", key_prefix: str = "agent_foundry:state"):
+        import redis as redis_lib
+
+        self._prefix = key_prefix
+        self._r = redis_lib.Redis.from_url(redis_url, decode_responses=True)
+
+    def load(self, run_id: str) -> dict[str, Any] | None:
+        raw = self._r.get(f"{self._prefix}:{run_id}")
+        return None if raw is None else json.loads(raw)
+
+    def save(self, run_id: str, state: dict[str, Any]) -> None:
+        self._r.set(f"{self._prefix}:{run_id}", json.dumps(state))
+
+    def delete(self, run_id: str) -> None:
+        self._r.delete(f"{self._prefix}:{run_id}")
+
+
 # release() must only remove a lease THIS caller's token still owns — a
 # plain DEL would let a replica release a lease that already expired and
 # was re-acquired by a different replica in the meantime.

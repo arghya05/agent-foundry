@@ -70,13 +70,12 @@ class WorkflowEngine(Protocol):
 class StateStore(Protocol):
     """Durable per-thread state, keyed the same way core/native_engine.py's
     NativeEngine._threads already is (one dict per thread_id, shaped like
-    AgentState). `core/state_store.py`'s `MemoryStateStore` is the one real
-    implementation today — a process-restart-durable Redis/Postgres backend
-    is a real, separate piece of work (connection lifecycle, error handling,
-    its own test suite against a live process — the same bar this repo's
-    other real-external-process integrations hold themselves to, not an
-    untested guess) that this Protocol makes possible without touching
-    NativeEngine's own state shape, but doesn't itself ship.
+    AgentState). Three implementations exist: `core/state_store.py`'s
+    `MemoryStateStore` (in-process reference) and `PostgresStateStore`
+    (`psycopg2`-backed), and `distributed.py`'s `RedisStateStore` —
+    connection lifecycle, error handling, and their own test suite against a
+    live process, the same bar this repo's other real-external-process
+    integrations hold themselves to.
 
     Deliberately 3 methods, not 4 — no separate `checkpoint()` alongside
     `save()`: for a plain per-thread state dict there's no distinct
@@ -91,13 +90,14 @@ class StateStore(Protocol):
     async-native rewrite of the core loop; an async-only StateStore would
     be the one place that decision got silently reversed.
 
-    Not yet wired into NativeEngine's own state storage (`_state_for`,
-    `run`, `resume`, `update_state` in native_engine.py) — those methods'
-    thread-safety is a lock-guarded plain in-process dict specifically
-    (see NativeEngine's class docstring), and swapping the storage backing
-    underneath that lock is real surgery on a hot, carefully-documented
-    path that deserves its own dedicated change and test pass, not a rider
-    on an unrelated batch of fixes."""
+    Wired into NativeEngine's own state storage: `Agent(...,
+    runtime="native", state_store=<a StateStore>)` — `_state_for` is
+    cache-first (the in-process `self._threads` dict stays the fast path
+    within one process) with load-on-miss from the store, and `_raw()` (the
+    one function every mutating call path already funnels through, at
+    exactly the granularity a think/act/critique step completes) persists
+    on every call. `runtime="langgraph"` ignores this field — it gets its
+    own durability from `checkpointer=` instead."""
 
     def load(self, run_id: str) -> dict[str, Any] | None: ...
     def save(self, run_id: str, state: dict[str, Any]) -> None: ...
