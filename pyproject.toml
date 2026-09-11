@@ -31,9 +31,10 @@ dependencies = [
 # imports langgraph") and orchestration.py's LangGraph imports, all local to
 # the specific build_*_graph/make_act_node/make_critique_node functions that
 # actually need them, not module-level. Workflow.supervisor/.swarm/
-# .blackboard/.debate/.dag/.fanout are LangGraph-only topologies with no
-# native equivalent today — calling one without this extra installed raises
-# a plain ModuleNotFoundError naming langgraph, not a confusing failure.
+# .blackboard/.debate/.dag/.fanout each have a native counterpart too
+# (core/native_orchestration.py, runtime="native") — this extra is only
+# needed for runtime="langgraph" on any of them, or for durable
+# checkpointing / a topology-hop approval interrupt either way.
 langgraph = ["langgraph>=0.6"]
 # quickstart.py's plug_and_play_agent()/to_langchain_tool() — the deliberately
 # simple entry point (see README's "Two entry points"), built on real
@@ -66,6 +67,18 @@ foundry = "agent_foundry.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["agent_foundry*"]
+
+[tool.ruff.lint]
+# Explicit, not relying on ruff's own unconfigured "default" — that default
+# has drifted between ruff releases (an unpinned `pip install ruff` in CI
+# picking up a newer version started failing this codebase's own deliberate
+# patterns, e.g. broad `except Exception` in tool-dispatch resilience code,
+# with zero code changes here). E4/E7/E9/F is ruff's own long-documented
+# default selection and what this codebase is actually written against;
+# pinning it explicitly means a future ruff release adding new default
+# categories (bugbear/flake8-blind-except and similar) can't silently break
+# CI again the same way.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.mypy]
 ignore_missing_imports = true

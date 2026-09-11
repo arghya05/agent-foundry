@@ -235,7 +235,12 @@ class RedisCostLedger:
 
     def by_tenant(self) -> dict[str, float]:
         raw = self._r.hgetall(f"{self._prefix}:by_tenant")
-        return {k: float(v) for k, v in raw.items()}
+        # decode_responses=True (see __init__) means k is always a real str at
+        # runtime — redis-py's own stubs still type hgetall's keys as
+        # bytes | str regardless (that flag is a runtime setting, not
+        # something the stub's generic reflects), so decode defensively
+        # rather than assert a type that's already guaranteed true.
+        return {(k.decode() if isinstance(k, bytes) else k): float(v) for k, v in raw.items()}
 
 
 class RedisIdempotencyStore:

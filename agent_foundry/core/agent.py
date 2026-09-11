@@ -17,9 +17,13 @@ of the Agent instances passed in.
 WorkflowEngine actually runs that AgentConfig — native_engine.NativeEngine is
 the framework-free implementation of the think/act/critique loop that ships
 as the default, needing no LangGraph install; `runtime="langgraph"` opts
-into LangGraph's StateGraph for its persistence/streaming/HITL machinery
-(and is the only runtime the multi-agent Workflow topologies below
-support). Neither choice removes the need for an LLM provider — `llm=`/
+into LangGraph's StateGraph for its persistence/streaming/HITL machinery.
+Every multi-agent Workflow topology below (supervisor/swarm/blackboard/
+debate/fanout/dag) also takes this same `runtime=` kwarg, dispatching to
+core/native_orchestration.py's counterparts — LangGraph is only required
+for durable checkpointing or a topology-hop approval interrupt, not for
+multi-agent execution itself. Neither choice removes the need for an LLM
+provider — `llm=`/
 `provider=` below, or the `AnthropicProvider` default (needs
 `agent-foundry[anthropic]`), same requirement either runtime. Both engines
 produce the same RunResult shape; Agent's own public methods below don't

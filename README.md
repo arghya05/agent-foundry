@@ -85,7 +85,7 @@ entirely optional (`pip install agent-foundry[langchain]`), and nothing
    just document it. `benchmarks/native_vs_langgraph.py` measures the
    difference instead of claiming one (see the
    [benchmark table](#native-vs-langgraph--measured-not-claimed)).
-3. **All 7 multi-agent topologies, on either runtime.** Most agent
+3. **All 6 multi-agent topologies, on either runtime.** Most agent
    frameworks that offer a "lightweight mode" only give you single-agent in
    it. Supervisor, swarm, blackboard, debate, fanout, and DAG each have a
    real native-Python implementation (`core/native_orchestration.py`)
@@ -107,8 +107,9 @@ entirely optional (`pip install agent-foundry[langchain]`), and nothing
 > `Model`/`Message`/`Policy`/`ToolRegistry`/`ExecutionContext`) behind a
 > pluggable `WorkflowEngine` seam · two real execution backends today
 > (native Python, zero LangGraph dependency and the default, and LangGraph,
-> chosen per-`Agent` or per-call) · **7 multi-agent topologies, each with a
-> native AND a LangGraph implementation** · a declarative `AgentSpec`
+> chosen per-`Agent` or per-call) · **7 execution topologies — single-agent
+> plus 6 multi-agent — each with a native AND a LangGraph implementation** ·
+> a declarative `AgentSpec`
 > (YAML/JSON) alongside the Python API, with structured tool metadata and
 > named critique evaluators · `arun`/`astream` and concurrent same-turn tool
 > dispatch · a formal run lifecycle and eval-as-release-gate (KPI board,

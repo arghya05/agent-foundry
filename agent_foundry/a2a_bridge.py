@@ -84,6 +84,8 @@ def build_a2a_app(card: Any, graph: Any, *, rpc_url: str = "/a2a/rpc") -> Any:
                 id=context.task_id, context_id=context.context_id,
                 status=TaskStatus(state=TaskState.TASK_STATE_SUBMITTED),
             ))
+            if context.task_id is None or context.context_id is None:
+                raise RuntimeError("A2A RequestContext is missing task_id/context_id")
             updater = TaskUpdater(event_queue, context.task_id, context.context_id)
             await updater.start_work()
             text = context.get_user_input()
