@@ -1192,6 +1192,7 @@ pytest
 
 ## Docs
 
+- `docs/HOW_IT_WORKS.md` — plain-language walkthrough of the whole system (start here)
 - `docs/ARCHITECTURE.md` — full design rationale
 - `docs/IMPLEMENTATION_GUIDE.md` — step-by-step build guide
 - `docs/OWASP_LLM_TOP10.md` — how each OWASP LLM Top 10 risk is addressed
