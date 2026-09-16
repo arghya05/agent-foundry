@@ -55,7 +55,8 @@ from .contracts import Identity, Policy
 
 if TYPE_CHECKING:
     from livekit.agents import Agent as LiveKitAgent
-    from livekit.agents import ChatContext, FunctionTool, ModelSettings, RunContext
+    from livekit.agents import ChatContext, ModelSettings, RunContext
+    from livekit.agents.llm.tool_context import RawFunctionTool
 
     from .contracts import ToolSpec
     from .tools_gateway import ToolRegistry
@@ -84,7 +85,11 @@ def build_voice_agent(
         async def llm_node(
             self, chat_ctx: "ChatContext", tools: list, model_settings: "ModelSettings",
         ) -> AsyncIterable[str]:
-            user_text = chat_ctx.items[-1].text_content
+            # chat_ctx.items can end in a FunctionCall/FunctionCallOutput/etc,
+            # not just a ChatMessage (e.g. right after a tool result is
+            # appended, before the model's next turn) — .messages() filters
+            # to real chat messages only, which is what has .text_content.
+            user_text = chat_ctx.messages()[-1].text_content
             state: dict[str, Any] = {"messages": [{"role": "user", "content": user_text}], "thread_id": thread_id}
             if identity is not None:
                 state["request_identity"] = {"id": identity.id, "tenant_id": identity.tenant_id, "roles": tuple(identity.roles)}
@@ -104,7 +109,7 @@ def build_voice_agent(
 
 def to_livekit_function_tool(
     spec: "ToolSpec", *, registry: "ToolRegistry", identity: Identity, policy: Policy,
-) -> "FunctionTool":
+) -> "RawFunctionTool":
     """Adapts one Agent Foundry ToolSpec into a LiveKit FunctionTool, routed
     through ToolRegistry.ainvoke() — so the same RBAC/rate-limit/cache/PDP
     gate that applies to a tool call from the cascaded pipeline also applies

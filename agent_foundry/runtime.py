@@ -6,6 +6,7 @@ Thread/session lifecycle itself is delegated to LangGraph's checkpointer
 from __future__ import annotations
 
 import concurrent.futures
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Protocol, TypeVar
@@ -56,29 +57,44 @@ class RunBudget:
     found while wiring exactly this deployment shape). Callers that never pass
     thread_id (nearly every existing single-session test/example) all share
     one implicit default bucket, so `.cost_usd`/`.steps` keep meaning exactly
-    what they meant before this became thread-aware."""
+    what they meant before this became thread-aware.
+
+    _lock guards every read/write below — without it, two threads spending
+    against the SAME thread_id concurrently (via NativeEngine's per-thread_id
+    serialization, this is only reachable if something else calls spend()/
+    step() directly, e.g. a caller sharing one RunBudget across a custom
+    thread pool) could both read the same pre-spend total, both add their own
+    amount, and the last write wins — silently losing one thread's spend and
+    letting the combined total exceed the budget uncaught. A plain (non-
+    reentrant) Lock is enough here: no method below calls another locked
+    method on self, so there's no self-deadlock risk to guard against."""
 
     policy: Policy
     _spent: dict[str, float] = field(default_factory=dict)
     _steps: dict[str, int] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def spend(self, amount: float, *, thread_id: str = _DEFAULT_THREAD) -> None:
-        total = self._spent.get(thread_id, 0.0) + amount
-        self._spent[thread_id] = total
-        if total > self.policy.max_cost_usd_per_thread:
-            raise BudgetExceeded(f"spent ${total:.4f} > budget ${self.policy.max_cost_usd_per_thread}")
+        with self._lock:
+            total = self._spent.get(thread_id, 0.0) + amount
+            self._spent[thread_id] = total
+            if total > self.policy.max_cost_usd_per_thread:
+                raise BudgetExceeded(f"spent ${total:.4f} > budget ${self.policy.max_cost_usd_per_thread}")
 
     def step(self, *, thread_id: str = _DEFAULT_THREAD) -> None:
-        count = self._steps.get(thread_id, 0) + 1
-        self._steps[thread_id] = count
-        if count > self.policy.max_steps_per_thread:
-            raise BudgetExceeded(f"{count} steps > max {self.policy.max_steps_per_thread}")
+        with self._lock:
+            count = self._steps.get(thread_id, 0) + 1
+            self._steps[thread_id] = count
+            if count > self.policy.max_steps_per_thread:
+                raise BudgetExceeded(f"{count} steps > max {self.policy.max_steps_per_thread}")
 
     def cost_usd_for(self, thread_id: str = _DEFAULT_THREAD) -> float:
-        return self._spent.get(thread_id, 0.0)
+        with self._lock:
+            return self._spent.get(thread_id, 0.0)
 
     def steps_for(self, thread_id: str = _DEFAULT_THREAD) -> int:
-        return self._steps.get(thread_id, 0)
+        with self._lock:
+            return self._steps.get(thread_id, 0)
 
     @property
     def cost_usd(self) -> float:
@@ -88,11 +104,13 @@ class RunBudget:
         as before this became thread-aware. For a real multi-session graph,
         this is the deployment-wide total (what observability.render_dashboard
         shows) — use cost_usd_for(thread_id) for one session's own figure."""
-        return sum(self._spent.values())
+        with self._lock:
+            return sum(self._spent.values())
 
     @property
     def steps(self) -> int:
-        return sum(self._steps.values())
+        with self._lock:
+            return sum(self._steps.values())
 
 
 class LatencyBudgetLike(Protocol):
@@ -120,16 +138,19 @@ class LatencyBudget:
 
     max_seconds: float
     _start: dict[str, float] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def check(self, *, thread_id: str = _DEFAULT_THREAD) -> None:
-        start = self._start.setdefault(thread_id, time.time())
-        elapsed = time.time() - start
-        if elapsed > self.max_seconds:
-            raise BudgetExceeded(f"thread exceeded latency budget: {elapsed:.1f}s > {self.max_seconds}s")
+        with self._lock:
+            start = self._start.setdefault(thread_id, time.time())
+            elapsed = time.time() - start
+            if elapsed > self.max_seconds:
+                raise BudgetExceeded(f"thread exceeded latency budget: {elapsed:.1f}s > {self.max_seconds}s")
 
     def elapsed_s(self, *, thread_id: str = _DEFAULT_THREAD) -> float:
-        start = self._start.get(thread_id)
-        return 0.0 if start is None else time.time() - start
+        with self._lock:
+            start = self._start.get(thread_id)
+            return 0.0 if start is None else time.time() - start
 
 
 def with_retry(fn: Callable[[], T], *, attempts: int = 3, backoff_s: float = 0.5) -> T:
@@ -174,18 +195,21 @@ class CircuitBreaker:
     failure_threshold: int = 3
     _consecutive_failures: dict[str, int] = field(default_factory=dict)
     _open: set[str] = field(default_factory=set)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def record(self, tool: str, ok: bool) -> None:
-        if ok:
-            self._consecutive_failures[tool] = 0
-            self._open.discard(tool)
-            return
-        self._consecutive_failures[tool] = self._consecutive_failures.get(tool, 0) + 1
-        if self._consecutive_failures[tool] >= self.failure_threshold:
-            self._open.add(tool)
+        with self._lock:
+            if ok:
+                self._consecutive_failures[tool] = 0
+                self._open.discard(tool)
+                return
+            self._consecutive_failures[tool] = self._consecutive_failures.get(tool, 0) + 1
+            if self._consecutive_failures[tool] >= self.failure_threshold:
+                self._open.add(tool)
 
     def is_open(self, tool: str) -> bool:
-        return tool in self._open
+        with self._lock:
+            return tool in self._open
 
 
 class RateLimiterLike(Protocol):
@@ -208,16 +232,18 @@ class RateLimiter:
     burst: int
     _tokens: dict[str, float] = field(default_factory=dict)
     _last: dict[str, float] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def allow(self, key: str) -> bool:
-        now = time.time()
-        tokens = min(self.burst, self._tokens.get(key, self.burst) + (now - self._last.get(key, now)) * self.rate_per_s)
-        self._last[key] = now
-        if tokens < 1:
-            self._tokens[key] = tokens
-            return False
-        self._tokens[key] = tokens - 1
-        return True
+        with self._lock:
+            now = time.time()
+            tokens = min(self.burst, self._tokens.get(key, self.burst) + (now - self._last.get(key, now)) * self.rate_per_s)
+            self._last[key] = now
+            if tokens < 1:
+                self._tokens[key] = tokens
+                return False
+            self._tokens[key] = tokens - 1
+            return True
 
 
 class RateLimitExceeded(Exception):
@@ -252,37 +278,46 @@ class SLATracker:
     target_p95_latency_ms: float = 2000.0
     window: int = 1000  # rolling window: most recent N completed tasks
     _outcomes: list[tuple[bool, float]] = field(default_factory=list)
+    # RLock, not Lock: error_budget_remaining()/breaches() call success_rate()/
+    # p95_latency_ms() on self while already holding the lock — a plain Lock
+    # would deadlock a thread against itself the first time either is called.
+    _lock: threading.RLock = field(default_factory=threading.RLock)
 
     def record(self, *, ok: bool, latency_ms: float) -> None:
-        self._outcomes.append((ok, latency_ms))
-        if len(self._outcomes) > self.window:
-            self._outcomes.pop(0)
+        with self._lock:
+            self._outcomes.append((ok, latency_ms))
+            if len(self._outcomes) > self.window:
+                self._outcomes.pop(0)
 
     def success_rate(self) -> float:
-        if not self._outcomes:
-            return 1.0
-        return sum(1 for ok, _ in self._outcomes if ok) / len(self._outcomes)
+        with self._lock:
+            if not self._outcomes:
+                return 1.0
+            return sum(1 for ok, _ in self._outcomes if ok) / len(self._outcomes)
 
     def p95_latency_ms(self) -> float:
-        vals = sorted(latency for _, latency in self._outcomes)
-        if not vals:
-            return 0.0
-        idx = min(len(vals) - 1, int(len(vals) * 0.95))
-        return vals[idx]
+        with self._lock:
+            vals = sorted(latency for _, latency in self._outcomes)
+            if not vals:
+                return 0.0
+            idx = min(len(vals) - 1, int(len(vals) * 0.95))
+            return vals[idx]
 
     def error_budget_remaining(self) -> float:
         """Fraction of the allowed failure budget not yet spent this window.
         1.0 = fully intact, 0.0 = exhausted, negative = already breached."""
-        allowed = 1 - self.target_success_rate
-        actual = 1 - self.success_rate()
-        if allowed == 0:
-            return 1.0 if actual == 0 else 0.0
-        return 1 - (actual / allowed)
+        with self._lock:
+            allowed = 1 - self.target_success_rate
+            actual = 1 - self.success_rate()
+            if allowed == 0:
+                return 1.0 if actual == 0 else 0.0
+            return 1 - (actual / allowed)
 
     def breaches(self) -> list[str]:
-        out = []
-        if self.success_rate() < self.target_success_rate:
-            out.append(f"success rate {self.success_rate():.3%} below SLA target {self.target_success_rate:.3%}")
-        if self.p95_latency_ms() > self.target_p95_latency_ms:
-            out.append(f"p95 latency {self.p95_latency_ms():.0f}ms exceeds SLA target {self.target_p95_latency_ms:.0f}ms")
-        return out
+        with self._lock:
+            out = []
+            if self.success_rate() < self.target_success_rate:
+                out.append(f"success rate {self.success_rate():.3%} below SLA target {self.target_success_rate:.3%}")
+            if self.p95_latency_ms() > self.target_p95_latency_ms:
+                out.append(f"p95 latency {self.p95_latency_ms():.0f}ms exceeds SLA target {self.target_p95_latency_ms:.0f}ms")
+            return out

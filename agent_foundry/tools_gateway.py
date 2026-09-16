@@ -19,6 +19,14 @@ class PermissionDenied(Exception):
     pass
 
 
+class IdempotencyConflict(Exception):
+    """Raised by an IdempotencyStore.get() when the given key is currently
+    claimed by another in-flight call (see RedisIdempotencyStore) — a
+    transient, retryable condition, not a hard failure, so _pre_invoke
+    below treats it the same way as RateLimitExceeded: a failed ToolResult
+    the caller can retry, not a raised exception."""
+
+
 _JSON_TYPES = {"string", "number", "integer", "boolean", "array", "object"}
 
 
@@ -206,7 +214,10 @@ class ToolRegistry:
         if name not in policy.allowed_tools:
             raise PermissionDenied(f"{identity.id} is not permitted to call {name!r}")
         if idempotency_key is not None and self.idempotency_store is not None:
-            cached = self.idempotency_store.get(idempotency_key)
+            try:
+                cached = self.idempotency_store.get(idempotency_key)
+            except IdempotencyConflict as e:
+                return ToolResult(tool=name, ok=False, error=str(e))
             if cached is not None:
                 return cached
         if self.cache is not None:

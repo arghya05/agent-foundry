@@ -50,6 +50,7 @@ from ..blackboard import Blackboard, parse_post
 from ..orchestration import AgentConfig, DAGStep, _resolve_supervisor_route
 from ..llm_gateway import LLMGateway
 from .native_engine import NativeEngine
+from .protocols import StateStore
 
 
 class _ThreadLocks:
@@ -88,14 +89,27 @@ class _PausableTurns:
     human-in-the-loop impossible before this class existed. One instance of
     this class lives per topology instance (supervisor/swarm/blackboard/
     debate), keyed by f"{outer_thread_id}-{specialist_name}" — the same key
-    convention those classes already use for budget/tracer continuity."""
+    convention those classes already use for budget/tracer continuity.
 
-    def __init__(self) -> None:
+    state_store (optional, default None — unchanged in-process-only
+    behavior): passed straight through to every NativeEngine this class
+    constructs. NativeEngine._state_for already hydrates from
+    state_store.load(key) on a cache miss (see its own docstring) — so
+    resume() below, on a state_store-backed instance, no longer depends on
+    self._engines still holding the SAME Python NativeEngine object that
+    originally paused. Before this, a process restart (or a resume() call
+    landing on a different replica than the one that paused) always hit the
+    `if engine is None: raise` branch, permanently stranding that paused
+    approval — .run()'s __interrupt__ result was real and returned to the
+    caller, but nothing about it survived past self._engines' own lifetime."""
+
+    def __init__(self, *, state_store: StateStore | None = None) -> None:
         self._lock = threading.Lock()
         self._engines: dict[str, NativeEngine] = {}
+        self._state_store = state_store
 
     def run(self, config: AgentConfig, messages: list[dict], *, key: str) -> dict[str, Any]:
-        engine = NativeEngine()
+        engine = NativeEngine(state_store=self._state_store)
         state = {
             "messages": list(messages), "thread_id": key,
             "critique_retries": 0, "critique_last_score": None, "_pending": None,
@@ -105,11 +119,15 @@ class _PausableTurns:
         # resume() reads state back via self._state_for(key), which looks in
         # _threads; without this, a later resume() on this same (kept-alive)
         # engine would silently find a blank, freshly-created state instead
-        # of the one _drive mutated.
+        # of the one _drive mutated. This deliberately overwrites (not
+        # hydrates from) any state_store entry under this exact key — a
+        # fresh .run() call always starts from the caller-supplied `messages`
+        # (the full history, resupplied every call — see this class's own
+        # docstring), never from a stale prior turn's persisted state.
         with engine._threads_lock:
             engine._threads[key] = state
         with engine._lock_for(key):
-            result = engine._drive(config, state, key)
+            result = engine._drive(config, state, key)  # _drive persists to state_store itself, if one is set
         self._remember_or_forget(key, engine, result)
         return result
 
@@ -117,7 +135,16 @@ class _PausableTurns:
         with self._lock:
             engine = self._engines.get(key)
         if engine is None:
-            raise RuntimeError(f"no paused turn to resume for {key!r} — nothing was pending")
+            # No in-memory record of a pause — either genuinely nothing is
+            # pending, or it WAS pending but this is a fresh process/replica
+            # that never saw the .run() call which created it. Either way,
+            # a fresh state_store-backed NativeEngine resolves it correctly:
+            # NativeEngine.resume() -> _state_for() hydrates the persisted
+            # `_pending` from the store if it's there, and raises its own
+            # RuntimeError (same message shape) if it genuinely isn't —
+            # so this no longer needs its own separate "nothing pending"
+            # error path duplicating that check.
+            engine = NativeEngine(state_store=self._state_store)
         result = engine.resume(config, approved=approved, thread_id=key)
         self._remember_or_forget(key, engine, result)
         return result
@@ -128,6 +155,85 @@ class _PausableTurns:
                 self._engines[key] = engine  # keep it alive — a later resume(key=...) needs this exact engine/state
             else:
                 self._engines.pop(key, None)  # turn finished clean — nothing left to resume
+
+
+class _TopologyState:
+    """Shared topology-level state (the outer conversation history, plus
+    whatever small "which specialist/phase/round is paused" marker each of
+    supervisor/swarm/blackboard/debate tracks) for one thread_id — the piece
+    _PausableTurns' own state_store wiring does NOT cover, since that only
+    persists a SINGLE specialist's turn (keyed f"{thread_id}-{name}"), never
+    which specialist the topology itself was routing to, how much outer
+    history has accumulated, or a round/hop counter. Every one of the four
+    topology classes below had this same shape hand-duplicated as
+    self._threads/self._paused/self._threads_lock before this class existed
+    — one implementation here instead of four copies to keep in sync.
+
+    Same load-on-miss hydration pattern as NativeEngine._state_for
+    (native_engine.py): state_store.load(thread_id) populates a fresh
+    in-process cache entry the first time this thread_id is touched in THIS
+    process — so a restart, or a resume() landing on a different replica
+    than the one that paused, finds the real history/paused marker instead
+    of an empty history and a false "nothing pending" error. Before this
+    class existed, that state was process-local ONLY, no matter what
+    state_store a caller passed to Workflow.supervisor/.swarm/.blackboard/
+    .debate — nothing plugged one in at this layer at all.
+
+    `paused` is whatever small JSON-serializable value each topology needs
+    (a bare specialist name for supervisor, {"name":..., "hops_done":...}
+    for swarm, {"round":..., "agent_index":...} for blackboard, {"phase":...,
+    "index":...} for debate) — this class never inspects its shape, only
+    stores and returns it."""
+
+    def __init__(self, *, state_store: StateStore | None = None) -> None:
+        self._state_store = state_store
+        self._lock = threading.Lock()
+        self._cache: dict[str, dict[str, Any]] = {}  # thread_id -> {"history": [...], "paused": <topology-specific | None>}
+
+    def _entry(self, thread_id: str) -> dict[str, Any]:
+        with self._lock:
+            if thread_id in self._cache:
+                return self._cache[thread_id]
+        # Outside the lock, same reasoning as NativeEngine._state_for: this
+        # may be real network I/O (Redis/Postgres), and holding the lock here
+        # would block every OTHER thread_id's unrelated access for as long as
+        # this one load takes. Every real caller already holds its own
+        # per-thread_id lock (_ThreadLocks.lock_for) for the whole turn, so
+        # two concurrent _entry(thread_id) calls for the SAME thread_id
+        # don't happen in practice — the re-check below is defensive.
+        loaded = self._state_store.load(thread_id) if self._state_store is not None else None
+        with self._lock:
+            if thread_id in self._cache:
+                return self._cache[thread_id]
+            entry = loaded if loaded is not None else {"history": [], "paused": None}
+            self._cache[thread_id] = entry
+            return entry
+
+    def history_for(self, thread_id: str) -> list[dict]:
+        return self._entry(thread_id)["history"]
+
+    def paused_for(self, thread_id: str) -> Any | None:
+        return self._entry(thread_id)["paused"]
+
+    def set_paused(self, thread_id: str, value: Any) -> None:
+        entry = self._entry(thread_id)
+        with self._lock:
+            entry["paused"] = value
+        self.persist(thread_id)
+
+    def clear_paused(self, thread_id: str) -> None:
+        self.set_paused(thread_id, None)
+
+    def persist(self, thread_id: str) -> None:
+        """Call once after mutating the history list in place (history_for()
+        returns a live reference, so append() doesn't itself go through
+        set_paused/clear_paused) — always call this as the LAST step before
+        a turn's final yield, after every history.append() for that turn, so
+        a crash right after doesn't leave the persisted copy one message
+        behind the value actually returned to the caller."""
+        if self._state_store is None:
+            return
+        self._state_store.save(thread_id, self._entry(thread_id))
 
 
 def _native_run_worker_messages(config: AgentConfig, item: str, *, thread_id: str) -> list[dict]:
@@ -163,22 +269,16 @@ class _NativeSupervisorGraph:
 
     def __init__(
         self, *, supervisor_prompt: str, agents: dict[str, AgentConfig], llm: LLMGateway, task: str = "default",
-        fallback_agent: str | None = None,
+        fallback_agent: str | None = None, state_store: StateStore | None = None,
     ) -> None:
         self._prompt = supervisor_prompt
         self._agents = agents
         self._llm = llm
         self._task = task
         self._fallback_agent = fallback_agent
-        self._threads: dict[str, list[dict]] = {}
-        self._paused: dict[str, str] = {}  # thread_id -> the specialist name a pending approval belongs to
-        self._threads_lock = threading.Lock()
+        self._state = _TopologyState(state_store=state_store)
         self._locks = _ThreadLocks()
-        self._turns = _PausableTurns()
-
-    def _history_for(self, thread_id: str) -> list[dict]:
-        with self._threads_lock:
-            return self._threads.setdefault(thread_id, [])
+        self._turns = _PausableTurns(state_store=state_store)
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
         last: dict[str, Any] | None = None
@@ -194,10 +294,9 @@ class _NativeSupervisorGraph:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         with self._locks.lock_for(thread_id):  # serializes the WHOLE turn for this thread_id, not just history's own dict access
-            history = self._history_for(thread_id)
+            history = self._state.history_for(thread_id)
             if resume_payload is not None:
-                with self._threads_lock:
-                    name = self._paused.get(thread_id)
+                name = self._state.paused_for(thread_id)
                 if name is None:
                     raise RuntimeError(f"thread {thread_id!r} has nothing pending to resume")
                 decision = bool(resume_payload.get("approved"))
@@ -212,14 +311,12 @@ class _NativeSupervisorGraph:
                 result = self._turns.run(self._agents[name], list(history), key=f"{thread_id}-{name}")
 
             if result.get("__interrupt__"):
-                with self._threads_lock:
-                    self._paused[thread_id] = name
+                self._state.set_paused(thread_id, name)
                 yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
                 return
 
-            with self._threads_lock:
-                self._paused.pop(thread_id, None)
             history.append({"role": "assistant", "content": result["messages"][-1]["content"]})
+            self._state.clear_paused(thread_id)  # persists history+paused together, after every append for this turn
             yield {"event": "specialist.completed", "agent": name}
             yield {"messages": list(history), "thread_id": thread_id}
 
@@ -233,19 +330,13 @@ class _NativeSwarmGraph:
     no such bound either, but a native in-process loop with no bound at all
     would just hang the calling thread."""
 
-    def __init__(self, *, agents: dict[str, AgentConfig], entry: str, max_handoffs: int = 25) -> None:
+    def __init__(self, *, agents: dict[str, AgentConfig], entry: str, max_handoffs: int = 25, state_store: StateStore | None = None) -> None:
         self._agents = agents
         self._entry = entry
         self._max_handoffs = max_handoffs
-        self._threads: dict[str, list[dict]] = {}
-        self._paused: dict[str, dict[str, Any]] = {}  # thread_id -> {"name": ..., "hops_done": ...}
-        self._threads_lock = threading.Lock()
+        self._state = _TopologyState(state_store=state_store)
         self._locks = _ThreadLocks()
-        self._turns = _PausableTurns()
-
-    def _history_for(self, thread_id: str) -> list[dict]:
-        with self._threads_lock:
-            return self._threads.setdefault(thread_id, [])
+        self._turns = _PausableTurns(state_store=state_store)
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
         last: dict[str, Any] | None = None
@@ -261,10 +352,9 @@ class _NativeSwarmGraph:
         thread_id = run_config["configurable"]["thread_id"]
         resume_payload = getattr(state, "resume", None)
         with self._locks.lock_for(thread_id):
-            history = self._history_for(thread_id)
+            history = self._state.history_for(thread_id)
             if resume_payload is not None:
-                with self._threads_lock:
-                    paused = self._paused.get(thread_id)
+                paused = self._state.paused_for(thread_id)
                 if paused is None:
                     raise RuntimeError(f"thread {thread_id!r} has nothing pending to resume")
                 name, hops_done = paused["name"], paused["hops_done"]
@@ -276,8 +366,7 @@ class _NativeSwarmGraph:
 
             while True:
                 if result.get("__interrupt__"):
-                    with self._threads_lock:
-                        self._paused[thread_id] = {"name": name, "hops_done": hops_done}
+                    self._state.set_paused(thread_id, {"name": name, "hops_done": hops_done})
                     yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
                     return
 
@@ -295,8 +384,7 @@ class _NativeSwarmGraph:
                         continue
                 break
 
-            with self._threads_lock:
-                self._paused.pop(thread_id, None)
+            self._state.clear_paused(thread_id)  # persists history+paused together, after every append for this turn
             yield {"messages": list(history), "thread_id": thread_id}
 
 
@@ -308,19 +396,13 @@ class _NativeBlackboardGraph:
     no "messages" key — so this reads the workspace via `blackboard`, not
     via a conversational reply."""
 
-    def __init__(self, *, agents: dict[str, AgentConfig], blackboard: Blackboard, rounds: int = 2) -> None:
+    def __init__(self, *, agents: dict[str, AgentConfig], blackboard: Blackboard, rounds: int = 2, state_store: StateStore | None = None) -> None:
         self._agents = agents
         self._blackboard = blackboard
         self._rounds = rounds
-        self._threads: dict[str, list[dict]] = {}
-        self._paused: dict[str, dict[str, int]] = {}  # thread_id -> {"round": ..., "agent_index": ...}
-        self._threads_lock = threading.Lock()
+        self._state = _TopologyState(state_store=state_store)
         self._locks = _ThreadLocks()
-        self._turns = _PausableTurns()
-
-    def _history_for(self, thread_id: str) -> list[dict]:
-        with self._threads_lock:
-            return self._threads.setdefault(thread_id, [])
+        self._turns = _PausableTurns(state_store=state_store)
 
     def _prompt(self) -> str:
         return (
@@ -343,10 +425,9 @@ class _NativeBlackboardGraph:
         resume_payload = getattr(state, "resume", None)
         agent_names = list(self._agents)
         with self._locks.lock_for(thread_id):
-            history = self._history_for(thread_id)
+            history = self._state.history_for(thread_id)
             if resume_payload is not None:
-                with self._threads_lock:
-                    paused = self._paused.get(thread_id)
+                paused = self._state.paused_for(thread_id)
                 if paused is None:
                     raise RuntimeError(f"thread {thread_id!r} has nothing pending to resume")
                 round_i, agent_i = paused["round"], paused["agent_index"]
@@ -360,8 +441,7 @@ class _NativeBlackboardGraph:
 
             while True:
                 if result.get("__interrupt__"):
-                    with self._threads_lock:
-                        self._paused[thread_id] = {"round": round_i, "agent_index": agent_i}
+                    self._state.set_paused(thread_id, {"round": round_i, "agent_index": agent_i})
                     yield {"messages": list(history), "thread_id": thread_id, "round": round_i, "__interrupt__": result["__interrupt__"]}
                     return
 
@@ -385,8 +465,7 @@ class _NativeBlackboardGraph:
                 name = agent_names[agent_i]
                 result = self._turns.run(self._agents[name], [*history, {"role": "user", "content": self._prompt()}], key=f"{thread_id}-{name}")
 
-            with self._threads_lock:
-                self._paused.pop(thread_id, None)
+            self._state.clear_paused(thread_id)  # persists history+paused together, after every append for this turn
             yield {"messages": list(history), "thread_id": thread_id, "round": self._rounds}
 
 
@@ -395,18 +474,12 @@ class _NativeDebateGraph:
     independently (via _PausableTurns), then one judge call reviews the
     transcript and gives the final answer."""
 
-    def __init__(self, *, debaters: dict[str, AgentConfig], judge: AgentConfig) -> None:
+    def __init__(self, *, debaters: dict[str, AgentConfig], judge: AgentConfig, state_store: StateStore | None = None) -> None:
         self._debaters = debaters
         self._judge = judge
-        self._threads: dict[str, list[dict]] = {}
-        self._paused: dict[str, dict[str, Any]] = {}  # thread_id -> {"phase": "debater"|"judge", "index": ...}
-        self._threads_lock = threading.Lock()
+        self._state = _TopologyState(state_store=state_store)
         self._locks = _ThreadLocks()
-        self._turns = _PausableTurns()
-
-    def _history_for(self, thread_id: str) -> list[dict]:
-        with self._threads_lock:
-            return self._threads.setdefault(thread_id, [])
+        self._turns = _PausableTurns(state_store=state_store)
 
     def invoke(self, state: Any, run_config: dict[str, Any]) -> dict[str, Any]:
         last: dict[str, Any] | None = None
@@ -423,10 +496,9 @@ class _NativeDebateGraph:
         resume_payload = getattr(state, "resume", None)
         debater_names = list(self._debaters)
         with self._locks.lock_for(thread_id):
-            history = self._history_for(thread_id)
+            history = self._state.history_for(thread_id)
             if resume_payload is not None:
-                with self._threads_lock:
-                    paused = self._paused.get(thread_id)
+                paused = self._state.paused_for(thread_id)
                 if paused is None:
                     raise RuntimeError(f"thread {thread_id!r} has nothing pending to resume")
                 phase, index = paused["phase"], paused["index"]
@@ -444,8 +516,7 @@ class _NativeDebateGraph:
 
             while True:
                 if result.get("__interrupt__"):
-                    with self._threads_lock:
-                        self._paused[thread_id] = {"phase": phase, "index": index}
+                    self._state.set_paused(thread_id, {"phase": phase, "index": index})
                     yield {"messages": list(history), "thread_id": thread_id, "__interrupt__": result["__interrupt__"]}
                     return
 
@@ -472,8 +543,7 @@ class _NativeDebateGraph:
                 yield {"event": "judge.decided"}
                 break
 
-            with self._threads_lock:
-                self._paused.pop(thread_id, None)
+            self._state.clear_paused(thread_id)  # persists history+paused together, after every append for this turn
             yield {"messages": list(history), "thread_id": thread_id}
 
 

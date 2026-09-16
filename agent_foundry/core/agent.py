@@ -72,7 +72,7 @@ from .native_orchestration import (
 )
 from .engines import RUNTIMES
 from .execution_context import ExecutionContext
-from .protocols import Memory, Tool
+from .protocols import Memory, StateStore, Tool
 from .result import RunResult, result_from_graph_output
 
 
@@ -532,11 +532,13 @@ class Agent:
         return decorator
 
 
-def _validate_workflow_runtime(runtime: str, checkpointer: Any) -> None:
+def _validate_workflow_runtime(runtime: str, checkpointer: Any, state_store: Any = None) -> None:
     if runtime not in ("native", "langgraph"):
         raise ValueError(f"runtime must be 'native' or 'langgraph', got {runtime!r}")
     if runtime == "native" and checkpointer is not None:
         raise ValueError("runtime='native' keeps its own in-memory state and doesn't accept a checkpointer")
+    if runtime == "langgraph" and state_store is not None:
+        raise ValueError("runtime='langgraph' persists through its own checkpointer=, not state_store= (that's runtime='native' only)")
 
 
 class Workflow:
@@ -552,18 +554,29 @@ class Workflow:
     def supervisor(
         *, prompt: str, agents: dict[str, Agent], llm: LLMGateway, task: str = "default",
         fallback_agent: str | None = None, checkpointer: Any = None, runtime: str = "langgraph",
+        state_store: StateStore | None = None,
     ) -> _CompiledWorkflow:
         """`fallback_agent`: see orchestration._resolve_supervisor_route — an
         unrecognized routing decision retries once, then routes here if set,
         else raises orchestration.SupervisorRoutingError. None (default)
         means fail closed rather than silently picking whichever agent is
         first in `agents` — the previous behavior, unsafe once specialists
-        carry different tool/permission scopes."""
-        _validate_workflow_runtime(runtime, checkpointer)
+        carry different tool/permission scopes.
+
+        `state_store` (runtime="native" only — see runtime="langgraph"'s own
+        checkpointer= for that path's equivalent): makes this topology's
+        outer routing state (who's paused, the accumulated conversation) AND
+        every specialist's own turn state durable across a restart or a
+        resume() landing on a different replica — the gap the README's own
+        "Deploying to any cloud, at real scale" section used to flag as
+        NOT wired for native multi-agent topologies. Same StateStore
+        implementations as Agent(runtime="native", state_store=...) —
+        MemoryStateStore/PostgresStateStore/distributed.RedisStateStore."""
+        _validate_workflow_runtime(runtime, checkpointer, state_store)
         if runtime == "native":
             graph: Any = _NativeSupervisorGraph(
                 supervisor_prompt=prompt, agents={n: a.config for n, a in agents.items()}, llm=llm, task=task,
-                fallback_agent=fallback_agent,
+                fallback_agent=fallback_agent, state_store=state_store,
             )
         else:
             graph = build_supervisor_graph(
@@ -573,10 +586,15 @@ class Workflow:
         return _CompiledWorkflow(graph, name="supervisor")
 
     @staticmethod
-    def swarm(*, agents: dict[str, Agent], entry: str, checkpointer: Any = None, runtime: str = "langgraph") -> _CompiledWorkflow:
-        _validate_workflow_runtime(runtime, checkpointer)
+    def swarm(
+        *, agents: dict[str, Agent], entry: str, checkpointer: Any = None, runtime: str = "langgraph",
+        state_store: StateStore | None = None,
+    ) -> _CompiledWorkflow:
+        """state_store: see Workflow.supervisor's own docstring — same
+        native-only durability story, applied to swarm's handoff state."""
+        _validate_workflow_runtime(runtime, checkpointer, state_store)
         if runtime == "native":
-            graph: Any = _NativeSwarmGraph(agents={n: a.config for n, a in agents.items()}, entry=entry)
+            graph: Any = _NativeSwarmGraph(agents={n: a.config for n, a in agents.items()}, entry=entry, state_store=state_store)
         else:
             graph = build_swarm_graph(agents={n: a.config for n, a in agents.items()}, entry=entry, checkpointer=checkpointer)
         return _CompiledWorkflow(graph, name="swarm")
@@ -584,11 +602,18 @@ class Workflow:
     @staticmethod
     def blackboard(
         *, agents: dict[str, Agent], blackboard: Blackboard, rounds: int = 2,
-        checkpointer: Any = None, runtime: str = "langgraph",
+        checkpointer: Any = None, runtime: str = "langgraph", state_store: StateStore | None = None,
     ) -> _CompiledWorkflow:
-        _validate_workflow_runtime(runtime, checkpointer)
+        """state_store: see Workflow.supervisor's own docstring — same
+        native-only durability story, applied to blackboard's round/agent-
+        index state. The Blackboard object itself (facts/hypotheses/
+        evidence/etc.) is NOT covered by this — it's still process-local
+        only, a separate, still-open gap from the one this closes."""
+        _validate_workflow_runtime(runtime, checkpointer, state_store)
         if runtime == "native":
-            graph: Any = _NativeBlackboardGraph(agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds)
+            graph: Any = _NativeBlackboardGraph(
+                agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds, state_store=state_store,
+            )
         else:
             graph = build_blackboard_graph(
                 agents={n: a.config for n, a in agents.items()}, blackboard=blackboard, rounds=rounds, checkpointer=checkpointer,
@@ -596,10 +621,15 @@ class Workflow:
         return _CompiledWorkflow(graph, name="blackboard", extra_state={"round": 0})
 
     @staticmethod
-    def debate(*, debaters: dict[str, Agent], judge: Agent, checkpointer: Any = None, runtime: str = "langgraph") -> _CompiledWorkflow:
-        _validate_workflow_runtime(runtime, checkpointer)
+    def debate(
+        *, debaters: dict[str, Agent], judge: Agent, checkpointer: Any = None, runtime: str = "langgraph",
+        state_store: StateStore | None = None,
+    ) -> _CompiledWorkflow:
+        """state_store: see Workflow.supervisor's own docstring — same
+        native-only durability story, applied to debate's phase/index state."""
+        _validate_workflow_runtime(runtime, checkpointer, state_store)
         if runtime == "native":
-            graph: Any = _NativeDebateGraph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config)
+            graph: Any = _NativeDebateGraph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config, state_store=state_store)
         else:
             graph = build_debate_graph(debaters={n: a.config for n, a in debaters.items()}, judge=judge.config, checkpointer=checkpointer)
         return _CompiledWorkflow(graph, name="debate")

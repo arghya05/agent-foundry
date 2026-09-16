@@ -25,6 +25,7 @@ from typing import Any
 
 from .contracts import Policy, ToolResult
 from .runtime import BudgetExceeded
+from .tools_gateway import IdempotencyConflict
 
 _DEFAULT_THREAD = "__default__"
 
@@ -243,6 +244,9 @@ class RedisCostLedger:
         return {(k.decode() if isinstance(k, bytes) else k): float(v) for k, v in raw.items()}
 
 
+_IN_PROGRESS = "__agent_foundry_in_progress__"
+
+
 class RedisIdempotencyStore:
     """IdempotencyStore (tools_gateway.py) — same fleet-safety story as every
     other class in this module, for ToolRegistry.idempotency_store. A
@@ -250,8 +254,16 @@ class RedisIdempotencyStore:
     _default_idempotency_key — every native tool call now derives one
     automatically) must be recognized as already-executed no matter which
     replica handles the retry, not just the one that originally ran it.
-    Exact same get/set contract as InMemoryIdempotencyStore — a real
-    drop-in, not an upgrade to it."""
+
+    get() does more than a plain lookup: it also CLAIMS the key atomically
+    (SET NX EX, same primitive RedisLease.acquire() uses) when nothing is
+    cached yet, so a concurrent retry on a different replica can't ALSO see
+    "not cached" and re-execute the same destructive call — the original
+    version of this class only cached completed results, leaving exactly
+    that window open between two replicas' get() and the first one's set().
+    A claimant that crashes before calling set() self-heals once ttl_s
+    elapses (the claim marker expires like any other key), rather than
+    wedging the idempotency key forever."""
 
     def __init__(self, ttl_s: float = 3600.0, *, redis_url: str = "redis://localhost:6379/0", key_prefix: str = "agent_foundry:idempotency"):
         import redis as redis_lib
@@ -261,8 +273,18 @@ class RedisIdempotencyStore:
         self._r = redis_lib.Redis.from_url(redis_url, decode_responses=True)
 
     def get(self, key: str) -> ToolResult | None:
-        raw = self._r.get(f"{self._prefix}:{key}")
-        return None if raw is None else ToolResult(**json.loads(raw))
+        full_key = f"{self._prefix}:{key}"
+        claimed = self._r.set(full_key, _IN_PROGRESS, nx=True, ex=int(self.ttl_s) or 1)
+        if claimed:
+            return None  # nobody has run this idempotency key yet — this caller now owns it
+        raw = self._r.get(full_key)
+        if raw is None or raw == _IN_PROGRESS:
+            # Either another replica's claim marker is still live (it's
+            # executing right now), or it expired in the instant between our
+            # failed SET NX and this GET — either way, proceeding here would
+            # risk a second execution of the same destructive call.
+            raise IdempotencyConflict(f"idempotency key {key!r} is already being processed by another call")
+        return ToolResult(**json.loads(raw))
 
     def set(self, key: str, result: ToolResult) -> None:
         self._r.set(f"{self._prefix}:{key}", json.dumps(asdict(result)), ex=int(self.ttl_s) or 1)

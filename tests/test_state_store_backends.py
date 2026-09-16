@@ -124,3 +124,48 @@ class TestPostgresStateStore:
 
         writer.save("shared-run", {"messages": ["from writer"]})
         assert reader.load("shared-run") == {"messages": ["from writer"]}
+
+    def test_concurrent_save_and_load_across_many_threads_and_run_ids_does_not_corrupt_the_shared_connection(self):
+        """PostgresStateStore shares ONE psycopg2 connection across every
+        run_id — self._lock now serializes every load()/save()/delete()
+        across all of them, the same discipline MemoryStateStore's own lock
+        already had. Honest note on what this test does and doesn't prove:
+        I tried, with a threading.Barrier forcing simultaneous execute()
+        calls across up to 40 threads, to reproduce a raw protocol-level
+        crash on a build WITHOUT self._lock, and could not — psycopg2 (this
+        installed version) already holds its own internal C-level lock
+        around a connection's command dispatch, so simple independent
+        autocommit statements don't corrupt the wire protocol even when
+        shared unsynchronized across threads. That internal locking is an
+        implementation detail of psycopg2, not part of its documented public
+        contract, and this class's own correctness shouldn't quietly depend
+        on it — hence self._lock, making the safety guarantee explicit and
+        this class's own responsibility rather than an assumption about a
+        library internal. This test is therefore a correctness-under-load
+        check (every thread's own writes/reads stay consistent), not proof
+        of a crash the lock alone prevents."""
+        import threading
+
+        store = self._store()
+        errors: list[BaseException] = []
+        n_threads, n_rounds = 20, 10
+
+        def worker(i: int) -> None:
+            run_id = f"concurrent-run-{i}"
+            try:
+                for r in range(n_rounds):
+                    store.save(run_id, {"messages": [f"round-{r}"], "owner": i})
+                    seen = store.load(run_id)
+                    assert seen is not None and seen["owner"] == i, f"thread {i} saw {seen!r}"
+            except BaseException as e:  # noqa: BLE001 — deliberately broad, this is a concurrency-corruption probe
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+        assert not errors, f"{len(errors)} thread(s) hit a real error under concurrency: {errors[:3]!r}"
+        for i in range(n_threads):
+            assert store.load(f"concurrent-run-{i}") == {"messages": [f"round-{n_rounds - 1}"], "owner": i}

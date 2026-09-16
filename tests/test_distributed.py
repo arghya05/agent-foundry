@@ -14,6 +14,7 @@ and testing nothing real.
 from __future__ import annotations
 
 import os
+import time
 import uuid
 
 import pytest
@@ -158,6 +159,83 @@ def test_redis_idempotency_store_round_trips_across_two_separate_instances():
 
     seen = instance_b.get("refund-A100")
     assert seen is not None and seen.output == "refunded A100" and seen.ok is True
+
+
+def test_redis_idempotency_store_denies_a_concurrent_claim_on_a_different_replica():
+    """The fix: a destructive call in flight on instance_a (retried, still
+    executing, not yet .set()) must make instance_b's get() on the SAME key
+    raise IdempotencyConflict rather than return None — returning None would
+    tell tools_gateway._pre_invoke "nobody's running this yet," letting a
+    second replica re-execute a destructive tool call mid-flight on the
+    first. Before this fix, RedisIdempotencyStore only cached completed
+    results, so this exact race was open."""
+    from agent_foundry.tools_gateway import IdempotencyConflict
+
+    prefix = _prefix()
+    instance_a = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+    instance_b = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+
+    # instance_a's get() returning None means IT now owns/claimed this key —
+    # simulating instance_a having started executing the destructive call.
+    assert instance_a.get("refund-A100") is None
+
+    with pytest.raises(IdempotencyConflict):
+        instance_b.get("refund-A100")
+
+    # once instance_a finishes and calls set(), the claim marker is replaced
+    # by the real result — a THIRD replica retrying after that sees the
+    # cached result, not a conflict.
+    result = ToolResult(tool="issue_refund", ok=True, output="refunded A100", latency_ms=12.5)
+    instance_a.set("refund-A100", result)
+    instance_c = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+    seen = instance_c.get("refund-A100")
+    assert seen is not None and seen.output == "refunded A100"
+
+
+def test_redis_idempotency_store_self_heals_after_ttl_if_the_claimant_never_finishes():
+    """A claimant that crashes before calling set() must not wedge the
+    idempotency key forever — once ttl_s elapses, the claim marker expires
+    like any other key and a fresh call can claim it again. ttl_s=1 here,
+    not a fraction of a second: Redis's EX only takes whole seconds, and
+    this class already floors via `int(self.ttl_s) or 1` (see set()), so
+    anything under 1s would round up to a 1s TTL anyway — 1 is the real
+    floor, not an arbitrary test choice."""
+    from agent_foundry.tools_gateway import IdempotencyConflict
+
+    prefix = _prefix()
+    instance_a = RedisIdempotencyStore(ttl_s=1.0, redis_url=REDIS_URL, key_prefix=prefix)
+    instance_b = RedisIdempotencyStore(ttl_s=1.0, redis_url=REDIS_URL, key_prefix=prefix)
+
+    assert instance_a.get("refund-A101") is None  # claims it, then "crashes" — never calls set()
+    with pytest.raises(IdempotencyConflict):
+        instance_b.get("refund-A101")
+
+    time.sleep(1.3)  # past the 1s TTL floor — the abandoned claim marker has expired
+
+    assert instance_b.get("refund-A101") is None  # instance_b can now legitimately claim it
+
+
+def test_pre_invoke_turns_an_idempotency_conflict_into_a_failed_tool_result_not_a_raised_exception():
+    """tools_gateway.ToolRegistry.invoke() must not crash the calling agent's
+    turn just because a retry landed on a replica mid-execution of the same
+    idempotency key — it should look like any other transient tool failure
+    (same pattern as RateLimitExceeded), so the model can see it and decide
+    to retry within the conversation instead of the whole turn erroring."""
+    from agent_foundry.contracts import Identity, ToolSpec
+
+    prefix = _prefix()
+    instance_a = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+    instance_b = RedisIdempotencyStore(ttl_s=30.0, redis_url=REDIS_URL, key_prefix=prefix)
+    assert instance_a.get("refund-A102") is None  # claim it on instance_a, simulating an in-flight call
+
+    registry = ToolRegistry(idempotency_store=instance_b)
+    registry.register(ToolSpec("issue_refund", "Issue a refund.", {"order_id": "string"}, lambda order_id: f"refunded {order_id}"))
+    identity = Identity(id="u1", tenant_id="acme")
+    policy = Policy(allowed_tools=frozenset({"issue_refund"}))
+
+    result = registry.invoke("issue_refund", {"order_id": "A102"}, identity=identity, policy=policy, idempotency_key="refund-A102")
+    assert result.ok is False
+    assert "already being processed" in result.error
 
 
 def test_redis_lease_prevents_a_second_concurrent_acquire():
