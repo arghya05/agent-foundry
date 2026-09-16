@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, fields
 from typing import Any, Iterator
 
 from ..blackboard import Blackboard, parse_post
@@ -403,6 +404,35 @@ class _NativeBlackboardGraph:
         self._state = _TopologyState(state_store=state_store)
         self._locks = _ThreadLocks()
         self._turns = _PausableTurns(state_store=state_store)
+        # The Blackboard's own contents (facts/hypotheses/evidence/etc) are a
+        # SEPARATE persistence concern from _state (which only covers outer
+        # history + paused round/agent-index) — a distinct key per thread_id
+        # (f"{thread_id}-blackboard", parallel to _PausableTurns' own
+        # f"{thread_id}-{specialist}" convention), not folded into _state's
+        # generic entry, since no other topology has anything like it.
+        self._state_store = state_store
+        self._hydrated_blackboards: set[str] = set()
+
+    def _hydrate_blackboard(self, thread_id: str) -> None:
+        """Lazy, once-per-thread_id-per-process: the FIRST _drive_stream call
+        for a given thread_id in this process checks the store for a
+        previously-persisted snapshot and restores it into self._blackboard
+        — the caller's own (possibly freshly-constructed, empty) Blackboard
+        object. Guarded by self._locks.lock_for(thread_id), already held by
+        every real caller for the whole turn, so this never races with
+        _persist_blackboard for the same thread_id."""
+        if self._state_store is None or thread_id in self._hydrated_blackboards:
+            self._hydrated_blackboards.add(thread_id)
+            return
+        saved = self._state_store.load(f"{thread_id}-blackboard")
+        if saved is not None:
+            for f in fields(Blackboard):
+                setattr(self._blackboard, f.name, list(saved.get(f.name, [])))
+        self._hydrated_blackboards.add(thread_id)
+
+    def _persist_blackboard(self, thread_id: str) -> None:
+        if self._state_store is not None:
+            self._state_store.save(f"{thread_id}-blackboard", asdict(self._blackboard))
 
     def _prompt(self) -> str:
         return (
@@ -425,6 +455,7 @@ class _NativeBlackboardGraph:
         resume_payload = getattr(state, "resume", None)
         agent_names = list(self._agents)
         with self._locks.lock_for(thread_id):
+            self._hydrate_blackboard(thread_id)
             history = self._state.history_for(thread_id)
             if resume_payload is not None:
                 paused = self._state.paused_for(thread_id)
@@ -450,6 +481,7 @@ class _NativeBlackboardGraph:
                 parsed = parse_post(text)
                 if parsed:
                     self._blackboard.post(*parsed)
+                    self._persist_blackboard(thread_id)
                     config.eval_harness.record("component", name, "posted", 1.0, section=parsed[0])
                     yield {"event": "agent.posted", "agent": name, "section": parsed[0]}
                 else:

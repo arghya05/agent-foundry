@@ -88,8 +88,8 @@ class TestRedisStateStore:
 
 @pytest.mark.skipif(not _POSTGRES_UP, reason=f"no Postgres reachable at {PG_DSN!r}")
 class TestPostgresStateStore:
-    def _store(self) -> PostgresStateStore:
-        return PostgresStateStore(dsn=PG_DSN, table=f"agent_foundry_test_{_prefix().replace('-', '_')}")
+    def _store(self, **kwargs) -> PostgresStateStore:
+        return PostgresStateStore(dsn=PG_DSN, table=f"agent_foundry_test_{_prefix().replace('-', '_')}", **kwargs)
 
     def test_satisfies_the_protocol(self):
         assert isinstance(self._store(), StateStore)
@@ -125,28 +125,20 @@ class TestPostgresStateStore:
         writer.save("shared-run", {"messages": ["from writer"]})
         assert reader.load("shared-run") == {"messages": ["from writer"]}
 
-    def test_concurrent_save_and_load_across_many_threads_and_run_ids_does_not_corrupt_the_shared_connection(self):
-        """PostgresStateStore shares ONE psycopg2 connection across every
-        run_id — self._lock now serializes every load()/save()/delete()
-        across all of them, the same discipline MemoryStateStore's own lock
-        already had. Honest note on what this test does and doesn't prove:
-        I tried, with a threading.Barrier forcing simultaneous execute()
-        calls across up to 40 threads, to reproduce a raw protocol-level
-        crash on a build WITHOUT self._lock, and could not — psycopg2 (this
-        installed version) already holds its own internal C-level lock
-        around a connection's command dispatch, so simple independent
-        autocommit statements don't corrupt the wire protocol even when
-        shared unsynchronized across threads. That internal locking is an
-        implementation detail of psycopg2, not part of its documented public
-        contract, and this class's own correctness shouldn't quietly depend
-        on it — hence self._lock, making the safety guarantee explicit and
-        this class's own responsibility rather than an assumption about a
-        library internal. This test is therefore a correctness-under-load
-        check (every thread's own writes/reads stay consistent), not proof
-        of a crash the lock alone prevents."""
+    def test_concurrent_save_and_load_across_many_threads_and_run_ids_does_not_corrupt_state(self):
+        """PostgresStateStore is backed by a real ThreadedConnectionPool now
+        (psycopg2's own thread-safe pool variant), not one shared connection
+        — concurrent calls for DIFFERENT run_ids get genuinely different
+        pooled connections and run in real parallel, no Python-level lock
+        serializing them. maxconn is sized to n_threads here deliberately:
+        the pool is BOUNDED on purpose (Postgres itself has a connection
+        ceiling), so undersizing it relative to real concurrent load raises
+        PoolError('connection pool exhausted') — a real, correct failure
+        mode a caller sizing their own maxconn needs to plan around, not a
+        bug in the pool itself."""
         import threading
 
-        store = self._store()
+        store = self._store(maxconn=40)
         errors: list[BaseException] = []
         n_threads, n_rounds = 20, 10
 
@@ -169,3 +161,38 @@ class TestPostgresStateStore:
         assert not errors, f"{len(errors)} thread(s) hit a real error under concurrency: {errors[:3]!r}"
         for i in range(n_threads):
             assert store.load(f"concurrent-run-{i}") == {"messages": [f"round-{n_rounds - 1}"], "owner": i}
+        store.close()
+
+    def test_undersized_pool_fails_fast_with_pool_error_not_silent_corruption(self):
+        """The other half of the story above: a maxconn genuinely too small
+        for real concurrent load must fail LOUDLY (PoolError) rather than
+        silently queue forever or corrupt state — confirms this is real,
+        deterministic behavior of the shipped class, not something I only
+        hit by accident while sizing the test above."""
+        import psycopg2.pool
+        import threading
+
+        store = self._store(minconn=1, maxconn=2)
+        errors: list[BaseException] = []
+        started = threading.Event()
+
+        def hold_a_connection(i: int) -> None:
+            try:
+                store.save(f"hold-{i}", {"n": i})
+                started.set()
+                import time
+                time.sleep(0.3)  # widen the window so all 5 threads overlap against a 2-connection pool
+                store.load(f"hold-{i}")
+            except BaseException as e:  # noqa: BLE001
+                errors.append(e)
+
+        threads = [threading.Thread(target=hold_a_connection, args=(i,)) for i in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+
+        assert any(isinstance(e, psycopg2.pool.PoolError) for e in errors), (
+            f"expected at least one PoolError with maxconn=2 against 5 concurrent callers, got: {errors!r}"
+        )
+        store.close()

@@ -67,50 +67,74 @@ class PostgresStateStore:
     tests/test_state_store.py's own contract tests, run against this class
     too).
 
-    One psycopg2 connection is shared across every run_id (there's no
-    per-call connection pooling here — a real fix, but a bigger one: a
-    ThreadedConnectionPool would need its own lifecycle/close() story this
-    class doesn't have yet). A single connection can only process one
-    command at a time, so `self._lock` serializes every load()/save()/
-    delete() across ALL run_ids the same way MemoryStateStore's own lock
-    does — the difference is MemoryStateStore's lock only ever protects a
-    fast in-process dict op, while this one now also serializes real network
-    I/O, so concurrent calls for DIFFERENT run_ids queue behind each other
-    here in a way they don't for MemoryStateStore. That's a real throughput
-    cost, not a free fix — correct and safe now, but a connection pool is
-    the follow-up if this becomes a bottleneck under load."""
+    A real ThreadedConnectionPool backs this, not one shared connection —
+    ThreadedConnectionPool is psycopg2's own thread-safe pool variant (unlike
+    plain SimpleConnectionPool), so getconn()/putconn() need no lock of ours
+    on top: concurrent calls for DIFFERENT run_ids get genuinely different
+    connections and run in real parallel against Postgres, instead of
+    queuing behind one Python-level lock the way an earlier version of this
+    class did. `minconn`/`maxconn` bound how many real Postgres connections
+    this ever opens — size `maxconn` to your actual concurrency, not
+    unboundedly (Postgres itself has a connection ceiling). Call `close()`
+    when you're done with this store (process shutdown, end of a test) to
+    release every pooled connection — the pool doesn't do this for you on
+    garbage collection the way a single connection object more casually
+    might."""
 
-    def __init__(self, *, dsn: str = "dbname=agent_foundry", table: str = "agent_foundry_state"):
-        import psycopg2
+    def __init__(
+        self, *, dsn: str = "dbname=agent_foundry", table: str = "agent_foundry_state", minconn: int = 1, maxconn: int = 10,
+    ):
         from psycopg2 import sql
+        from psycopg2.pool import ThreadedConnectionPool
 
         self._table_ident = sql.Identifier(table)  # never f-string a table name into raw SQL — table= is caller-supplied
-        self._lock = threading.Lock()
-        self._conn = psycopg2.connect(dsn)
-        self._conn.autocommit = True
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(sql.SQL("CREATE TABLE IF NOT EXISTS {} (run_id TEXT PRIMARY KEY, state JSONB NOT NULL)").format(self._table_ident))
+        self._pool = ThreadedConnectionPool(minconn, maxconn, dsn)
+        conn = self._pool.getconn()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql.SQL("CREATE TABLE IF NOT EXISTS {} (run_id TEXT PRIMARY KEY, state JSONB NOT NULL)").format(self._table_ident))
+        finally:
+            self._pool.putconn(conn)
+
+    def close(self) -> None:
+        self._pool.closeall()
 
     def load(self, run_id: str) -> dict[str, Any] | None:
         from psycopg2 import sql
 
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(sql.SQL("SELECT state FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))
-            row = cur.fetchone()
+        conn = self._pool.getconn()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql.SQL("SELECT state FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))
+                row = cur.fetchone()
+        finally:
+            self._pool.putconn(conn)
         return None if row is None else (row[0] if isinstance(row[0], dict) else json.loads(row[0]))
 
     def save(self, run_id: str, state: dict[str, Any]) -> None:
         from psycopg2 import sql
 
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(
-                sql.SQL("INSERT INTO {} (run_id, state) VALUES (%s, %s) ON CONFLICT (run_id) DO UPDATE SET state = EXCLUDED.state")
-                .format(self._table_ident),
-                (run_id, json.dumps(state)),
-            )
+        conn = self._pool.getconn()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL("INSERT INTO {} (run_id, state) VALUES (%s, %s) ON CONFLICT (run_id) DO UPDATE SET state = EXCLUDED.state")
+                    .format(self._table_ident),
+                    (run_id, json.dumps(state)),
+                )
+        finally:
+            self._pool.putconn(conn)
 
     def delete(self, run_id: str) -> None:
         from psycopg2 import sql
 
-        with self._lock, self._conn.cursor() as cur:
-            cur.execute(sql.SQL("DELETE FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))
+        conn = self._pool.getconn()
+        try:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql.SQL("DELETE FROM {} WHERE run_id = %s").format(self._table_ident), (run_id,))
+        finally:
+            self._pool.putconn(conn)

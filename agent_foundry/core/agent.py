@@ -606,9 +606,13 @@ class Workflow:
     ) -> _CompiledWorkflow:
         """state_store: see Workflow.supervisor's own docstring — same
         native-only durability story, applied to blackboard's round/agent-
-        index state. The Blackboard object itself (facts/hypotheses/
-        evidence/etc.) is NOT covered by this — it's still process-local
-        only, a separate, still-open gap from the one this closes."""
+        index state, AND the Blackboard object's own contents (facts/
+        hypotheses/evidence/etc, under a separate f"{thread_id}-blackboard"
+        key — see _NativeBlackboardGraph._hydrate_blackboard/
+        _persist_blackboard). Pass a fresh, empty `blackboard=Blackboard()`
+        on a "restart" the same way you'd pass a fresh Workflow object —
+        this hydrates it from state_store on first use, it doesn't require
+        you to reconstruct the exact prior contents yourself."""
         _validate_workflow_runtime(runtime, checkpointer, state_store)
         if runtime == "native":
             graph: Any = _NativeBlackboardGraph(

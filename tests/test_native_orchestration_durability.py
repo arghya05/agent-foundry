@@ -112,14 +112,18 @@ def test_workflow_blackboard_native_resumes_a_paused_round_through_a_second_inst
     assert paused.awaiting_approval is True
     assert len(bb.facts) == 1
 
-    # Same Blackboard object passed again — see Workflow.blackboard's own
-    # docstring: the Blackboard's CONTENTS are a separate, still-open gap
-    # this fix does not close, so the test wires the same one deliberately
-    # rather than claiming that part survives a real restart too.
-    workflow_b = Workflow.blackboard(agents=agents, blackboard=bb, rounds=1, runtime="native", state_store=store)
+    # A genuinely FRESH, empty Blackboard object for workflow_b — the real
+    # "restart" scenario: a new process reconstructs an empty board and
+    # relies on state_store to repopulate its contents, not on any shared
+    # Python object surviving. bb_fresh must see researcher's fact even
+    # though IT never ran — that's the actual proof this closes the gap.
+    bb_fresh = Blackboard()
+    assert bb_fresh.facts == []
+    workflow_b = Workflow.blackboard(agents=agents, blackboard=bb_fresh, rounds=1, runtime="native", state_store=store)
     resumed = workflow_b.resume(approved=True, context=context)
     assert not resumed.awaiting_approval
-    assert len(bb.contradictions) == 1
+    assert bb_fresh.facts == ["revenue grew 12%"]
+    assert bb_fresh.contradictions == ["verified via wire audit"]
 
 
 def test_workflow_debate_native_resumes_a_paused_debater_through_a_second_instance():
