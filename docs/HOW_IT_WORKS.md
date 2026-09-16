@@ -174,97 +174,142 @@ Every major structural decision in this codebase was a trade-off, not a default.
 
 ---
 
-## 8. Module-by-module reference — what every file actually does
+## 8. Module-by-module reference — every file, grouped by the layer it belongs to
 
-This is the answer to "what does each piece of this codebase do, and why would I ever touch it." Every module in `agent_foundry/` is one row, grouped by layer. Read it top to bottom once and you have the whole system; come back to it as a lookup table afterward.
+This is the answer to "what does each piece of this codebase do, and why would I ever touch it" — organized by the same **Layer 0–5 model** built up through this document: Layer 0 is what *you* decide before anything runs; Layers 1–5 are the runtime machinery that carries it out; Guardrails/Security and Eval/Observability are cross-cutting — checked at every step, not visited in sequence.
 
-### Foundation — the types everything else plugs into
+### Layer 0 — Agentic Config & Entry Points
 
-| Module | What it does | Why it matters |
-|---|---|---|
-| `contracts.py` | Defines `Identity`, `Policy`, `AutonomyLevel` (L0–L5), `ToolSpec`, `ToolResult`, `ToolCall`, `LLMResponse`, `GuardrailResult` — plain dataclasses, no logic | Read this file first — every other layer is built to plug into these exact shapes |
-| `prompts.py` | Loads a system prompt from a plain `.md` or `.txt` file instead of a Python string literal | Keeps prompts editable by a non-engineer, versionable in git like any other content file |
-| `agent_spec.py` | `AgentSpec.from_yaml(...)` — the declarative alternative to writing Python: a YAML/JSON file describing tools, policy, and a named critique evaluator | Lets a team hand a non-Python-writing operator a config file instead of a script; `foundry run --spec` and `foundry eval` both consume it |
-
-### The loop itself — Layer 02
+Everything here is decided once, by a human, before the loop ever runs — the config itself, and the different front doors a request can arrive through.
 
 | Module | What it does | Why it matters |
 |---|---|---|
-| `orchestration.py` | `make_think_node`, `make_act_node`, `make_critique_node` — the three primitives — plus all 7 `build_*_graph` topology builders (LangGraph path) | Everything else in the repo is a slot this file's nodes call into |
-| `core/native_engine.py` | `NativeEngine` — a second, framework-free implementation of the identical think/act/critique loop | This is what `runtime="native"` actually runs — no LangGraph import anywhere in it |
-| `core/native_orchestration.py` | A native counterpart of each multi-agent topology — pausable/resumable, bounded-concurrency, real event streaming | Same framework-free idea as `native_engine.py`, one level up (multi-agent instead of single-agent) |
-| `core/engines.py` | `RUNTIMES = {"native": ..., "langgraph": ...}` — the registry `Agent.__init__` looks a runtime name up in | The actual extension point: add a `TemporalWorkflowEngine`, register it here, done — `Agent` never needs to change |
-| `core/protocols.py` | The `Protocol` contracts every pluggable piece satisfies: `WorkflowEngine`, `Tool`, `Memory`, `StateStore` | Structural typing, not inheritance — a replacement doesn't subclass anything, it just matches the shape |
-| `core/agent.py` | `Agent` and `Workflow` — the actual public classes you import | The thing that hides "build a graph, invoke it with a dict, inspect an interrupt" behind `.run()`, `.stream()`, `.resume()` |
-| `core/execution_context.py` | `ExecutionContext` — carries the run id, thread id, session id, user id, tenant id, permissions, and budget for one call | The one object you pass to `.run(msg, context=...)` to identify who's calling and which conversation this is |
-| `core/result.py` | `RunResult`, `result_from_graph_output()` | Normalizes native and LangGraph's differently-shaped raw output into one consistent return type |
-| `core/run.py` | `Run`, `RunStatus` — eight lifecycle states, from STARTED and RUNNING through WAITING_HUMAN and WAITING_EVENT to a terminal COMPLETED, FAILED, or CANCELLED | `Agent.start()`'s formal lifecycle — pause, unpause, cancel, retry, fork, replay, and wait-for-event, as methods on `Run` |
-| `core/registries.py` | `PromptRegistry`, `PolicyRegistry`, `EvalRegistry` — named lookup tables | Lets `Agent(instructions="support_v2", policy="strict")` resolve a name instead of importing an object directly |
-| `core/state_store.py` | `MemoryStateStore`, `PostgresStateStore` — both implement `StateStore`'s load/save/delete contract | What makes a single native agent's conversation survive a process restart — pass `state_store=` |
-| `core/model_router.py` | Capability-based model selection — `ModelRequest -> routes[task]` | Picks cheap vs. hard model by declared task complexity, not a hardcoded model name |
-| `core/tool_decorator.py` | `@tool(...)` — a decorator that turns a plain function into a `ToolSpec` with real timeout/cache_ttl/permissions metadata | The ergonomic way to register a tool without hand-building a `ToolSpec` |
-| `core/evalgate.py` | `run_eval()`, `EvalCase`, `Scorecard`, `.passes(thresholds)` | Turns evaluation into a release gate — fail a build if an agent regresses against a versioned dataset |
+| `contracts.py` | `from agent_foundry.contracts import Policy` — Defines `Identity`, `Policy`, `AutonomyLevel` (L0–L5), `ToolSpec`, `ToolResult`, `ToolCall`, `LLMResponse`, `GuardrailResult` — plain dataclasses, no logic | Read this file first — every other layer is built to plug into these exact shapes |
+| `prompts.py` | `from agent_foundry.prompts import PromptLibrary` — Loads a system prompt from a plain `.md` or `.txt` file instead of a Python string literal | Keeps prompts editable by a non-engineer, versionable in git like any other content file |
+| `agent_spec.py` | `from agent_foundry import AgentSpec` — `AgentSpec.from_yaml(...)` — the declarative alternative to writing Python: a YAML/JSON file describing tools, policy, and a named critique evaluator | Lets a team hand a non-Python-writing operator a config file instead of a script; `foundry run --spec` and `foundry eval` both consume it |
+| `core/execution_context.py` | `from agent_foundry import ExecutionContext` — `ExecutionContext` — carries the run id, thread id, session id, user id, tenant id, permissions, and budget for one call | The one object you pass to `.run(msg, context=...)` to identify who's calling and which conversation this is |
+| `core/registries.py` | `from agent_foundry import PromptRegistry` — `PromptRegistry`, `PolicyRegistry`, `EvalRegistry` — named lookup tables | Lets `Agent(instructions="support_v2", policy="strict")` resolve a name instead of importing an object directly |
+| `core/tool_decorator.py` | `from agent_foundry import tool` — `@tool(...)` — a decorator that turns a plain function into a `ToolSpec` with real timeout/cache_ttl/permissions metadata | The ergonomic way to register a tool without hand-building a `ToolSpec` — still a Layer 0 decision, just a shorter way to write it |
+| `scaffold.py` | `python -m agent_foundry.scaffold my_agent --tools foo,bar` | Generates a runnable agent file + prompt file with everything wired except the prompt content and tool bodies (see §9) |
+| `quickstart.py` | `from agent_foundry.quickstart import plug_and_play_agent` — `plug_and_play_agent()`, `to_langchain_tool()` | The minimal, real-LangChain entry point for teams who want speed over governance first (see §9) |
+| `cli.py` | `foundry run --spec agent.yaml` — The `foundry` command: `init`, `run`, `eval`, `serve`, `inspect`, `trace` | The operational surface — scaffold, run, score, serve, and introspect an agent from the shell, not just from Python |
+| `serve.py` | `from agent_foundry.serve import build_http_app` — `build_http_app()`, `invoke_graph_chat_turn()` | Wraps any compiled graph as a minimal FastAPI app: `POST /chat`, `GET /health`, plus a browser chat UI with inline HITL approval |
+| `channels.py` | `from agent_foundry.channels import build_slack_app` — `build_slack_app()`, `verify_slack_signature()` | A real, tested Slack Events API integration (HMAC signature check, URL-verification handshake) — the same pattern extends to SMS/email/Teams |
+| `a2a_bridge.py` | `from agent_foundry.a2a_bridge import build_a2a_app` — `agent_card_for()`, `build_a2a_app()` | Makes an agent discoverable and callable over the open Agent2Agent protocol |
+| `ui/console.py` | `from agent_foundry.ui.console import chat_loop` — A CLI REPL that drives any compiled graph, including inline HITL approval prompts | The reference implementation of "how do I actually talk to this thing" outside a web UI |
+| `agent_foundry/__init__.py` | `from agent_foundry import Agent` — this line only works because of this file | No logic of its own, just re-exports the handful of names most people actually need |
+| `agent_foundry/core/__init__.py` | *(never imported directly)* — A one-line note explaining that `core/` is where `Agent`/`Workflow` live | No code, just a signpost |
+| `agent_foundry/ui/__init__.py` | *(never imported directly)* — A one-line note saying `ui/` holds the CLI chat console | No code, just a signpost |
 
-### Runtime, tools & model — Layers 03–05
+### Layer 1 — Orchestration (the loop itself)
 
-| Module | What it does | Why it matters |
-|---|---|---|
-| `runtime.py` | `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker`, each behind a swappable `*Like` Protocol | Per-thread cost/step/latency ceilings, retries, and circuit breaking — fails *closed*, not silently capped |
-| `distributed.py` | `RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`, `RedisSLATracker`, `RedisCostLedger`, `RedisStateStore` | The real, cross-replica version of everything in `runtime.py` — what makes a multi-instance deployment actually share state |
-| `tools_gateway.py` | `ToolRegistry`, `ToolCache`, `InMemoryIdempotencyStore`, `tool_json_schema` | Every tool call funnels through here: RBAC check, result caching, rate limiting, idempotency |
-| `mcp_tools.py` | `MCPToolSource` — connects to any MCP server (stdio or HTTP) and registers its tools into the same registry | Any MCP-compatible tool server becomes indistinguishable from a local Python function |
-| `http_tools.py` | `http_tool()` — wraps any REST endpoint as a `ToolSpec` | No MCP server needed for the common case of "call this API" |
-| `autogen_bridge.py` | `autogen_as_tool()` — wraps a Microsoft AutoGen agent as one tool call | Interop, not a rewrite — use an existing AutoGen agent from inside a governed Agent Foundry agent |
-| `crewai_bridge.py` | `crewai_as_tool()` — wraps a CrewAI crew as one tool call | Same idea, for CrewAI — and the reverse direction works too (hand one of *your* tools to *their* agent) |
-| `data_connectors.py` | `DataSource` protocol, `SQLiteDataSource`, `data_query_tool()` — SELECT-only, table-allowlisted | Structured data (SQL/warehouses), distinct from `context.py`'s unstructured RAG |
-| `llm_gateway.py` | `LLMGateway`, `AnthropicProvider`, `OpenAIProvider`, `MultiProvider`, `PromptCache`, `ModelRegistry` | One contract (`complete(messages, model=...) -> LLMResponse`) every provider satisfies — nothing else in the framework imports a vendor SDK directly |
-
-### Context Layer — Layer 06
+Everything here *executes* Layer 0's config — think → act → critique — and never makes a config decision of its own.
 
 | Module | What it does | Why it matters |
 |---|---|---|
-| `context.py` | `VectorStore` protocol (`InMemoryVectorStore`, `ChromaVectorStore`), `KnowledgeGraphStore`, `ProceduralMemory`, `MemoryStore` (working/episodic/semantic/profiles), `ContextEngine` | Everything an agent remembers — within a thread, across threads, and across sessions for the same user |
+| `core/agent.py` | `from agent_foundry import Agent` — `Agent` and `Workflow` — the actual public classes you import | The bridge between Layer 0 and Layer 1: it assembles your config into an `AgentConfig`, then hands it to whichever engine runs it — hides "build a graph, invoke it with a dict, inspect an interrupt" behind `.run()`, `.stream()`, `.resume()` |
+| `orchestration.py` | `from agent_foundry.orchestration import build_agent_graph` — `make_think_node`, `make_act_node`, `make_critique_node` — the three primitives — plus all 7 `build_*_graph` topology builders (LangGraph path) | Everything else in the repo is a slot this file's nodes call into |
+| `core/native_engine.py` | `Agent(..., runtime="native")` — `NativeEngine` — a second, framework-free implementation of the identical think/act/critique loop | This is what `runtime="native"` actually runs — no LangGraph import anywhere in it |
+| `core/native_orchestration.py` | `Workflow.supervisor(..., runtime="native")` — A native counterpart of each multi-agent topology — pausable/resumable, bounded-concurrency, real event streaming | Same framework-free idea as `native_engine.py`, one level up (multi-agent instead of single-agent) |
+| `core/engines.py` | `Agent(..., runtime="langgraph")` — `RUNTIMES = {"native": ..., "langgraph": ...}` — the registry `Agent.__init__` looks a runtime name up in | The runtime seam from §5 — the actual extension point: add a `TemporalWorkflowEngine`, register it here, done |
+| `core/protocols.py` | `from agent_foundry.core.protocols import WorkflowEngine` — The `Protocol` contracts every pluggable piece satisfies: `WorkflowEngine`, `Tool`, `Memory`, `StateStore` | Structural typing, not inheritance — a replacement doesn't subclass anything, it just matches the shape |
+| `core/result.py` | `from agent_foundry import RunResult` — `RunResult`, `result_from_graph_output()` | Normalizes native and LangGraph's differently-shaped raw output into one consistent return type |
+| `core/run.py` | `from agent_foundry import Run` — `Run`, `RunStatus` — eight lifecycle states, from STARTED and RUNNING through WAITING_HUMAN and WAITING_EVENT to a terminal COMPLETED, FAILED, or CANCELLED | `Agent.start()`'s formal lifecycle — pause, unpause, cancel, retry, fork, replay, and wait-for-event, as methods on `Run` |
+| `core/state_store.py` | `from agent_foundry.core.state_store import PostgresStateStore` — `MemoryStateStore`, `PostgresStateStore` — both implement `StateStore`'s load/save/delete contract | What makes a single native agent's own conversation survive a process restart — pass `state_store=` |
+| `events.py` | `from agent_foundry.events import InMemoryEventBus` — `EventBus` protocol, `InMemoryEventBus`, `KafkaEventBus`, `wire_event_driven()` | Pub/sub — `Agent.on("order.delayed")` makes the loop run automatically when an external event arrives |
+| `blackboard.py` | `from agent_foundry.blackboard import Blackboard` — `Blackboard`, `parse_post()` | The shared reasoning workspace the blackboard topology's agents read/write to — see §6's `POST section: text` convention |
 
-### Guardrails & security
+### Layer 2 — Harness / Runtime
 
-| Module | What it does | Why it matters |
-|---|---|---|
-| `guardrails.py` | `GuardrailEngine`, `LLMGuardrails`, `redact()`, `looks_like_injection()` | Input/output/action gates — regex/heuristic by default, an LLM-judgment option layered on top |
-| `security.py` | `ToolManifestRegistry`, `EgressPolicy`, `CredentialVault`, `VaultCredentialProvider`, `AuditLog`, `EncryptedJSONLAuditLog` | Signed tool manifests (catches schema drift), egress allowlisting, real secrets management, an audit trail |
-| `policy_engine.py` | `OPAPolicyEngine` (real Rego via a running OPA server), `CedarPolicyEngine` (AWS Cedar, in-process) | Real policy-as-code, as an alternative or addition to the built-in `Policy` dataclass |
-| `escalation.py` | `EscalationTicket`, `QueueEscalator` | The third outcome besides auto-approve/deny — hand a case to a human queue instead of blocking outright |
-| `sandbox.py` | `run_sandboxed()`, `code_execution_tool()` | Restricted-builtins, wall-clock-timeout code execution — process-level isolation, not a container |
-
-### Eval, observability & optimization
-
-| Module | What it does | Why it matters |
-|---|---|---|
-| `kpi.py` | `KPI`, `KPIBoard`, `KPIResult` + ten reference scoring functions (efficiency, groundedness, policy adherence, cost, …) | Composable scoring the critique step (and eval gate) score against — weight them however a use case needs |
-| `eval.py` | `EvalHarness`, `JSONLEvalSink` | Atomic / component / flow / overall evaluation levels, in-memory or durable |
-| `eval_dataset.py` | `EvalDataset`, `EvalCase` — a versioned JSON format for eval cases | What `foundry eval` and `core/evalgate.py` actually score an agent against |
-| `observability.py` | `Tracer`, `OTelTracer`, `Metrics`, `CostLedger`, `check_alerts()` | Tracing (in-memory or real OpenTelemetry), a cost ledger that closes the moment a task finishes, threshold alerting |
-| `benchmark.py` | `BenchmarkCase`, `CaseResult`, `BenchmarkReport`, `run_benchmark()` | A regression suite against any compiled graph — catches a prompt/topology change quietly making things worse |
-| `experiments.py` | `Experiment`, `ExperimentTracker` | Deterministic A/B variant assignment (stable per identity) + per-variant metric aggregation |
-| `feature_flags.py` | `FeatureFlagProvider` protocol, `StaticFeatureFlagProvider` | On/off and percentage-rollout switches, bucketed by a stable hash so an identity's answer never flaps |
-| `reinforcement.py` | `PromptOptimizer`, `PreferenceStore` | Closes eval signal back into prompts (curates best-scoring exemplars) and into export-ready chosen/rejected pairs for DPO/distillation |
-| `planning.py` | `Objective`, `Planner`, `StrategySelector`, `BanditSelector` | Scores candidates (a model, a topology) against a weighted `KPIBoard`; `BanditSelector` learns from observed rewards instead of a fixed formula |
-
-### Integration & cross-cutting
+The safety rails Layer 1 checks against on every single step — enforces Layer 0's ceilings, decides nothing itself.
 
 | Module | What it does | Why it matters |
 |---|---|---|
-| `events.py` | `EventBus` protocol, `InMemoryEventBus`, `KafkaEventBus`, `wire_event_driven()` | Pub/sub — `Agent.on("order.delayed")` makes an agent react automatically to an external event |
-| `blackboard.py` | `Blackboard`, `parse_post()` | The shared reasoning workspace the blackboard topology's agents read/write to |
-| `a2a_bridge.py` | `agent_card_for()`, `build_a2a_app()` | Makes an agent discoverable and callable over the open Agent2Agent protocol |
-| `serve.py` | `build_http_app()`, `invoke_graph_chat_turn()` | Wraps any compiled graph as a minimal FastAPI app: `POST /chat`, `GET /health`, plus a browser chat UI with inline HITL approval |
-| `channels.py` | `build_slack_app()`, `verify_slack_signature()` | A real, tested Slack Events API integration (HMAC signature check, URL-verification handshake) — the same pattern extends to SMS/email/Teams |
-| `versioning.py` | `VersionStore` protocol, `FileVersionStore` | Immutable-version + current-pointer rollback for prompts/policy documents |
-| `i18n.py` | `LocaleSpec`, `register_locale()`, `format_currency()`, `format_date()` | Locale-aware prompt variants and response formatting |
-| `batch.py` | `Scheduler` protocol, `IntervalScheduler`, `run_batch()`, `BatchReport` | Runs a compiled graph once per item, concurrently, for offline/bulk jobs — distinct from `build_fanout_graph`'s in-turn parallelism |
-| `scaffold.py` | `create_agent()` — the `python -m agent_foundry.scaffold` CLI | Generates a runnable agent file + prompt file with everything wired except the prompt content and tool bodies (see §9) |
-| `quickstart.py` | `plug_and_play_agent()`, `to_langchain_tool()` | The minimal, real-LangChain entry point for teams who want speed over governance first (see §9) |
-| `cli.py` | The `foundry` command: `init`, `run`, `eval`, `serve`, `inspect`, `trace` | The operational surface — scaffold, run, score, serve, and introspect an agent from the shell, not just from Python |
-| `ui/console.py` | A CLI REPL that drives any compiled graph, including inline HITL approval prompts | The reference implementation of "how do I actually talk to this thing" outside a web UI |
+| `runtime.py` | `from agent_foundry.runtime import RunBudget` — `RunBudget`, `LatencyBudget`, `CircuitBreaker`, `RateLimiter`, `SLATracker`, each behind a swappable `*Like` Protocol | Per-thread cost/step/latency ceilings, retries, and circuit breaking — fails *closed*, not silently capped |
+| `distributed.py` | `from agent_foundry.distributed import RedisRunBudget` — `RedisRunBudget`, `RedisRateLimiter`, `RedisToolCache`, `RedisSLATracker`, `RedisCostLedger`, `RedisStateStore` | The real, cross-replica version of everything in `runtime.py` — what makes a multi-instance deployment actually share state |
+
+### Layer 3 — Tools Gateway
+
+Every tool call funnels through here — RBAC-checked against Layer 0's `Policy`, regardless of where the tool came from.
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `tools_gateway.py` | `from agent_foundry.tools_gateway import ToolRegistry` — `ToolRegistry`, `ToolCache`, `InMemoryIdempotencyStore`, `tool_json_schema` | Every tool call funnels through here: RBAC check, result caching, rate limiting, idempotency |
+| `mcp_tools.py` | `from agent_foundry.mcp_tools import MCPToolSource` — `MCPToolSource` — connects to any MCP server (stdio or HTTP) and registers its tools into the same registry | Any MCP-compatible tool server becomes indistinguishable from a local Python function |
+| `http_tools.py` | `from agent_foundry.http_tools import http_tool` — `http_tool()` — wraps any REST endpoint as a `ToolSpec` | No MCP server needed for the common case of "call this API" |
+| `autogen_bridge.py` | `from agent_foundry.autogen_bridge import autogen_as_tool` — `autogen_as_tool()` — wraps a Microsoft AutoGen agent as one tool call | Interop, not a rewrite — use an existing AutoGen agent from inside a governed Agent Foundry agent |
+| `crewai_bridge.py` | `from agent_foundry.crewai_bridge import crewai_as_tool` — `crewai_as_tool()` — wraps a CrewAI crew as one tool call | Same idea, for CrewAI — and the reverse direction works too (hand one of *your* tools to *their* agent) |
+| `data_connectors.py` | `from agent_foundry.data_connectors import SQLiteDataSource` — `DataSource` protocol, `SQLiteDataSource`, `data_query_tool()` — SELECT-only, table-allowlisted | Structured data (SQL/warehouses), distinct from `context.py`'s unstructured RAG |
+
+### Layer 4 — LLM Gateway
+
+Routes to whichever model Layer 0 declared — nothing else in the framework imports a vendor SDK directly.
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `llm_gateway.py` | `from agent_foundry.llm_gateway import LLMGateway` — `LLMGateway`, `AnthropicProvider`, `OpenAIProvider`, `MultiProvider`, `PromptCache`, `ModelRegistry` | One contract (`complete(messages, model=...) -> LLMResponse`) every provider satisfies |
+| `core/model_router.py` | `from agent_foundry import ModelRouter` — Capability-based model selection — `ModelRequest -> routes[task]` | An opt-in upgrade over hand-typing `routes[task]` — picks a model by declared capability/cost/latency instead of a hardcoded name (not wired into `Agent` today — you'd call this yourself, see §7's honest-gap discussion) |
+
+### Layer 5 — Context Layer
+
+Searches whichever memory Layer 0 attached — automatically, every turn, without being asked.
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `context.py` | `from agent_foundry.context import MemoryStore` — `VectorStore` protocol (`InMemoryVectorStore`, `ChromaVectorStore`), `KnowledgeGraphStore`, `ProceduralMemory`, `MemoryStore` (working/episodic/semantic/profiles), `ContextEngine` | Everything an agent remembers — within a thread, across threads, and across sessions for the same user |
+
+### Cross-cutting: Guardrails & Security
+
+Not a layer in the sequence — checked *inside* Layer 1's think/act steps, on every single turn, using whatever Layer 0's `Policy` declared.
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `guardrails.py` | `from agent_foundry.guardrails import GuardrailEngine` — `GuardrailEngine`, `LLMGuardrails`, `redact()`, `looks_like_injection()` | Input/output/action gates — regex/heuristic by default, an LLM-judgment option layered on top |
+| `security.py` | `from agent_foundry.security import AuditLog` — `ToolManifestRegistry`, `EgressPolicy`, `CredentialVault`, `VaultCredentialProvider`, `AuditLog`, `EncryptedJSONLAuditLog` | Signed tool manifests (catches schema drift), egress allowlisting, real secrets management, an audit trail |
+| `policy_engine.py` | `from agent_foundry.policy_engine import OPAPolicyEngine` — `OPAPolicyEngine` (real Rego via a running OPA server), `CedarPolicyEngine` (AWS Cedar, in-process) | Real policy-as-code, as an alternative or addition to the built-in `Policy` dataclass |
+| `escalation.py` | `from agent_foundry.escalation import QueueEscalator` — `EscalationTicket`, `QueueEscalator` | The third outcome besides auto-approve/deny — hand a case to a human queue instead of blocking outright |
+| `sandbox.py` | `from agent_foundry.sandbox import run_sandboxed` — `run_sandboxed()`, `code_execution_tool()` | Restricted-builtins, wall-clock-timeout code execution — process-level isolation, not a container |
+
+### Cross-cutting: Eval & Observability
+
+Also not a sequential layer — watches every step from the side, recording and scoring, without gating anything itself (except the critique step, which reads a `KPI` from here).
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `kpi.py` | `from agent_foundry.kpi import KPI` — `KPI`, `KPIBoard`, `KPIResult` + 23 reference scoring functions (efficiency, groundedness, policy adherence, cost, citations, …) | Composable scoring the critique step (and eval gate) score against — weight them however a use case needs |
+| `eval.py` | `from agent_foundry.eval import EvalHarness` — `EvalHarness`, `JSONLEvalSink` | Atomic / component / flow / overall evaluation levels (§10), in-memory or durable |
+| `eval_dataset.py` | `from agent_foundry.eval_dataset import EvalDataset` — `EvalDataset`, `EvalCase` — a versioned JSON format for eval cases | What `foundry eval` and `core/evalgate.py` actually score an agent against |
+| `core/evalgate.py` | `from agent_foundry import run_eval` — `run_eval()`, `EvalCase`, `Scorecard`, `.passes(thresholds)` | Turns evaluation into a release gate — fail a CI build if an agent regresses against a versioned dataset |
+| `observability.py` | `from agent_foundry.observability import Tracer` — `Tracer`, `OTelTracer`, `Metrics`, `CostLedger`, `check_alerts()` | Tracing (in-memory or real OpenTelemetry), a cost ledger that closes the moment a task finishes, threshold alerting |
+| `benchmark.py` | `from agent_foundry.benchmark import run_benchmark` — `BenchmarkCase`, `CaseResult`, `BenchmarkReport`, `run_benchmark()` | A regression suite against any compiled graph — catches a prompt/topology change quietly making things worse |
+| `experiments.py` | `from agent_foundry.experiments import Experiment` — `Experiment`, `ExperimentTracker` | Deterministic A/B variant assignment (stable per identity) + per-variant metric aggregation |
+| `planning.py` | `from agent_foundry.planning import StrategySelector` — `Objective`, `Planner`, `StrategySelector`, `BanditSelector` | Scores candidates (a model, a topology) against a weighted `KPIBoard` — the tool behind §7's topology-decision example; genuinely useful, but not called from anywhere in this framework's own code today (see §7) |
+
+### Operational tooling
+
+Small, independent utilities any layer can reach for — none of them belong to one specific layer above.
+
+| Module | What it does | Why it matters |
+|---|---|---|
+| `feature_flags.py` | `from agent_foundry.feature_flags import StaticFeatureFlagProvider` — `FeatureFlagProvider` protocol, `StaticFeatureFlagProvider` | On/off and percentage-rollout switches, bucketed by a stable hash so an identity's answer never flaps |
+| `versioning.py` | `from agent_foundry.versioning import FileVersionStore` — `VersionStore` protocol, `FileVersionStore` | Immutable-version + current-pointer rollback for prompts/policy documents |
+| `i18n.py` | `from agent_foundry.i18n import register_locale` — `LocaleSpec`, `register_locale()`, `format_currency()`, `format_date()` | Locale-aware prompt variants and response formatting |
+| `batch.py` | `from agent_foundry.batch import run_batch` — `Scheduler` protocol, `IntervalScheduler`, `run_batch()`, `BatchReport` | Runs a compiled graph once per item, concurrently, for offline/bulk jobs — distinct from `build_fanout_graph`'s in-turn parallelism |
+| `reinforcement.py` | `from agent_foundry.reinforcement import PromptOptimizer` — `PromptOptimizer`, `PreferenceStore` | Closes eval signal back into prompts (curates best-scoring exemplars) and into export-ready chosen/rejected pairs for DPO/distillation |
+
+### Benchmarks & example scripts
+
+Runnable demos, not framework code — nothing here is imported by `agent_foundry/` itself.
+
+| File | What it does |
+|---|---|
+| `benchmarks/native_vs_langgraph.py` | `python benchmarks/native_vs_langgraph.py` — Runs the identical scenario on both engines (native and LangGraph) and prints real speed/memory numbers side by side — this is literally what produced the numbers in §15 |
+| `examples/support_agent.py` | `python examples/support_agent.py` — The single most complete demo: one file showing tools, permissions, RAG, a destructive action that needs approval, A/B testing, and a dashboard, all together |
+| `examples/research_agent/agent.py` | `python examples/research_agent/agent.py` — A RAG-only agent that only answers from a small seeded knowledge base and cites its sources |
+| `examples/commerce_agent/agent.py` | `python examples/commerce_agent/agent.py` — A shopping assistant — searching/recommending is safe; placing an order needs approval |
+| `examples/autonomous_workflow/agent.py` | `python examples/autonomous_workflow/agent.py` — An agent driven by the formal `Run` lifecycle instead of a plain question-and-answer call, and reacts to outside events |
+| `examples/serve_http.py` | `python examples/serve_http.py` — Takes the support agent and puts it behind a real web API instead of a command-line chat |
+| `examples/serve_http_distributed.py` | `python examples/serve_http_distributed.py` — Same thing, but wired so several copies of the container running at once share one real budget/cache instead of each having its own |
 
 ---
 
