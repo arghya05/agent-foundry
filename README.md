@@ -410,13 +410,6 @@ mapping.
 
 ![Universal Agentic Architecture 2026 — reference diagram](docs/diagrams/reference-universal-agentic-architecture-2026.png)
 
-The diagram below shows the same platform end to end — callers in, the four
-runtime layers (Agent / Execution / Core Services / Infrastructure), external
-model providers and outputs — walked through a concrete insurance-claims
-use case.
-
-![Agent Foundry — architecture and use case overview](docs/diagrams/architecture-overview-and-use-case.png)
-
 ## Problem → platform service → what solves it here
 
 Every one of these is a named platform-service concern any production agent
