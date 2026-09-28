@@ -1,0 +1,13 @@
+{
+  "base_commit": "2e8a2407817e60711e9efa14945f6ad1b01809a2",
+  "benchmark_numbers": "Predate I005; no score improvement attributed",
+  "full_suite": "643 passed, 25 skipped",
+  "recorded_utc": "2026-09-28T09:23:17.738198+00:00",
+  "research_status": "paused in favor of enterprise hardening",
+  "source_sha256": {
+    "agent_foundry/governed_tools.py": "e7ad2bcc1e88a9c839a619ae4e80441a34ebdce3ce7033798e46924690778652",
+    "agent_foundry/policy_engine.py": "f1c43a3b9d6481c3ba42f33e7bdcb6fc3c053e3d7eda2656ef6c08e4609282f5",
+    "agent_foundry/quickstart.py": "20790cd55eabf4509dedb8b582bc4e801c401ef6056b9da119eca09caec3057b",
+    "tests/test_governed_adapters.py": "dcb05d2647abfa85b50eb535be03380f4a53ff2d3fd816b6d9a2636718385f2c"
+  }
+}

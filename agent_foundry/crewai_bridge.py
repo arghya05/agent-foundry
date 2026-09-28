@@ -7,9 +7,10 @@ downstream from a local function, an MCP tool, or an AutoGen agent — RBAC,
 guardrails, the circuit breaker, the audit log all apply to it exactly as
 they would to anything else in a ToolRegistry.
 
-The reverse direction needs no adapter at all: a CrewAI Agent's own `tools`
-parameter accepts LangChain BaseTool instances, and quickstart.py's
-to_langchain_tool() already turns a governed ToolSpec into exactly that.
+The reverse direction requires an adapter compatible with the installed CrewAI
+tool API. A raw LangChain tool conversion does not preserve Foundry governance.
+The governed LangChain export is tested separately; CrewAI compatibility and
+enforcement of a crew's inner actions must not be inferred from it.
 
 Requires `pip install crewai`. Written against CrewAI's documented
 Crew.kickoff()/CrewOutput API (stable across recent releases) — unlike MCP

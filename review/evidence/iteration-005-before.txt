@@ -1,0 +1,224 @@
+FFFFFFFFFFFFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+__ test_effective_request_policy_preserves_action_restrictions[draft-native] ___
+
+runtime = 'native', control = 'draft'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('control', ['draft', 'approval'])
+    def test_effective_request_policy_preserves_action_restrictions(runtime, control):
+        agent, effects = build(runtime=runtime, destructive=control == 'draft')
+        policy = Policy(allowed_tools=frozenset({'action'}),
+                        autonomy=AutonomyLevel.L2_DRAFT if control == 'draft' else AutonomyLevel.L3_APPROVAL,
+                        requires_approval=frozenset({'action'}) if control == 'approval' else frozenset())
+        result = agent.run('Do it.', context=caller(tool_policy=policy))
+>       assert effects == []
+E       AssertionError: assert [(1, 'fake', 'a')] == []
+E         
+E         Left contains one more item: (1, 'fake', 'a')
+E         Use -v to get more diff
+
+tests/test_governed_adapters.py:45: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "adapter-agent", "span_id": "c0f7ed7faa01", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "adapter-agent", "span_id": "80720ccea05d", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0030994415283203125}, "duration_ms": 25.83}
+{"trace_id": "adapter-agent", "span_id": "0afa4d93a7fb", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_ test_effective_request_policy_preserves_action_restrictions[draft-langgraph] _
+
+runtime = 'langgraph', control = 'draft'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('control', ['draft', 'approval'])
+    def test_effective_request_policy_preserves_action_restrictions(runtime, control):
+        agent, effects = build(runtime=runtime, destructive=control == 'draft')
+        policy = Policy(allowed_tools=frozenset({'action'}),
+                        autonomy=AutonomyLevel.L2_DRAFT if control == 'draft' else AutonomyLevel.L3_APPROVAL,
+                        requires_approval=frozenset({'action'}) if control == 'approval' else frozenset())
+        result = agent.run('Do it.', context=caller(tool_policy=policy))
+>       assert effects == []
+E       AssertionError: assert [(1, 'fake', 'a')] == []
+E         
+E         Left contains one more item: (1, 'fake', 'a')
+E         Use -v to get more diff
+
+tests/test_governed_adapters.py:45: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "adapter-agent", "span_id": "da99d3c8780e", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "adapter-agent", "span_id": "2e4770f63228", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.47}
+{"trace_id": "adapter-agent", "span_id": "18a30867912c", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_ test_effective_request_policy_preserves_action_restrictions[approval-native] _
+
+runtime = 'native', control = 'approval'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('control', ['draft', 'approval'])
+    def test_effective_request_policy_preserves_action_restrictions(runtime, control):
+        agent, effects = build(runtime=runtime, destructive=control == 'draft')
+        policy = Policy(allowed_tools=frozenset({'action'}),
+                        autonomy=AutonomyLevel.L2_DRAFT if control == 'draft' else AutonomyLevel.L3_APPROVAL,
+                        requires_approval=frozenset({'action'}) if control == 'approval' else frozenset())
+        result = agent.run('Do it.', context=caller(tool_policy=policy))
+>       assert effects == []
+E       AssertionError: assert [(1, 'fake', 'a')] == []
+E         
+E         Left contains one more item: (1, 'fake', 'a')
+E         Use -v to get more diff
+
+tests/test_governed_adapters.py:45: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "adapter-agent", "span_id": "9bc32a760b65", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "adapter-agent", "span_id": "5b7d8510b20a", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.4}
+{"trace_id": "adapter-agent", "span_id": "c01f3033e75f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_ test_effective_request_policy_preserves_action_restrictions[approval-langgraph] _
+
+runtime = 'langgraph', control = 'approval'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('control', ['draft', 'approval'])
+    def test_effective_request_policy_preserves_action_restrictions(runtime, control):
+        agent, effects = build(runtime=runtime, destructive=control == 'draft')
+        policy = Policy(allowed_tools=frozenset({'action'}),
+                        autonomy=AutonomyLevel.L2_DRAFT if control == 'draft' else AutonomyLevel.L3_APPROVAL,
+                        requires_approval=frozenset({'action'}) if control == 'approval' else frozenset())
+        result = agent.run('Do it.', context=caller(tool_policy=policy))
+>       assert effects == []
+E       AssertionError: assert [(1, 'fake', 'a')] == []
+E         
+E         Left contains one more item: (1, 'fake', 'a')
+E         Use -v to get more diff
+
+tests/test_governed_adapters.py:45: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "adapter-agent", "span_id": "49a27d06b408", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "adapter-agent", "span_id": "dc1a1b2e5239", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0016689300537109375}, "duration_ms": 0.5}
+{"trace_id": "adapter-agent", "span_id": "09f27a26630e", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+__ test_langchain_gateway_observes_current_identity_and_actual_effect[False] ___
+
+asynchronous = False
+
+    @pytest.mark.parametrize('asynchronous', [False, True])
+    def test_langchain_gateway_observes_current_identity_and_actual_effect(asynchronous):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:51: ModuleNotFoundError
+___ test_langchain_gateway_observes_current_identity_and_actual_effect[True] ___
+
+asynchronous = True
+
+    @pytest.mark.parametrize('asynchronous', [False, True])
+    def test_langchain_gateway_observes_current_identity_and_actual_effect(asynchronous):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:51: ModuleNotFoundError
+________________ test_gateway_rejects_without_effect[identity] _________________
+
+control = 'identity'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+_________________ test_gateway_rejects_without_effect[tenant] __________________
+
+control = 'tenant'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+_________________ test_gateway_rejects_without_effect[policy] __________________
+
+control = 'policy'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+_________________ test_gateway_rejects_without_effect[cancel] __________________
+
+control = 'cancel'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+________________ test_gateway_rejects_without_effect[deadline] _________________
+
+control = 'deadline'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+_________________ test_gateway_rejects_without_effect[budget] __________________
+
+control = 'budget'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+________________ test_gateway_rejects_without_effect[approval] _________________
+
+control = 'approval'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:68: ModuleNotFoundError
+_ test_gateway_approval_cannot_override_external_deny_and_policy_receives_arguments _
+
+    def test_gateway_approval_cannot_override_external_deny_and_policy_receives_arguments():
+>       from agent_foundry.governed_tools import GovernedToolGateway, ToolApprovalRequired
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:84: ModuleNotFoundError
+_____ test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute _____
+
+    def test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute():
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:102: ModuleNotFoundError
+_________________ test_gateway_nested_principal_cannot_change __________________
+
+    def test_gateway_nested_principal_cannot_change():
+        from agent_foundry.execution_scope import request_scope
+>       from agent_foundry.governed_tools import GovernedToolGateway
+E       ModuleNotFoundError: No module named 'agent_foundry.governed_tools'
+
+tests/test_governed_adapters.py:114: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_governed_adapters.py::test_effective_request_policy_preserves_action_restrictions[draft-native]
+FAILED tests/test_governed_adapters.py::test_effective_request_policy_preserves_action_restrictions[draft-langgraph]
+FAILED tests/test_governed_adapters.py::test_effective_request_policy_preserves_action_restrictions[approval-native]
+FAILED tests/test_governed_adapters.py::test_effective_request_policy_preserves_action_restrictions[approval-langgraph]
+FAILED tests/test_governed_adapters.py::test_langchain_gateway_observes_current_identity_and_actual_effect[False]
+FAILED tests/test_governed_adapters.py::test_langchain_gateway_observes_current_identity_and_actual_effect[True]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[identity]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[tenant]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[policy]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[cancel]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[deadline]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[budget]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[approval]
+FAILED tests/test_governed_adapters.py::test_gateway_approval_cannot_override_external_deny_and_policy_receives_arguments
+FAILED tests/test_governed_adapters.py::test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute
+FAILED tests/test_governed_adapters.py::test_gateway_nested_principal_cannot_change
+16 failed in 0.20s

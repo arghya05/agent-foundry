@@ -7,11 +7,13 @@ instance's REST API over stdlib urllib, no new dependency required.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import urllib.request
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from .contracts import GuardrailResult, Identity, Policy
+from .guardrails import GuardrailEngine
 
 if TYPE_CHECKING:
     from .guardrails import GuardrailChecks
@@ -76,6 +78,8 @@ class PolicyDecisionPoint:
             allowed = self.policy_engine.allow({
                 "identity_id": identity.id, "tool": tool_name, "allowed_tools": list(policy.allowed_tools),
                 "cost_so_far": cost_so_far, "max_cost": policy.max_cost_usd_per_thread,
+                "tenant_id": identity.tenant_id, "roles": list(identity.roles),
+                "arguments": deepcopy(args),
             })
             if not allowed:
                 return GuardrailResult(False, f"{tool_name!r} denied by external policy engine", "action")
@@ -87,9 +91,19 @@ class PolicyDecisionPoint:
             for host in hosts:
                 if not self.egress.check(tool_name, host):
                     return GuardrailResult(False, f"{tool_name!r} denied: {host!r} not in egress allowlist for this tool", "action")
-        gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
-        if not gr.allowed:
-            return gr
+        # Request policy may narrow autonomy/approval/budget independently of
+        # the configured guard's policy. Both must hold. An approval from one
+        # guard cannot override a hard denial from the other.
+        effective = GuardrailEngine(policy).check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
+        if not effective.allowed and not effective.requires_approval:
+            return effective
+        configured = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
+        if not configured.allowed and not configured.requires_approval:
+            return configured
+        if not effective.allowed:
+            return effective
+        if not configured.allowed:
+            return configured
         if requires_confirmation:
             return GuardrailResult(False, f"{tool_name!r} requires human approval before executing (ToolSpec.requires_confirmation=True)",
                                    "action", requires_approval=True)

@@ -1,5 +1,7 @@
 # agent_foundry/scaffold.py — Q&A
 
+**2026-09-28 update:** the historical discussion below predates [governed exports](../../GOVERNED_TOOL_ADAPTERS.md). Raw conversions now require explicit opt-in; current enforcement and compatibility limits are documented there.
+
 `scaffold.py` generates a runnable single-agent starting point — `prompts/<name>.md` and `agents/<name>.py` — by string-templating four constants (`_PROMPT_TEMPLATE`, `_TOOL_STUB_TEMPLATE`, `_AGENT_TEMPLATE`) and writing them to disk via the `create_agent()` function, so a new agent already has gateways, guardrails, eval, runtime budget, and tracing wired and only needs its prompt text and tool bodies filled in.
 
 ## Q1: Walk through exactly what happens when `create_agent("sales_agent", directory=".", tools=["lookup_lead", "send_email"])` is called (scaffold.py:97).

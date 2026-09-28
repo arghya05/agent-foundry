@@ -17,11 +17,23 @@ This document records the subsequent repairs and the remaining release gates.
   empty/unmeasured default gates fail; costs use per-case budget deltas and retain
   known failure costs. See [migration notes](EVALUATION_MIGRATION.md).
 
-The full local test invocation records **620 passed, 25 skipped**. Type checking
-reports no issues in 58 source files. This covers one Python 3.11/macOS environment,
+The full local test invocation records **643 passed, 25 skipped**. Type checking
+reports no issues in 59 source files. This covers one Python 3.11/macOS environment,
 not every supported Python version, integration, database or deployment.
 See [implementation details](IMPLEMENTATION_20260928.md) and
-[the final test log](evidence/full-suite-20260928-final.txt).
+[the final test log](evidence/iteration-005-full-suite.txt).
+
+## I005 enterprise follow-up
+
+[Governed exports](IMPLEMENTATION_005_GOVERNED_ADAPTERS.md) now retain the current
+request's action boundary in a tested LangChain tool. Raw conversions require
+explicit opt-in; opaque CrewAI internals remain unsupported. Request-specific
+autonomy and approval policies are enforced in both runtimes. Approval-required
+exports stop before effects; authenticated durable approval resume is still open.
+
+The initial release was pushed as commit `2e8a240`. The unfinished paper remains
+local while enterprise work is prioritized. Subsequent commits record individual
+validated hardening steps; they do not close the whole deployment backlog.
 
 ## Benchmark outcome
 
@@ -45,7 +57,7 @@ they are not independent competing-framework baselines.
 ## Enterprise work still required
 
 The layer inventory is broad, but implementation depth is uneven. The principal
-gaps are governed LangChain exports and opaque CrewAI internals; distributed budget
+gaps are authenticated approval resume for external exports and opaque CrewAI internals; distributed budget
 reservations and authenticated remote context; fenced state ownership and durable
 effect reconciliation; action-bound, expiring, authenticated approvals; true process
 isolation; complete retrieval authorization and provenance; load/recovery tests;

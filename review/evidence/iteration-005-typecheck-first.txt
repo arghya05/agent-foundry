@@ -1,0 +1,2 @@
+agent_foundry/governed_tools.py:95: error: Argument 1 to "deny" has incompatible type "str | None"; expected "str"  [arg-type]
+Found 1 error in 1 file (checked 59 source files)

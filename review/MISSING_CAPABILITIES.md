@@ -12,7 +12,7 @@ Statuses: **defect** = demonstrated/source-confirmed issue; **partial** = primit
 | C02 | Policy composition — hard-deny repair tested | Typed outcomes; mandatory hard-deny checks before approval | Denied tools never execute after confirmation | P0 |
 | C03 | Delegation — local attenuation tested; remote partial | Caller/service distinction and authority attenuation | No privilege expansion across topologies/adapters | P0 |
 | C04 | Approval lifecycle — partial | Durable action-bound consent, authorized approver, expiry, recheck | Changed arguments/roles/policy and replay rejected | P0 |
-| C05 | LangChain governance — defect | Governed wrappers instead of exporting raw callables | Same denied/approved tool behavior as native | P0 |
+| C05 | LangChain governance — explicit governed export tested; approval resume partial | Governed wrapper added; raw opt-in explicit; authenticated resume still needed | Denied tools have no effects; approval stops tested, authenticated resume pending | P0 |
 | C06 | CrewAI interoperability — partial | Version-pinned adapter, inner-action hooks or explicit opaque mode | Conformance suite and supported-capability manifest | P1 |
 | C07 | Third-party engine seam — partial | Runtime interface independent of compiled-graph shape | An external adapter works without editing core topology switch logic | P1 |
 | C08 | Capability negotiation — unestablished | Validate requirements against adapter/deployment capabilities | Unsupported required controls fail at deployment | P1 |

@@ -16,9 +16,9 @@ scratch each time.
 **Validation status — September 2026:** this is a reference framework under
 active evaluation. The [repository review](review/README.md) identifies remaining
 remaining integration and distributed-state gaps; it is not yet a generally
-enterprise-certified or SOTA platform. Four repair iterations address authorization,
+enterprise-certified or SOTA platform. Five repair iterations address authorization,
 request controls, retrieval filtering, cache correctness and evaluation integrity.
-The full local suite records **620 passed, 25 skipped**. See [benchmark evidence](#benchmark-evidence-and-research)
+The full local suite records **643 passed, 25 skipped**. See [benchmark evidence](#benchmark-evidence-and-research)
 for measured results, limitations, and the publication experiment log.
 
 **Agent Foundry is an open-source runtime and control plane for building,
@@ -217,10 +217,10 @@ skip never has to happen:
   JSON schema — plain Python functions with type hints and a docstring.
 - **`orchestration.build_agent_graph`** — the governed path: RBAC, guardrails,
   eval, cost/audit, autonomy levels, retry-with-more-evidence, human-in-the-loop
-  escalation, multi-agent topologies. `quickstart.to_langchain_tool()` bridges
-  a tool already registered in a governed `ToolRegistry` back into the simple
-  path, so a team can start on the left and grow into the right without
-  rewriting tools.
+  escalation, multi-agent topologies. Use `to_governed_langchain_tool()` to
+  export a registered tool through Foundry's current-context action boundary.
+  Raw exports require explicit `allow_unguarded=True`. See
+  [adapter guarantees and migration](docs/GOVERNED_TOOL_ADAPTERS.md).
 
 See `examples/support_agent.py` for a complete agent built from these
 pieces, `examples/research_agent/`, `examples/commerce_agent/`, and
@@ -566,8 +566,8 @@ scale](#deploying-to-any-cloud-at-real-scale--not-just-portably)).
 
 There are four ways in, in increasing order of governance. Pick the one that
 matches what you're building — you can start on the left and grow into the
-right without rewriting your tools (`quickstart.to_langchain_tool()` bridges
-a governed `ToolRegistry` tool back into the simple path).
+right without rewriting your tools. [Governed LangChain exports](docs/GOVERNED_TOOL_ADAPTERS.md)
+retain action controls; raw callable conversion requires an explicit opt-in.
 
 ### 1. Scaffold it (fastest way to a runnable file)
 
@@ -889,7 +889,7 @@ flowchart LR
     AF["Agent Foundry agent\nRBAC · guardrails · audit log"] --> Reg{{"ToolRegistry"}}
     Reg -->|"crewai_as_tool(crew)"| Crew["CrewAI Crew"]
     Reg -->|"autogen_as_tool(agent)"| Auto["AutoGen Agent"]
-    Crew -.->|"to_langchain_tool(spec)\nCrewAI tools accept LangChain BaseTool"| Reg
+    Crew -.->|"version-specific reverse adapter\ninner actions require separate enforcement"| Reg
     Auto -.->|"any ToolSpec.fn\nAutoGen tools accept plain callables"| Reg
 ```
 
@@ -1226,7 +1226,7 @@ No public-benchmark leadership or conference-publication claim is currently made
 | [First hardening iteration](review/evidence/iteration-001-validation.txt) | 178 passed, 2 skipped in the targeted suite | Tested hard-denial precedence and effective-request cache identity |
 | [AgentGovBench baseline and scorer audit](review/CLOSEST_REPOSITORIES.md) | Vanilla 13/48; all scenario IDs accounted for | Upstream baseline only; evidence gaps documented; **not a Foundry score** |
 | [Live WorkBench results](review/LIVE_BENCHMARK_RESULTS.md) | Initial 60-task baseline: native 49/60, LangGraph 48/60, reference 50/60; all failures retained | No demonstrated advantage; later diagnostic reuse and incomplete fresh run disclosed |
-| [Full local validation](review/evidence/full-suite-20260928-final.txt) | 620 passed, 25 skipped | Four tested repair iterations; one local environment |
+| [Full local validation](review/evidence/iteration-005-full-suite.txt) | 643 passed, 25 skipped | Five tested repair iterations; one local environment |
 | Other frameworks, multi-agent benchmarks, and proposed research method | **Pending** | No superiority or novelty conclusion |
 
 The [WorkBench harness](benchmarks/workbench/README.md) provides a fixed 12-task

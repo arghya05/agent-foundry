@@ -12,7 +12,9 @@ capability limits. Keep credentials and the unfinished paper out of the commit.
 Preserve the original README while refining unsupported claims. Push to the
 existing repository after source/type/build checks and a staged-byte secret scan.
 
-## 1. Governed adapter boundary
+## 1. Governed adapter boundary — first implementation validated
+
+I005 implements a tested LangChain export; see [the result](IMPLEMENTATION_005_GOVERNED_ADAPTERS.md). Approval resume and CrewAI inner actions remain open. The complete requirement is:
 
 Implement a shared explicit tool execution boundary for external integrations,
 using current trusted identity, policy, schema, admission and approval decisions.

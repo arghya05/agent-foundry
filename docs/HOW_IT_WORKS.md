@@ -317,7 +317,7 @@ Runnable demos, not framework code — nothing here is imported by `agent_foundr
 
 ### Four entry points, in increasing order of governance
 
-You can start on the left and grow into the right without rewriting your tools (`quickstart.to_langchain_tool()` bridges a tool already registered in a governed `ToolRegistry` back into the simple path).
+You can start on the left and grow into the right without rewriting your tools through [governed tool adapters](GOVERNED_TOOL_ADAPTERS.md); raw conversion requires explicit opt-in and omits governance.
 
 1. **Scaffold it** — fastest way to a runnable file:
 

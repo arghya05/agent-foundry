@@ -1,5 +1,7 @@
 # agent_foundry/quickstart.py — Q&A
 
+**2026-09-28 update:** the historical discussion below predates [governed exports](../../GOVERNED_TOOL_ADAPTERS.md). Raw conversions now require explicit opt-in; current enforcement and compatibility limits are documented there.
+
 `quickstart.py` is a thin wrapper (`plug_and_play_agent`) over the real LangGraph v1.0+ prebuilt agent executor (`langchain.agents.create_agent`), plus a bridge (`to_langchain_tool`/`to_langchain_tools`) that turns an already-governed `ToolSpec` into a plain LangChain `StructuredTool`, so a team can start on the simple path and later adopt `orchestration.py`'s governed `AgentConfig` path without rewriting tools.
 
 ## Q1: What does `plug_and_play_agent` actually do, line by line, and what does it delegate versus own?

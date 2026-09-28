@@ -29,7 +29,9 @@ agent.invoke({"messages": [{"role": "user", "content": "status of order A100?"}]
 
 **Governed** — `AgentConfig` plus one of the orchestration topologies. RBAC, guardrails, evaluation, cost tracking, audit, autonomy levels, multi-agent patterns. This is the rest of this guide.
 
-Tools written for one path work in the other: `quickstart.to_langchain_tool(s)()` converts a governed `ToolSpec` into a real LangChain tool.
+Use [governed tool adapters](GOVERNED_TOOL_ADAPTERS.md) to preserve Foundry's action
+boundary in LangChain. Legacy raw conversion requires `allow_unguarded=True` and
+does not carry registry governance into the host framework.
 
 ---
 

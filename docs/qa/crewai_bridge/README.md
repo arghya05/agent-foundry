@@ -1,5 +1,7 @@
 # agent_foundry/crewai_bridge.py — Q&A
 
+**2026-09-28 update:** the historical discussion below predates [governed exports](../../GOVERNED_TOOL_ADAPTERS.md). Raw conversions now require explicit opt-in; current enforcement and compatibility limits are documented there.
+
 Wraps a CrewAI `Crew` (agents + tasks already wired together) as an ordinary Agent Foundry `ToolSpec` via `crewai_as_tool()`, so a whole crew becomes a single callable tool — subject to RBAC, guardrails, the circuit breaker, and the audit log — indistinguishable downstream from a local function, an MCP tool, or an AutoGen agent.
 
 ## Q1: `crewai_as_tool()` is 12 lines. What exactly does `call()` do, and what CrewAI-specific convention does `input_key` encode?

@@ -1,0 +1,376 @@
+....FF.....F..F......................................................... [ 64%]
+......................................ss                                 [100%]
+=================================== FAILURES ===================================
+__ test_langchain_gateway_observes_current_identity_and_actual_effect[False] ___
+
+asynchronous = False
+
+    @pytest.mark.parametrize('asynchronous', [False, True])
+    def test_langchain_gateway_observes_current_identity_and_actual_effect(asynchronous):
+        from agent_foundry.governed_tools import GovernedToolGateway
+        from agent_foundry.quickstart import to_governed_langchain_tool
+        agent, effects = build()
+        current = caller()
+        tool = to_governed_langchain_tool(GovernedToolGateway(agent.config), 'action', context_provider=lambda: current)
+        invoke = (lambda args: asyncio.run(tool.ainvoke(args))) if asynchronous else tool.invoke
+>       assert invoke({'value': 3, 'user_id': 'mallory', 'tenant_id': 'foreign'}) == {'stored': 3}
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_governed_adapters.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:764: in invoke
+    return self.run(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:1132: in run
+    raise error_to_raise
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:1098: in run
+    response = context.run(self._run, *tool_args, **tool_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/structured.py:152: in _run
+    return self.func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+agent_foundry/quickstart.py:95: in invoke
+    return output(gateway.invoke(name, arguments, context=context_provider()))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agent_foundry/execution_scope.py:169: in synchronous
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.governed_tools.GovernedToolGateway object at 0x10ce78310>
+name = 'action'
+arguments = {'value': 3, 'user_id': 'mallory', 'tenant_id': 'foreign'}
+context = ExecutionContext(run_id='e4f991fd1e02475bab827f8f7fee8aaf', thread_id='request', session_id=None, user_id='alice', ten...dget=None, deadline=None, cancellation_token=None, tool_policy=None, model_policy=None, memory_scope=None, metadata={})
+idempotency_key = None
+
+    @scoped_execution
+    def invoke(
+        self, name: str, arguments: dict[str, Any], *, context: ExecutionContext,
+        idempotency_key: str | None = None,
+    ) -> ToolResult:
+        if not context.user_id or not context.tenant_id:
+            raise PermissionDenied('governed export requires a trusted user and tenant on every call')
+        state = {'thread_id': context.resolved_thread_id()}
+        identity = _resolve_identity(self.config, state)
+        policy = _resolve_tool_policy(self.config, state)
+        budget = _resolve_budget(self.config, state)
+        thread_id = context.resolved_thread_id()
+        audit = dict(tool=name, thread_id=thread_id, run_id=context.run_id, trace_id=context.trace_id)
+    
+        def deny(reason: str, *, approval: bool = False) -> None:
+            self.config.audit.record(identity=identity, action='tool_admission',
+                                     allowed=False, requires_approval=approval, reason=reason, **audit)
+            raise (ToolApprovalRequired if approval else PermissionDenied)(reason)
+    
+        if not self.config.tools.has(name):
+            deny('unknown registered tool')
+        spec = self.config.tools.get(name)
+        # JSON copy prevents a caller or external policy from mutating this
+        # invocation's argument object while it is being authorized.
+        args = json.loads(json.dumps(arguments, allow_nan=False))
+        if not isinstance(args, dict):
+            raise TypeError('tool arguments must be a JSON object')
+        parameter_names = _tool_param_names(spec)
+        for field, value in (('user_id', identity.id), ('tenant_id', identity.tenant_id),
+                             ('session_id', thread_id)):
+            if field in parameter_names:
+                args[field] = value
+        cost = budget.cost_usd_for(thread_id)
+        if cost >= policy.max_cost_usd_per_thread:
+            raise BudgetExceeded('tool request cost budget exhausted')
+        if budget.steps_for(thread_id) >= policy.max_steps_per_thread:
+            raise BudgetExceeded('tool request step budget exhausted')
+        assert self.config.pdp is not None
+        decision = self.config.pdp.decide(
+            name, args, identity=identity, policy=policy, destructive=spec.destructive,
+            cost_so_far=cost, hosts=spec.egress_hosts, scopes=spec.scopes,
+            requires_confirmation=spec.requires_confirmation, data_classification=spec.data_classification,
+        )
+        if not decision.allowed:
+            deny(decision.reason, approval=decision.requires_approval)
+        if spec.destructive and spec.max_retries and not spec.idempotent:
+            deny('non-idempotent destructive exports cannot automatically retry')
+>       if not self.config.breaker.allow(name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CircuitBreaker' object has no attribute 'allow'
+
+agent_foundry/governed_tools.py:98: AttributeError
+___ test_langchain_gateway_observes_current_identity_and_actual_effect[True] ___
+
+asynchronous = True
+
+    @pytest.mark.parametrize('asynchronous', [False, True])
+    def test_langchain_gateway_observes_current_identity_and_actual_effect(asynchronous):
+        from agent_foundry.governed_tools import GovernedToolGateway
+        from agent_foundry.quickstart import to_governed_langchain_tool
+        agent, effects = build()
+        current = caller()
+        tool = to_governed_langchain_tool(GovernedToolGateway(agent.config), 'action', context_provider=lambda: current)
+        invoke = (lambda args: asyncio.run(tool.ainvoke(args))) if asynchronous else tool.invoke
+>       assert invoke({'value': 3, 'user_id': 'mallory', 'tenant_id': 'foreign'}) == {'stored': 3}
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_governed_adapters.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_governed_adapters.py:56: in <lambda>
+    invoke = (lambda args: asyncio.run(tool.ainvoke(args))) if asynchronous else tool.invoke
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/structured.py:125: in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:774: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:1262: in arun
+    raise error_to_raise
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/base.py:1228: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/langchain_core/tools/structured.py:179: in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agent_foundry/quickstart.py:98: in ainvoke
+    return output(await gateway.ainvoke(name, arguments, context=context_provider()))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agent_foundry/governed_tools.py:123: in ainvoke
+    return await asyncio.to_thread(self.invoke, name, arguments, context=context,
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agent_foundry/execution_scope.py:169: in synchronous
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.governed_tools.GovernedToolGateway object at 0x10d172390>
+name = 'action'
+arguments = {'value': 3, 'user_id': 'mallory', 'tenant_id': 'foreign'}
+context = ExecutionContext(run_id='4a03bebc0df042f1990590d0066940ea', thread_id='request', session_id=None, user_id='alice', ten...dget=None, deadline=None, cancellation_token=None, tool_policy=None, model_policy=None, memory_scope=None, metadata={})
+idempotency_key = None
+
+    @scoped_execution
+    def invoke(
+        self, name: str, arguments: dict[str, Any], *, context: ExecutionContext,
+        idempotency_key: str | None = None,
+    ) -> ToolResult:
+        if not context.user_id or not context.tenant_id:
+            raise PermissionDenied('governed export requires a trusted user and tenant on every call')
+        state = {'thread_id': context.resolved_thread_id()}
+        identity = _resolve_identity(self.config, state)
+        policy = _resolve_tool_policy(self.config, state)
+        budget = _resolve_budget(self.config, state)
+        thread_id = context.resolved_thread_id()
+        audit = dict(tool=name, thread_id=thread_id, run_id=context.run_id, trace_id=context.trace_id)
+    
+        def deny(reason: str, *, approval: bool = False) -> None:
+            self.config.audit.record(identity=identity, action='tool_admission',
+                                     allowed=False, requires_approval=approval, reason=reason, **audit)
+            raise (ToolApprovalRequired if approval else PermissionDenied)(reason)
+    
+        if not self.config.tools.has(name):
+            deny('unknown registered tool')
+        spec = self.config.tools.get(name)
+        # JSON copy prevents a caller or external policy from mutating this
+        # invocation's argument object while it is being authorized.
+        args = json.loads(json.dumps(arguments, allow_nan=False))
+        if not isinstance(args, dict):
+            raise TypeError('tool arguments must be a JSON object')
+        parameter_names = _tool_param_names(spec)
+        for field, value in (('user_id', identity.id), ('tenant_id', identity.tenant_id),
+                             ('session_id', thread_id)):
+            if field in parameter_names:
+                args[field] = value
+        cost = budget.cost_usd_for(thread_id)
+        if cost >= policy.max_cost_usd_per_thread:
+            raise BudgetExceeded('tool request cost budget exhausted')
+        if budget.steps_for(thread_id) >= policy.max_steps_per_thread:
+            raise BudgetExceeded('tool request step budget exhausted')
+        assert self.config.pdp is not None
+        decision = self.config.pdp.decide(
+            name, args, identity=identity, policy=policy, destructive=spec.destructive,
+            cost_so_far=cost, hosts=spec.egress_hosts, scopes=spec.scopes,
+            requires_confirmation=spec.requires_confirmation, data_classification=spec.data_classification,
+        )
+        if not decision.allowed:
+            deny(decision.reason, approval=decision.requires_approval)
+        if spec.destructive and spec.max_retries and not spec.idempotent:
+            deny('non-idempotent destructive exports cannot automatically retry')
+>       if not self.config.breaker.allow(name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CircuitBreaker' object has no attribute 'allow'
+
+agent_foundry/governed_tools.py:98: AttributeError
+_________________ test_gateway_rejects_without_effect[budget] __________________
+
+control = 'budget'
+
+    @pytest.mark.parametrize('control', ['identity', 'tenant', 'policy', 'cancel', 'deadline', 'budget', 'approval'])
+    def test_gateway_rejects_without_effect(control):
+        from agent_foundry.governed_tools import GovernedToolGateway
+        agent, effects = build(confirmation=control == 'approval')
+        token = CancellationToken()
+        token.cancel()
+        changes = {
+            'identity': {'user_id': None}, 'tenant': {'tenant_id': ''},
+            'policy': {'tool_policy': Policy(allowed_tools=frozenset())},
+            'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-1},
+            'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))}, 'approval': {},
+        }[control]
+        with pytest.raises((PermissionDenied, RunCancelled, BudgetExceeded)):
+>           GovernedToolGateway(agent.config).invoke('action', {'value': 1}, context=caller(**changes))
+
+tests/test_governed_adapters.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/execution_scope.py:169: in synchronous
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.governed_tools.GovernedToolGateway object at 0x10d47fad0>
+name = 'action', arguments = {'value': 1}
+context = ExecutionContext(run_id='b14e0d06d0584c87b99896844ad728c1', thread_id='request', session_id=None, user_id='alice', ten...d47f900>), deadline=None, cancellation_token=None, tool_policy=None, model_policy=None, memory_scope=None, metadata={})
+idempotency_key = None
+
+    @scoped_execution
+    def invoke(
+        self, name: str, arguments: dict[str, Any], *, context: ExecutionContext,
+        idempotency_key: str | None = None,
+    ) -> ToolResult:
+        if not context.user_id or not context.tenant_id:
+            raise PermissionDenied('governed export requires a trusted user and tenant on every call')
+        state = {'thread_id': context.resolved_thread_id()}
+        identity = _resolve_identity(self.config, state)
+        policy = _resolve_tool_policy(self.config, state)
+        budget = _resolve_budget(self.config, state)
+        thread_id = context.resolved_thread_id()
+        audit = dict(tool=name, thread_id=thread_id, run_id=context.run_id, trace_id=context.trace_id)
+    
+        def deny(reason: str, *, approval: bool = False) -> None:
+            self.config.audit.record(identity=identity, action='tool_admission',
+                                     allowed=False, requires_approval=approval, reason=reason, **audit)
+            raise (ToolApprovalRequired if approval else PermissionDenied)(reason)
+    
+        if not self.config.tools.has(name):
+            deny('unknown registered tool')
+        spec = self.config.tools.get(name)
+        # JSON copy prevents a caller or external policy from mutating this
+        # invocation's argument object while it is being authorized.
+        args = json.loads(json.dumps(arguments, allow_nan=False))
+        if not isinstance(args, dict):
+            raise TypeError('tool arguments must be a JSON object')
+        parameter_names = _tool_param_names(spec)
+        for field, value in (('user_id', identity.id), ('tenant_id', identity.tenant_id),
+                             ('session_id', thread_id)):
+            if field in parameter_names:
+                args[field] = value
+        cost = budget.cost_usd_for(thread_id)
+        if cost >= policy.max_cost_usd_per_thread:
+            raise BudgetExceeded('tool request cost budget exhausted')
+        if budget.steps_for(thread_id) >= policy.max_steps_per_thread:
+            raise BudgetExceeded('tool request step budget exhausted')
+        assert self.config.pdp is not None
+        decision = self.config.pdp.decide(
+            name, args, identity=identity, policy=policy, destructive=spec.destructive,
+            cost_so_far=cost, hosts=spec.egress_hosts, scopes=spec.scopes,
+            requires_confirmation=spec.requires_confirmation, data_classification=spec.data_classification,
+        )
+        if not decision.allowed:
+            deny(decision.reason, approval=decision.requires_approval)
+        if spec.destructive and spec.max_retries and not spec.idempotent:
+            deny('non-idempotent destructive exports cannot automatically retry')
+>       if not self.config.breaker.allow(name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CircuitBreaker' object has no attribute 'allow'
+
+agent_foundry/governed_tools.py:98: AttributeError
+_____ test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute _____
+
+    def test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute():
+        from agent_foundry.governed_tools import GovernedToolGateway
+        agent, effects = build()
+        gateway = GovernedToolGateway(agent.config)
+>       result = gateway.invoke('action', {'value': 'wrong'}, context=caller())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_governed_adapters.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/execution_scope.py:169: in synchronous
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.governed_tools.GovernedToolGateway object at 0x10d1dc350>
+name = 'action', arguments = {'value': 'wrong'}
+context = ExecutionContext(run_id='dba6cd9847e64bf2885bd1a2636efe9d', thread_id='request', session_id=None, user_id='alice', ten...dget=None, deadline=None, cancellation_token=None, tool_policy=None, model_policy=None, memory_scope=None, metadata={})
+idempotency_key = None
+
+    @scoped_execution
+    def invoke(
+        self, name: str, arguments: dict[str, Any], *, context: ExecutionContext,
+        idempotency_key: str | None = None,
+    ) -> ToolResult:
+        if not context.user_id or not context.tenant_id:
+            raise PermissionDenied('governed export requires a trusted user and tenant on every call')
+        state = {'thread_id': context.resolved_thread_id()}
+        identity = _resolve_identity(self.config, state)
+        policy = _resolve_tool_policy(self.config, state)
+        budget = _resolve_budget(self.config, state)
+        thread_id = context.resolved_thread_id()
+        audit = dict(tool=name, thread_id=thread_id, run_id=context.run_id, trace_id=context.trace_id)
+    
+        def deny(reason: str, *, approval: bool = False) -> None:
+            self.config.audit.record(identity=identity, action='tool_admission',
+                                     allowed=False, requires_approval=approval, reason=reason, **audit)
+            raise (ToolApprovalRequired if approval else PermissionDenied)(reason)
+    
+        if not self.config.tools.has(name):
+            deny('unknown registered tool')
+        spec = self.config.tools.get(name)
+        # JSON copy prevents a caller or external policy from mutating this
+        # invocation's argument object while it is being authorized.
+        args = json.loads(json.dumps(arguments, allow_nan=False))
+        if not isinstance(args, dict):
+            raise TypeError('tool arguments must be a JSON object')
+        parameter_names = _tool_param_names(spec)
+        for field, value in (('user_id', identity.id), ('tenant_id', identity.tenant_id),
+                             ('session_id', thread_id)):
+            if field in parameter_names:
+                args[field] = value
+        cost = budget.cost_usd_for(thread_id)
+        if cost >= policy.max_cost_usd_per_thread:
+            raise BudgetExceeded('tool request cost budget exhausted')
+        if budget.steps_for(thread_id) >= policy.max_steps_per_thread:
+            raise BudgetExceeded('tool request step budget exhausted')
+        assert self.config.pdp is not None
+        decision = self.config.pdp.decide(
+            name, args, identity=identity, policy=policy, destructive=spec.destructive,
+            cost_so_far=cost, hosts=spec.egress_hosts, scopes=spec.scopes,
+            requires_confirmation=spec.requires_confirmation, data_classification=spec.data_classification,
+        )
+        if not decision.allowed:
+            deny(decision.reason, approval=decision.requires_approval)
+        if spec.destructive and spec.max_retries and not spec.idempotent:
+            deny('non-idempotent destructive exports cannot automatically retry')
+>       if not self.config.breaker.allow(name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'CircuitBreaker' object has no attribute 'allow'
+
+agent_foundry/governed_tools.py:98: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_governed_adapters.py::test_langchain_gateway_observes_current_identity_and_actual_effect[False]
+FAILED tests/test_governed_adapters.py::test_langchain_gateway_observes_current_identity_and_actual_effect[True]
+FAILED tests/test_governed_adapters.py::test_gateway_rejects_without_effect[budget]
+FAILED tests/test_governed_adapters.py::test_gateway_schema_failure_and_unsupported_guarantee_do_not_execute
+4 failed, 106 passed, 2 skipped in 0.46s

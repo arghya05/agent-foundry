@@ -276,6 +276,32 @@
       "kind": "live_workbench",
       "status": "complete",
       "stop_reason": null
+    },
+    {
+      "adapter_tests": 23,
+      "before": {
+        "actual_policy_defects": 4,
+        "artifact": "iteration-005-before.txt",
+        "failed": 16,
+        "new_api_absent": 12
+      },
+      "first_implementation": {
+        "artifact": "iteration-005-first-validation.txt",
+        "failed": 4,
+        "passed": 106,
+        "skipped": 2
+      },
+      "full_suite": {
+        "artifact": "iteration-005-full-suite.txt",
+        "passed": 643,
+        "skipped": 25
+      },
+      "id": "I005",
+      "kind": "governed_tool_export_and_effective_policy",
+      "novel_algorithm_claim": false,
+      "paid_model_requests": 0,
+      "status": "validated",
+      "typecheck_files": 59
     }
   ],
   "scope": "Dated review, four engineering repair iterations, source comparisons and bounded live WorkBench measurements; no superiority or novelty claim",
