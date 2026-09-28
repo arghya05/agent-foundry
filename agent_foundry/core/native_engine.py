@@ -20,10 +20,9 @@ minus LangGraph's `Annotated[..., operator.add]` reducer machinery — this
 engine mutates it directly instead. Held in-process only, same MemorySaver-
 equivalent default posture as every build_*_graph (no restart durability).
 
-Scope, honestly: covers the single-agent react loop only (matching
-`Agent(workflow="react", runtime="native")`) — not self_verify, not the
-multi-agent topologies (Workflow.supervisor/.swarm/.blackboard/.debate/
-.fanout/.dag stay LangGraph-only). Multiple *simultaneously* pending
+Scope: this class covers the single-agent react loop (matching
+`Agent(workflow="react", runtime="native")`). Native multi-agent wrappers
+live in core.native_orchestration and have separate outer state. Multiple *simultaneously* pending
 approval-needing tool calls within one turn are resolved one at a time per
 `.resume()` call (and re-run any earlier calls in that same turn again on
 each resume, exactly mirroring LangGraph's own re-run-the-whole-node-on-
@@ -34,6 +33,7 @@ several sequential interrupts in one turn, which this one doesn't reproduce.
 """
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from dataclasses import dataclass
@@ -48,7 +48,7 @@ from ..orchestration import (
 from ..runtime import with_timeout
 from ..execution_scope import request_value, check_admission
 from ..tools_gateway import PermissionDenied
-from .protocols import StateStore
+from .protocols import StateStore, VersionedStateStore
 
 
 @dataclass
@@ -84,66 +84,65 @@ class NativeEngine:
     this engine (unlike LangGraph's checkpointer) is a plain in-process
     dict. Different thread_ids never block each other.
 
-    `state_store`: optional (default None — unchanged in-process-only
-    behavior, same as before this existed). When set, `_state_for` becomes
-    load-on-miss (falls back to `state_store.load(thread_id)` before
-    creating a fresh state, so a NEW NativeEngine instance — e.g. after a
-    process restart — picks up an earlier one's state through the shared
-    store) and every `_raw()` call — the one function every mutating path
-    already funnels through, at exactly the granularity a think/act/critique
-    step completes — persists via `state_store.save(...)`. This is
-    deliberately NOT a rewrite of the think/act/critique control flow
-    itself: the store sits underneath the existing in-process `self._threads`
-    cache (still the fast path for every read within one process), not in
-    place of it."""
+    With state_store, each public operation reloads authoritative state.
+    VersionedStateStore saves use compare-and-swap and reject stale writes;
+    legacy stores remain single-writer only. Without a store, state stays
+    in this process. Completed steps and update_state persist, but an
+    external tool effect and its checkpoint are not one transaction.
+    StateConflict must not trigger a blind retry of a side-effecting turn.
+    """
 
     def __init__(self, *, state_store: StateStore | None = None) -> None:
         self._threads: dict[str, dict[str, Any]] = {}
         self._threads_lock = threading.Lock()  # guards creation of the per-thread locks/entries below, not full turns
         self._thread_locks: dict[str, threading.Lock] = {}
         self._state_store = state_store
+        self._versions: dict[str, int] = {}
 
     def _lock_for(self, thread_id: str) -> threading.Lock:
         with self._threads_lock:
             return self._thread_locks.setdefault(thread_id, threading.Lock())
 
     def _state_for(self, thread_id: str) -> dict[str, Any]:
+        # Called at operation entry under this engine's per-thread lock.
+        # Read outside the global lock so unrelated conversations proceed.
+        store = self._state_store
+        version = None
+        if isinstance(store, VersionedStateStore):
+            loaded, version = store.load_versioned(thread_id)
+        else:
+            loaded = store.load(thread_id) if store is not None else None
         with self._threads_lock:
-            if thread_id in self._threads:
-                return self._threads[thread_id]
-        # Cache miss: state_store.load() is potentially slow network I/O
-        # (Redis/Postgres) — done OUTSIDE _threads_lock, which guards the
-        # WHOLE dict, not just this one thread_id, so holding it here would
-        # block every OTHER thread_id's unrelated _state_for/_persist call
-        # for as long as this one load takes. Every actual caller already
-        # holds ITS OWN per-thread_id lock (_lock_for) for the duration of
-        # this call, so two concurrent _state_for(thread_id) calls for the
-        # SAME thread_id can't happen in practice — the re-check below is
-        # defensive, not a fix for a reachable race.
-        loaded = self._state_store.load(thread_id) if self._state_store is not None else None
-        with self._threads_lock:
-            if thread_id in self._threads:
+            if store is None and thread_id in self._threads:
                 return self._threads[thread_id]
             state = loaded if loaded is not None else {
                 "messages": [], "thread_id": thread_id, "critique_retries": 0, "critique_last_score": None, "_pending": None,
             }
             self._threads[thread_id] = state
+            if version is not None:
+                self._versions[thread_id] = version
             return state
 
     def _persist(self, thread_id: str) -> None:
-        if self._state_store is None:
+        store = self._state_store
+        if store is None:
             return
         with self._threads_lock:
             state = self._threads.get(thread_id)
-            # A real backend's save() should serialize its own snapshot
-            # (json.dumps, etc.), so a plain reference here is fine — this
-            # dict is never handed to two concurrent save() calls at once
-            # (same per-thread_id serialization as above), unlike
-            # MemoryStateStore's own deep-copy guarantee, which exists for
-            # a DIFFERENT reason: isolating what a caller does with what
-            # load() returns, not concurrent-save safety.
         if state is not None:
-            self._state_store.save(thread_id, state)  # network I/O, deliberately outside _threads_lock — see above
+            try:
+                if isinstance(store, VersionedStateStore):
+                    version = store.compare_and_swap(thread_id, state, expected_version=self._versions[thread_id])
+                    with self._threads_lock:
+                        self._versions[thread_id] = version
+                else:
+                    store.save(thread_id, state)
+            except Exception:
+                # A failed/ambiguous save cannot remain authoritative locally.
+                with self._threads_lock:
+                    self._threads.pop(thread_id, None)
+                    self._versions.pop(thread_id, None)
+                raise
 
     def run(self, config: AgentConfig, message: str, *, thread_id: str, request_identity: dict[str, Any] | None = None) -> dict[str, Any]:
         with self._lock_for(thread_id):
@@ -269,9 +268,9 @@ class NativeEngine:
         # one place state_store persistence needs to hook in, not a change
         # to the actual think/act/critique control flow.
         self._persist(state["thread_id"])
-        raw: dict[str, Any] = {"messages": list(state["messages"]), "thread_id": state["thread_id"]}
+        raw: dict[str, Any] = {"messages": copy.deepcopy(state["messages"]), "thread_id": state["thread_id"]}
         if interrupt is not None:
-            raw["__interrupt__"] = [_Interrupt(interrupt)]
+            raw["__interrupt__"] = [_Interrupt(copy.deepcopy(interrupt))]
         return raw
 
     # ---- think ---------------------------------------------------------------
@@ -589,7 +588,7 @@ class _NativeGraph:
         concurrent run()/resume() on the same thread_id, same as those."""
         thread_id = run_config["configurable"]["thread_id"]
         with self._engine._lock_for(thread_id):
-            return _StateSnapshot(values=dict(self._engine._state_for(thread_id)))
+            return _StateSnapshot(values=copy.deepcopy(self._engine._state_for(thread_id)))
 
     def update_state(self, run_config: dict[str, Any], values: dict[str, Any]) -> None:
         """Unlike LangGraph's own update_state (which appends onto a
@@ -599,9 +598,12 @@ class _NativeGraph:
         semantics — safe both for seeding a brand-new thread (core.run.Run's
         fork()) and for any other value in `values`."""
         thread_id = run_config["configurable"]["thread_id"]
+        if "thread_id" in values and values["thread_id"] != thread_id:
+            raise ValueError("update_state cannot change thread_id")
         with self._engine._lock_for(thread_id):
             state = self._engine._state_for(thread_id)
-            state.update(values)
+            state.update(copy.deepcopy(values))
+            self._engine._persist(thread_id)
 
 
 @dataclass

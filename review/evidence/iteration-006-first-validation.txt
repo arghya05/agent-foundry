@@ -1,0 +1,102 @@
+..........FF................                                             [100%]
+=================================== FAILURES ===================================
+_ test_conflict_before_tool_dispatch_does_not_execute_the_losing_call[memory] __
+
+store = <agent_foundry.core.state_store.MemoryStateStore object at 0x10c75a150>
+
+    def test_conflict_before_tool_dispatch_does_not_execute_the_losing_call(store):
+        from agent_foundry.contracts import AutonomyLevel, LLMResponse, Policy, ToolCall, ToolSpec
+        from agent_foundry.core.state_store import StateConflict
+    
+        barrier = threading.Barrier(2)
+        effects = []
+    
+        def action(messages, model):
+            barrier.wait(timeout=5)
+            return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0,
+                               tool_calls=[ToolCall(id="call", name="write", args={})])
+    
+>       workers = [Agent("bot", "chat", runtime="native", state_store=store,
+                         tools=[ToolSpec("write", "write", {}, lambda: effects.append("written") or "ok")],
+                         policy=Policy(allowed_tools=frozenset({"write"}), autonomy=AutonomyLevel.L4),
+                         llm=LLMGateway(provider=ScriptedProvider([action, "done"]))) for _ in range(2)]
+
+tests/test_versioned_state.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_versioned_state.py:134: in <listcomp>
+    policy=Policy(allowed_tools=frozenset({"write"}), autonomy=AutonomyLevel.L4),
+                                                               ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <enum 'AutonomyLevel'>, name = 'L4'
+
+    def __getattr__(cls, name):
+        """
+        Return the enum member matching `name`
+    
+        We use __getattr__ instead of descriptors or inserting into the enum
+        class' __dict__ in order to support `name` and `value` being both
+        properties for enum members (which live in the class' __dict__) and
+        enum members themselves.
+        """
+        if _is_dunder(name):
+            raise AttributeError(name)
+        try:
+            return cls._member_map_[name]
+        except KeyError:
+>           raise AttributeError(name) from None
+E           AttributeError: L4
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/enum.py:786: AttributeError
+_ test_conflict_before_tool_dispatch_does_not_execute_the_losing_call[sqlite] __
+
+store = <agent_foundry.core.state_store.SQLiteStateStore object at 0x10c718e10>
+
+    def test_conflict_before_tool_dispatch_does_not_execute_the_losing_call(store):
+        from agent_foundry.contracts import AutonomyLevel, LLMResponse, Policy, ToolCall, ToolSpec
+        from agent_foundry.core.state_store import StateConflict
+    
+        barrier = threading.Barrier(2)
+        effects = []
+    
+        def action(messages, model):
+            barrier.wait(timeout=5)
+            return LLMResponse(text="", model=model, input_tokens=1, output_tokens=1, cost_usd=0,
+                               tool_calls=[ToolCall(id="call", name="write", args={})])
+    
+>       workers = [Agent("bot", "chat", runtime="native", state_store=store,
+                         tools=[ToolSpec("write", "write", {}, lambda: effects.append("written") or "ok")],
+                         policy=Policy(allowed_tools=frozenset({"write"}), autonomy=AutonomyLevel.L4),
+                         llm=LLMGateway(provider=ScriptedProvider([action, "done"]))) for _ in range(2)]
+
+tests/test_versioned_state.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_versioned_state.py:134: in <listcomp>
+    policy=Policy(allowed_tools=frozenset({"write"}), autonomy=AutonomyLevel.L4),
+                                                               ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <enum 'AutonomyLevel'>, name = 'L4'
+
+    def __getattr__(cls, name):
+        """
+        Return the enum member matching `name`
+    
+        We use __getattr__ instead of descriptors or inserting into the enum
+        class' __dict__ in order to support `name` and `value` being both
+        properties for enum members (which live in the class' __dict__) and
+        enum members themselves.
+        """
+        if _is_dunder(name):
+            raise AttributeError(name)
+        try:
+            return cls._member_map_[name]
+        except KeyError:
+>           raise AttributeError(name) from None
+E           AttributeError: L4
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/enum.py:786: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_versioned_state.py::test_conflict_before_tool_dispatch_does_not_execute_the_losing_call[memory]
+FAILED tests/test_versioned_state.py::test_conflict_before_tool_dispatch_does_not_execute_the_losing_call[sqlite]
+2 failed, 26 passed in 0.74s

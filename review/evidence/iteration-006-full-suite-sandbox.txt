@@ -1,0 +1,171 @@
+sss..................................................................... [ 10%]
+........................................................................ [ 21%]
+sssssssssssss........................................................... [ 31%]
+........................................................................ [ 42%]
+.............................................................EEEE....... [ 53%]
+....F................................................................... [ 63%]
+........................................................................ [ 74%]
+........................................................................ [ 84%]
+..........ss............................................................ [ 95%]
+...............................                                          [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_http_tool_get_with_path_placeholder_and_query_params __
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x1195e6810>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+____________ ERROR at setup of test_http_tool_post_sends_json_body _____________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x1195e6810>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_______ ERROR at setup of test_http_tool_composes_through_registry_rbac ________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x1195e6810>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_ ERROR at setup of test_http_tool_declares_its_own_egress_host_from_the_url_template _
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x1195e6810>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+=================================== FAILURES ===================================
+_______ test_import_and_native_runtime_work_without_langgraph_installed ________
+
+    @pytest.mark.skipif(not _uv_available(), reason="uv not installed — can't build an isolated venv to verify against")
+    def test_import_and_native_runtime_work_without_langgraph_installed():
+        with tempfile.TemporaryDirectory() as tmp:
+            venv_dir = Path(tmp) / "venv"
+            subprocess.run(["uv", "venv", str(venv_dir)], check=True, capture_output=True, text=True)
+            python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    
+            install = subprocess.run(
+                ["uv", "pip", "install", "--python", str(python), "-e", str(REPO_ROOT)],
+                capture_output=True, text=True,
+            )
+>           assert install.returncode == 0, f"install failed:\n{install.stdout}\n{install.stderr}"
+E           AssertionError: install failed:
+E             
+E             Using Python 3.13.13 environment at: /var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmppsh35rn1/venv
+E             error: Request failed after 3 retries in 8.4s
+E               Caused by: Failed to fetch: `https://pypi.org/simple/cryptography/`
+E               Caused by: error sending request for url (https://pypi.org/simple/cryptography/)
+E               Caused by: client error (Connect)
+E               Caused by: dns error
+E               Caused by: failed to lookup address information: nodename nor servname provided, or not known
+E             
+E           assert 2 == 0
+E            +  where 2 = CompletedProcess(args=['uv', 'pip', 'install', '--python', '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmppsh35r...used by: dns error\n  Caused by: failed to lookup address information: nodename nor servname provided, or not known\n').returncode
+
+tests/test_langgraph_optional.py:80: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_langgraph_optional.py::test_import_and_native_runtime_work_without_langgraph_installed
+ERROR tests/test_http_tools.py::test_http_tool_get_with_path_placeholder_and_query_params
+ERROR tests/test_http_tools.py::test_http_tool_post_sends_json_body - Permiss...
+ERROR tests/test_http_tools.py::test_http_tool_composes_through_registry_rbac
+ERROR tests/test_http_tools.py::test_http_tool_declares_its_own_egress_host_from_the_url_template
+1 failed, 656 passed, 25 skipped, 4 errors in 19.40s

@@ -1,0 +1,82 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+______________ test_alternating_workers_keep_every_completed_turn ______________
+
+    def test_alternating_workers_keep_every_completed_turn():
+        store = MemoryStateStore()
+        first, second = agent(store, ["one", "three"]), agent(store, ["two"])
+        context = ExecutionContext(thread_id="shared")
+        first.run("a", context=context)
+        second.run("b", context=context)
+        result = first.run("c", context=context)
+>       assert [m["content"] for m in result.messages] == ["a", "one", "b", "two", "c", "three"]
+E       AssertionError: assert ['a', 'one', 'c', 'three'] == ['a', 'one', ... 'c', 'three']
+E         
+E         At index 2 diff: 'c' != 'b'
+E         Right contains 2 more items, first extra item: 'c'
+E         Use -v to get more diff
+
+tests/test_versioned_state.py:31: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "bot-agent", "span_id": "5e43074cbf47", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "bot-agent", "span_id": "8516c2081428", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "bot-agent", "span_id": "5be85308b32b", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_______ test_graph_updates_survive_a_fresh_engine_without_an_extra_turn ________
+
+    def test_graph_updates_survive_a_fresh_engine_without_an_extra_turn():
+        store = MemoryStateStore()
+        first, second = agent(store, []), agent(store, [])
+        config = {"configurable": {"thread_id": "seeded"}}
+        first.graph.update_state(config, {"messages": [{"role": "user", "content": "seed"}]})
+>       assert second.graph.get_state(config).values["messages"] == [{"role": "user", "content": "seed"}]
+E       AssertionError: assert [] == [{'role': 'us...ent': 'seed'}]
+E         
+E         Right contains one more item: {'role': 'user', 'content': 'seed'}
+E         Use -v to get more diff
+
+tests/test_versioned_state.py:39: AssertionError
+__________________ test_snapshots_cannot_mutate_engine_state ___________________
+
+    def test_snapshots_cannot_mutate_engine_state():
+        first = agent(None, ["answer"])
+        context = ExecutionContext(thread_id="snapshot")
+        result = first.run("question", context=context)
+        config = {"configurable": {"thread_id": "snapshot"}}
+        snapshot = first.graph.get_state(config)
+        snapshot.values["messages"][0]["content"] = "tampered"
+        result.messages[-1]["content"] = "also tampered"
+>       assert [m["content"] for m in first.graph.get_state(config).values["messages"]] == ["question", "answer"]
+E       AssertionError: assert ['tampered', 'also tampered'] == ['question', 'answer']
+E         
+E         At index 0 diff: 'tampered' != 'question'
+E         Use -v to get more diff
+
+tests/test_versioned_state.py:50: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "bot-agent", "span_id": "cd337be05191", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_____________ test_stream_chunks_cannot_modify_the_next_step_input _____________
+
+    def test_stream_chunks_cannot_modify_the_next_step_input():
+        from agent_foundry.core.native_engine import NativeEngine
+    
+        engine = NativeEngine()
+        config = agent(None, ["answer"]).config
+        chunks = engine.stream_run(config, "question", thread_id="stream")
+        first = next(chunks)
+        first["messages"][0]["content"] = "injected by consumer"
+        final = list(chunks)[-1]
+>       assert final["messages"][0]["content"] == "question"
+E       AssertionError: assert 'injected by consumer' == 'question'
+E         
+E         - question
+E         + injected by consumer
+
+tests/test_versioned_state.py:62: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "bot-agent", "span_id": "0a3a66cffed8", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+=========================== short test summary info ============================
+FAILED tests/test_versioned_state.py::test_alternating_workers_keep_every_completed_turn
+FAILED tests/test_versioned_state.py::test_graph_updates_survive_a_fresh_engine_without_an_extra_turn
+FAILED tests/test_versioned_state.py::test_snapshots_cannot_mutate_engine_state
+FAILED tests/test_versioned_state.py::test_stream_chunks_cannot_modify_the_next_step_input
+4 failed, 11 deselected in 0.06s

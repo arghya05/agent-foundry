@@ -16,7 +16,7 @@ Statuses: **defect** = demonstrated/source-confirmed issue; **partial** = primit
 | C06 | CrewAI interoperability — partial | Version-pinned adapter, inner-action hooks or explicit opaque mode | Conformance suite and supported-capability manifest | P1 |
 | C07 | Third-party engine seam — partial | Runtime interface independent of compiled-graph shape | An external adapter works without editing core topology switch logic | P1 |
 | C08 | Capability negotiation — unestablished | Validate requirements against adapter/deployment capabilities | Unsupported required controls fail at deployment | P1 |
-| C09 | Shared state ownership — defect | Versioned writes or fenced owner; refresh at ownership changes | No lost state under stale-worker and interleaving tests | P0 |
+| C09 | Shared state ownership — I006 partial repair tested | Native Memory/SQLite version checks added; outer topology, shared service backends and fenced ownership still needed | Single-agent stale-write/process tests pass; complete multi-worker lifecycle still pending | P0 |
 | C10 | Durable external effects — partial | Action journal, stable idempotency, reconciliation | Kill before/after effect does not silently duplicate/lose outcome | P0/P1 |
 | C11 | Checkpoint evolution — unestablished | Schema versioning and tested migrations/rollback | Resume old run through compatible deployment upgrade | P1 |
 | C12 | Scheduling/workers — partial | Durable queue/timers, leases, bounded workers, backpressure | Restart preserves scheduled work and ownership | P1 |

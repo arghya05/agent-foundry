@@ -7,23 +7,24 @@
     "campaign_status": "closed_at_continuation_limit",
     "date": "2026-09-28",
     "full_suite": {
-      "artifact": "iteration-005-full-suite.txt",
-      "passed": 643,
+      "artifact": "iteration-006-full-suite.txt",
+      "passed": 661,
       "skipped": 25
     },
-    "github_push": "initial_release_pushed_2e8a240; I005_validated_for_followup",
+    "github_push": "I001-I004 pushed 2e8a240; I005 pushed 9718a9d; I006 validated for followup",
     "iterations": [
       "I001",
       "I002",
       "I003",
       "I004",
-      "I005"
+      "I005",
+      "I006"
     ],
     "live_archived_attempts": 578,
     "live_provider_requests": 1855,
     "research_novelty": "not_established; additional prior-art overlap found",
     "typecheck": {
-      "artifact": "iteration-005-typecheck-final.txt",
+      "artifact": "iteration-006-typecheck-final.txt",
       "errors": 0,
       "source_files": 59
     }

@@ -18,7 +18,7 @@ from ..policy_engine import PolicyEngine
 from .execution_context import ExecutionContext
 from .result import RunResult
 
-__all__ = ["Evaluator", "EventBus", "PolicyEngine", "Tool", "Memory", "WorkflowEngine", "StateStore"]
+__all__ = ["Evaluator", "EventBus", "PolicyEngine", "Tool", "Memory", "WorkflowEngine", "StateStore", "VersionedStateStore"]
 
 
 @runtime_checkable
@@ -70,12 +70,10 @@ class WorkflowEngine(Protocol):
 class StateStore(Protocol):
     """Durable per-thread state, keyed the same way core/native_engine.py's
     NativeEngine._threads already is (one dict per thread_id, shaped like
-    AgentState). Three implementations exist: `core/state_store.py`'s
-    `MemoryStateStore` (in-process reference) and `PostgresStateStore`
-    (`psycopg2`-backed), and `distributed.py`'s `RedisStateStore` —
-    connection lifecycle, error handling, and their own test suite against a
-    live process, the same bar this repo's other real-external-process
-    integrations hold themselves to.
+    AgentState). Implementations include in-process MemoryStateStore, local
+    SQLiteStateStore, PostgresStateStore and distributed.RedisStateStore.
+    Persistence, concurrency and deployment guarantees differ by backend;
+    the protocol alone does not promise any of them.
 
     Deliberately 3 methods, not 4 — no separate `checkpoint()` alongside
     `save()`: for a plain per-thread state dict there's no distinct
@@ -90,15 +88,26 @@ class StateStore(Protocol):
     async-native rewrite of the core loop; an async-only StateStore would
     be the one place that decision got silently reversed.
 
-    Wired into NativeEngine's own state storage: `Agent(...,
-    runtime="native", state_store=<a StateStore>)` — `_state_for` is
-    cache-first (the in-process `self._threads` dict stays the fast path
-    within one process) with load-on-miss from the store, and `_raw()` (the
-    one function every mutating call path already funnels through, at
-    exactly the granularity a think/act/critique step completes) persists
-    on every call. `runtime="langgraph"` ignores this field — it gets its
-    own durability from `checkpointer=` instead."""
+    NativeEngine reloads at each public operation and persists completed
+    steps and explicit state updates. These three methods alone provide
+    no concurrent-writer protection: use VersionedStateStore for optimistic
+    concurrency checks. LangGraph uses checkpointer= instead."""
 
     def load(self, run_id: str) -> dict[str, Any] | None: ...
     def save(self, run_id: str, state: dict[str, Any]) -> None: ...
     def delete(self, run_id: str) -> None: ...
+
+
+@runtime_checkable
+class VersionedStateStore(StateStore, Protocol):
+    """Atomic state snapshots with optimistic concurrency, not an effect lock.
+
+    Versions increase on every write, including legacy save/delete. Missing
+    keys begin at zero; deletion retains a tombstone version so an old writer
+    cannot resurrect a deleted generation. compare_and_swap raises StateConflict
+    without changing state when the expected version is stale. No automatic
+    retry is implied: an external effect may already have happened.
+    """
+
+    def load_versioned(self, run_id: str) -> tuple[dict[str, Any] | None, int]: ...
+    def compare_and_swap(self, run_id: str, state: dict[str, Any], *, expected_version: int) -> int: ...

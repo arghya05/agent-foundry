@@ -302,9 +302,46 @@
       "paid_model_requests": 0,
       "status": "validated",
       "typecheck_files": 59
+    },
+    {
+      "before": {
+        "artifact": "iteration-006-before.txt",
+        "existing_path_defects": 4,
+        "failed": 4
+      },
+      "expanded_validation": {
+        "artifact": "iteration-006-expanded-validation.txt",
+        "passed": 52
+      },
+      "first_implementation": {
+        "artifact": "iteration-006-first-validation.txt",
+        "failed": 2,
+        "passed": 26,
+        "reason": "incorrect enum name in test setup"
+      },
+      "full_suite": {
+        "artifact": "iteration-006-full-suite.txt",
+        "passed": 661,
+        "skipped": 25
+      },
+      "id": "I006",
+      "kind": "native_state_consistency_and_local_durability",
+      "new_tests": 18,
+      "novel_algorithm_claim": false,
+      "paid_model_requests": 0,
+      "sandbox_full_suite": {
+        "artifact": "iteration-006-full-suite-sandbox.txt",
+        "errors": 4,
+        "failed": 1,
+        "passed": 656,
+        "reason": "local HTTP binding and dependency download sandbox restrictions",
+        "skipped": 25
+      },
+      "status": "validated",
+      "typecheck_files": 59
     }
   ],
-  "scope": "Dated review, four engineering repair iterations, source comparisons and bounded live WorkBench measurements; no superiority or novelty claim",
-  "updated_utc": "2026-09-28T07:37:18.803752+00:00",
+  "scope": "Dated review, six engineering repair iterations, source comparisons and bounded live WorkBench measurements; no superiority or novelty claim",
+  "updated_utc": "2026-09-28T10:01:15.247655+00:00",
   "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
 }

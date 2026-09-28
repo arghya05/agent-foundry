@@ -15,10 +15,10 @@ scratch each time.
 
 **Validation status — September 2026:** this is a reference framework under
 active evaluation. The [repository review](review/README.md) identifies remaining
-remaining integration and distributed-state gaps; it is not yet a generally
-enterprise-certified or SOTA platform. Five repair iterations address authorization,
-request controls, retrieval filtering, cache correctness and evaluation integrity.
-The full local suite records **643 passed, 25 skipped**. See [benchmark evidence](#benchmark-evidence-and-research)
+integration and distributed-state gaps; it is not yet a generally
+enterprise-certified or SOTA platform. Six repair iterations address authorization,
+request controls, retrieval filtering, cache correctness, evaluation integrity and
+native state consistency. The full local suite records **661 passed, 25 skipped**. See [benchmark evidence](#benchmark-evidence-and-research)
 for measured results, limitations, and the publication experiment log.
 
 **Agent Foundry is an open-source runtime and control plane for building,
@@ -61,16 +61,14 @@ persistence/streaming/HITL machinery. Every multi-agent `Workflow` topology
 below runs on either runtime (`runtime="native"` or `"langgraph"`,
 per-call), with topology-level pause/resume for supervisor/swarm on both
 runtimes and blackboard/debate natively. Being precise about durability,
-not just capability: native single-agent state IS restart-durable when you
-pass `state_store=` (Redis/Postgres/in-memory) — a killed and restarted
-process picks the conversation back up through the shared store. Native
-multi-agent *topology* state (which specialist is active, a paused
-approval, blackboard/debate round position — `core/native_orchestration.py`'s
-`_PausableTurns`/per-topology history) is NOT wired to any `StateStore` yet
-and stays process-local, so a killed process loses topology-level
-in-flight state even though the underlying specialist's own turn state
-would otherwise be recoverable. LangGraph is still needed specifically for
-durable checkpointing via its own mechanism (single-agent or multi-agent),
+not just capability: native single-agent checkpoints can survive process restart
+with a persistent `state_store=`. Memory storage alone cannot survive restart.
+Memory and local SQLite stores provide version checks for native single-agent
+state; Redis/Postgres currently require a single writer. Native multi-agent
+topology state is wired to the supplied store, but outer history and blackboard
+ownership are not yet protected against concurrent writers. See
+[state consistency and recovery limits](docs/STATE_CONSISTENCY.md).
+LangGraph provides durable checkpointing via its own mechanism (single-agent or multi-agent),
 or for a blackboard/debate topology-hop approval interrupt (a confirmed,
 documented gap — see
 [Runtime backends](#runtime-backends-native-langgraph-and-what-plugs-in-next)).
@@ -458,7 +456,7 @@ repo, not just the concept:
 | `orchestration.py` | `AgentConfig`, `CritiqueConfig`, `AgentState`, `make_think_node`, `make_act_node`, `make_critique_node`, `make_self_verify_node`, and all 7 `build_*_graph` topology builders | The think/act/critique loop itself — everything else in this repo is a slot it calls into |
 | `core/native_engine.py` | `NativeEngine` | A second, framework-free implementation of the same think/act/critique loop — `Agent(..., runtime="native")` |
 | `core/native_orchestration.py` | `_PausableTurns`, and a native counterpart of each multi-agent `build_*_graph` — pausable/resumable, bounded-concurrency, real event streaming | The same framework-free idea as `native_engine.py`, one layer up — `Workflow.supervisor(..., runtime="native")` etc. |
-| `core/state_store.py` | `MemoryStateStore`, `PostgresStateStore` | `core.protocols.StateStore` implementations — `Agent(..., runtime="native", state_store=...)` |
+| `core/state_store.py` | `MemoryStateStore`, `SQLiteStateStore`, `PostgresStateStore`, `StateConflict` | Native state backends; Memory/SQLite provide atomic version checks; Postgres retains a single-writer contract |
 | `core/run.py` | `Run`, `RunStatus` | `Agent.start()`'s formal run lifecycle — pause/unpause/cancel/retry/fork/replay/wait_for_event |
 | `core/evalgate.py` | `run_eval()`, `EvalCase`, `Scorecard` | Evaluation-as-release-gate — score an Agent against a dataset, `.passes(thresholds)` |
 
@@ -750,23 +748,19 @@ thread_id never execute concurrently (each topology's own `_ThreadLocks`
 serializes the whole turn, not just its history dict's own access), while
 different thread_ids run fully in parallel.
 
-**Durable state — a real cross-restart backend, not just a seam.**
-`core.protocols.StateStore` (`load`/`save`/`delete`) is wired into
-`NativeEngine` for real: `_state_for` is cache-first (the in-process dict
-stays the fast path within one process) with load-on-miss from the store,
-and `_raw()` — the one function every mutating call path already funnels
-through, at the same granularity LangGraph's own checkpointer persists at
-(after every think/act/critique step) — saves on every step. Pass
-`Agent(..., runtime="native", state_store=<a StateStore>)`.
-`core/state_store.py`'s `MemoryStateStore` (in-process reference) and
-`PostgresStateStore` (`pip install agent-foundry[postgres]`), plus
-`distributed.py`'s `RedisStateStore`, are all real, live-process-verified
-backends (`tests/test_state_store_backends.py` runs the full contract
-against a real reachable Redis/Postgres, skipping cleanly when neither is
-up) — `tests/test_native_engine_state_store.py` is the actual
-process-restart proof: a brand-new `NativeEngine` sharing only the store
-continues an earlier one's thread, including a mid-turn tool-approval
-pause surviving that "restart."
+**Durable state and optimistic concurrency.** Pass
+`Agent(..., runtime="native", state_store=<a StateStore>)`. The native
+single-agent engine reloads authoritative state at operation entry and persists
+completed steps and explicit `update_state` calls. `VersionedStateStore` adds
+atomic reads and compare-and-swap: shared `MemoryStateStore` and local
+`SQLiteStateStore` reject stale writes with `StateConflict`. SQLite tests include
+a real subprocess exit and continuation from its committed checkpoint.
+`PostgresStateStore` (`pip install agent-foundry[postgres]`) and
+`distributed.RedisStateStore` retain legacy overwrite behavior and need an
+application-enforced single writer; their service tests skip when servers are
+unavailable. A state conflict can follow an external effect, so do not blindly
+retry a side-effecting turn. Full guarantees and migration notes are in
+[state consistency](docs/STATE_CONSISTENCY.md).
 
 **Topology-level human-in-the-loop.** Native supervisor/swarm/blackboard/
 debate now genuinely pause and resume across a specialist's tool-approval
@@ -774,11 +768,11 @@ interrupt — `core/native_orchestration.py`'s `_PausableTurns` keeps a
 specialist's `NativeEngine` alive across the call boundary instead of the
 old ephemeral-per-call model, which silently discarded any interrupt the
 instant the call returned. `tests/test_native_orchestration_hitl.py` proves
-it end-to-end for all four. This pause/resume is process-local, same as
-the rest of a native topology's state (see the durable-state paragraph
-above) — `_PausableTurns` doesn't take a `state_store`, so a killed
-process during a pending approval loses it; single-agent state under
-`state_store=` survives that, topology state doesn't yet. On LangGraph: supervisor/swarm already worked
+it end-to-end for all four. `_PausableTurns` and topology state accept
+`state_store=` for checkpoint persistence. The existing topology durability tests
+use fresh instances sharing a store; they do not establish fenced distributed
+ownership or atomic external effects. Outer topology records still need that
+hardening. On LangGraph: supervisor/swarm already worked
 here (specialists are first-class nodes of one compiled graph/checkpointer
 — verified, not assumed, by `test_supervisor_pauses_for_a_specialists_tool_
 approval_and_resumes`/`test_swarm_pauses_inside_the_handed_off_specialist_
@@ -1226,7 +1220,7 @@ No public-benchmark leadership or conference-publication claim is currently made
 | [First hardening iteration](review/evidence/iteration-001-validation.txt) | 178 passed, 2 skipped in the targeted suite | Tested hard-denial precedence and effective-request cache identity |
 | [AgentGovBench baseline and scorer audit](review/CLOSEST_REPOSITORIES.md) | Vanilla 13/48; all scenario IDs accounted for | Upstream baseline only; evidence gaps documented; **not a Foundry score** |
 | [Live WorkBench results](review/LIVE_BENCHMARK_RESULTS.md) | Initial 60-task baseline: native 49/60, LangGraph 48/60, reference 50/60; all failures retained | No demonstrated advantage; later diagnostic reuse and incomplete fresh run disclosed |
-| [Full local validation](review/evidence/iteration-005-full-suite.txt) | 643 passed, 25 skipped | Five tested repair iterations; one local environment |
+| [Full local validation](review/evidence/iteration-006-full-suite.txt) | 661 passed, 25 skipped | Six tested repair iterations; one local environment |
 | Other frameworks, multi-agent benchmarks, and proposed research method | **Pending** | No superiority or novelty conclusion |
 
 The [WorkBench harness](benchmarks/workbench/README.md) provides a fixed 12-task

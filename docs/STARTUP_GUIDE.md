@@ -19,7 +19,7 @@ python -m pytest tests/test_execution_controls.py tests/test_eval_evidence.py te
 Those checks use scripted providers and synthetic tools. They exercise real
 execution paths without provider keys, inference charges or external business
 effects. Passing them validates selected contracts, not the quality of your model.
-The release evidence records 643 passes and 25 skips in the broader local suite.
+The release evidence records 661 passes and 25 skips in the broader local suite.
 
 ## Choose the execution path
 
@@ -30,6 +30,10 @@ The release evidence records 643 passes and 25 skips in the broader local suite.
 | Governed LangChain tool export | Current-context policy/schema/budget/audit boundary | Approval requests stop before execution; durable approval resume and host model accounting are separate |
 | LangChain quickstart / explicit raw export | Direct LangChain execution / callable conversion | Raw exports require `allow_unguarded=True` and do not retain Foundry controls |
 | CrewAI / AutoGen agent-as-tool | Interoperability at the outer tool boundary | Opaque inner actions are not automatically governed by Foundry |
+
+For persistent native single-agent state, see [state consistency](STATE_CONSISTENCY.md).
+Memory/SQLite version checks reject stale writes; outer topology state and
+external effect reconciliation still need additional coordination.
 
 Start from the existing [commerce application](../examples/commerce_agent/README.md)
 for approved writes and the [implementation guide](IMPLEMENTATION_GUIDE.md) for

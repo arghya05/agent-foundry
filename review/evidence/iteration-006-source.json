@@ -1,0 +1,15 @@
+{
+  "base_commit": "9718a9dbd2cc7bd1f1f20fe2bc29c655546c8c2d",
+  "benchmark_numbers": "Predate I006; no score improvement attributed",
+  "full_suite": "661 passed, 25 skipped",
+  "paid_model_requests": 0,
+  "recorded_utc": "2026-09-28T10:01:15.247655+00:00",
+  "research_status": "paused in favor of enterprise hardening",
+  "source_sha256": {
+    "agent_foundry/core/native_engine.py": "8e0e0c0b130a9f3e611259c1cac4f1fc065b0ede5b137f65083838577e9c03c1",
+    "agent_foundry/core/native_orchestration.py": "bdc4ab10d74fb73a991f0c90b05d142c97b1c46381f6b3c4a08f9cf84b3ddca5",
+    "agent_foundry/core/protocols.py": "3f55daeeeb5aff75b1356d4071503dff5586d344a3ec1a510448606f703995ea",
+    "agent_foundry/core/state_store.py": "f62d745ba98658ede10080957a88361a209ede576e5f526ae706bcc5ea5baba0",
+    "tests/test_versioned_state.py": "e031f3ab5abca059eee2bd34a52b19286568ea73e5c04e9e013e9298188ec74b"
+  }
+}

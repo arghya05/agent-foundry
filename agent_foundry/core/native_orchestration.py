@@ -130,9 +130,12 @@ class _PausableTurns:
         # fresh .run() call always starts from the caller-supplied `messages`
         # (the full history, resupplied every call — see this class's own
         # docstring), never from a stale prior turn's persisted state.
-        with engine._threads_lock:
-            engine._threads[key] = state
         with engine._lock_for(key):
+            # Read the current version before replacing this specialist's
+            # transcript. Outer topology state still needs separate ownership.
+            engine._state_for(key)
+            with engine._threads_lock:
+                engine._threads[key] = state
             result = engine._drive(config, state, key)  # _drive persists to state_store itself, if one is set
         self._remember_or_forget(key, engine, result)
         return result

@@ -24,7 +24,12 @@ hard deny, scopes, approval-required actions, policy revocation and actual effec
 Opaque external agents must declare that their inner actions are outside this
 boundary; requiring inner-action enforcement must fail before execution.
 
-## 2. State ownership and external effects
+## 2. State ownership and external effects — partial implementation validated
+
+I006 adds authoritative reloads and versioned Memory/SQLite writes for native
+single-agent state, with real subprocess tests. See [the result](IMPLEMENTATION_006_STATE_CONSISTENCY.md).
+Outer topology records, shared service backends, ownership and effect recovery
+remain open; the complete requirement follows.
 
 Add versioned state transitions or fenced ownership, starting with the supported
 local store and carrying identical contracts to shared stores. Reject stale

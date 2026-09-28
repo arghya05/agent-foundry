@@ -1,0 +1,402 @@
+* Getting build dependencies for sdist...
+running egg_info
+writing agent_foundry.egg-info/PKG-INFO
+writing dependency_links to agent_foundry.egg-info/dependency_links.txt
+writing entry points to agent_foundry.egg-info/entry_points.txt
+writing requirements to agent_foundry.egg-info/requires.txt
+writing top-level names to agent_foundry.egg-info/top_level.txt
+reading manifest file 'agent_foundry.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'agent_foundry.egg-info/SOURCES.txt'
+* Building sdist...
+running sdist
+running egg_info
+writing agent_foundry.egg-info/PKG-INFO
+writing dependency_links to agent_foundry.egg-info/dependency_links.txt
+writing entry points to agent_foundry.egg-info/entry_points.txt
+writing requirements to agent_foundry.egg-info/requires.txt
+writing top-level names to agent_foundry.egg-info/top_level.txt
+reading manifest file 'agent_foundry.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'agent_foundry.egg-info/SOURCES.txt'
+running check
+creating agent_foundry-0.1.0
+creating agent_foundry-0.1.0/agent_foundry
+creating agent_foundry-0.1.0/agent_foundry.egg-info
+creating agent_foundry-0.1.0/agent_foundry/core
+creating agent_foundry-0.1.0/agent_foundry/prompt_templates
+creating agent_foundry-0.1.0/agent_foundry/ui
+creating agent_foundry-0.1.0/tests
+copying files to agent_foundry-0.1.0...
+copying LICENSE -> agent_foundry-0.1.0
+copying README.md -> agent_foundry-0.1.0
+copying pyproject.toml -> agent_foundry-0.1.0
+copying agent_foundry/__init__.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/a2a_bridge.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/agent_spec.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/autogen_bridge.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/batch.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/benchmark.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/blackboard.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/channels.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/cli.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/context.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/contracts.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/crewai_bridge.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/data_connectors.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/distributed.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/escalation.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/eval.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/eval_dataset.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/events.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/execution_scope.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/experiments.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/feature_flags.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/governed_tools.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/guardrails.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/http_tools.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/i18n.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/kpi.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/livekit_bridge.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/llm_gateway.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/mcp_tools.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/observability.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/orchestration.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/planning.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/policy_engine.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/prompts.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/quickstart.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/reinforcement.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/runtime.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/sandbox.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/scaffold.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/security.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/serve.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/tools_gateway.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry/versioning.py -> agent_foundry-0.1.0/agent_foundry
+copying agent_foundry.egg-info/PKG-INFO -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry.egg-info/SOURCES.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry.egg-info/dependency_links.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry.egg-info/entry_points.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry.egg-info/requires.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry.egg-info/top_level.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+copying agent_foundry/core/__init__.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/agent.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/engines.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/evalgate.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/execution_context.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/model_router.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/native_engine.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/native_orchestration.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/protocols.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/registries.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/result.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/run.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/state_store.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/core/tool_decorator.py -> agent_foundry-0.1.0/agent_foundry/core
+copying agent_foundry/prompt_templates/grounded_execution.md -> agent_foundry-0.1.0/agent_foundry/prompt_templates
+copying agent_foundry/ui/__init__.py -> agent_foundry-0.1.0/agent_foundry/ui
+copying agent_foundry/ui/console.py -> agent_foundry-0.1.0/agent_foundry/ui
+copying tests/test_a2a_bridge.py -> agent_foundry-0.1.0/tests
+copying tests/test_agent_distributed_redis.py -> agent_foundry-0.1.0/tests
+copying tests/test_agent_serve.py -> agent_foundry-0.1.0/tests
+copying tests/test_agent_spec.py -> agent_foundry-0.1.0/tests
+copying tests/test_agent_stream.py -> agent_foundry-0.1.0/tests
+copying tests/test_async_tools.py -> agent_foundry-0.1.0/tests
+copying tests/test_autogen_bridge.py -> agent_foundry-0.1.0/tests
+copying tests/test_batch.py -> agent_foundry-0.1.0/tests
+copying tests/test_benchmark_and_scaffold.py -> agent_foundry-0.1.0/tests
+copying tests/test_cedar_policy_engine.py -> agent_foundry-0.1.0/tests
+copying tests/test_cli.py -> agent_foundry-0.1.0/tests
+copying tests/test_context.py -> agent_foundry-0.1.0/tests
+copying tests/test_context_admission.py -> agent_foundry-0.1.0/tests
+copying tests/test_contracts_and_guardrails.py -> agent_foundry-0.1.0/tests
+copying tests/test_core_agent.py -> agent_foundry-0.1.0/tests
+copying tests/test_core_extensions.py -> agent_foundry-0.1.0/tests
+copying tests/test_crewai_bridge.py -> agent_foundry-0.1.0/tests
+copying tests/test_crewai_bridge_live.py -> agent_foundry-0.1.0/tests
+copying tests/test_data_connectors.py -> agent_foundry-0.1.0/tests
+copying tests/test_distributed.py -> agent_foundry-0.1.0/tests
+copying tests/test_escalation.py -> agent_foundry-0.1.0/tests
+copying tests/test_eval_and_kpi.py -> agent_foundry-0.1.0/tests
+copying tests/test_eval_dataset.py -> agent_foundry-0.1.0/tests
+copying tests/test_eval_evidence.py -> agent_foundry-0.1.0/tests
+copying tests/test_evalgate.py -> agent_foundry-0.1.0/tests
+copying tests/test_events.py -> agent_foundry-0.1.0/tests
+copying tests/test_examples_autonomous_workflow.py -> agent_foundry-0.1.0/tests
+copying tests/test_examples_commerce_agent.py -> agent_foundry-0.1.0/tests
+copying tests/test_examples_research_agent.py -> agent_foundry-0.1.0/tests
+copying tests/test_execution_controls.py -> agent_foundry-0.1.0/tests
+copying tests/test_experiments.py -> agent_foundry-0.1.0/tests
+copying tests/test_feature_flags.py -> agent_foundry-0.1.0/tests
+copying tests/test_governed_adapters.py -> agent_foundry-0.1.0/tests
+copying tests/test_http_tools.py -> agent_foundry-0.1.0/tests
+copying tests/test_i18n.py -> agent_foundry-0.1.0/tests
+copying tests/test_idempotency.py -> agent_foundry-0.1.0/tests
+copying tests/test_langgraph_optional.py -> agent_foundry-0.1.0/tests
+copying tests/test_livekit_bridge.py -> agent_foundry-0.1.0/tests
+copying tests/test_mcp_tools.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_engine.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_engine_concurrency.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_engine_mutual_exclusion.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_engine_state_store.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_engine_tool_dispatch.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration_concurrency.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration_durability.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration_hitl.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration_max_concurrency.py -> agent_foundry-0.1.0/tests
+copying tests/test_native_orchestration_streaming.py -> agent_foundry-0.1.0/tests
+copying tests/test_observability.py -> agent_foundry-0.1.0/tests
+copying tests/test_orchestration.py -> agent_foundry-0.1.0/tests
+copying tests/test_orchestration_concurrent_tools.py -> agent_foundry-0.1.0/tests
+copying tests/test_planning.py -> agent_foundry-0.1.0/tests
+copying tests/test_prompts.py -> agent_foundry-0.1.0/tests
+copying tests/test_protocol_substitutability.py -> agent_foundry-0.1.0/tests
+copying tests/test_public_api_surface.py -> agent_foundry-0.1.0/tests
+copying tests/test_review_regressions.py -> agent_foundry-0.1.0/tests
+copying tests/test_run_lifecycle.py -> agent_foundry-0.1.0/tests
+copying tests/test_runtime.py -> agent_foundry-0.1.0/tests
+copying tests/test_runtime_override.py -> agent_foundry-0.1.0/tests
+copying tests/test_sandbox.py -> agent_foundry-0.1.0/tests
+copying tests/test_security_and_policy_engine.py -> agent_foundry-0.1.0/tests
+copying tests/test_serve_and_channels.py -> agent_foundry-0.1.0/tests
+copying tests/test_state_store.py -> agent_foundry-0.1.0/tests
+copying tests/test_state_store_backends.py -> agent_foundry-0.1.0/tests
+copying tests/test_tools_and_llm_gateway.py -> agent_foundry-0.1.0/tests
+copying tests/test_versioned_state.py -> agent_foundry-0.1.0/tests
+copying tests/test_versioning.py -> agent_foundry-0.1.0/tests
+copying tests/test_workflow_engine_protocol.py -> agent_foundry-0.1.0/tests
+copying agent_foundry.egg-info/SOURCES.txt -> agent_foundry-0.1.0/agent_foundry.egg-info
+Writing agent_foundry-0.1.0/setup.cfg
+Creating tar archive
+removing 'agent_foundry-0.1.0' (and everything under it)
+* Building wheel from sdist
+* Getting build dependencies for wheel...
+running egg_info
+writing agent_foundry.egg-info/PKG-INFO
+writing dependency_links to agent_foundry.egg-info/dependency_links.txt
+writing entry points to agent_foundry.egg-info/entry_points.txt
+writing requirements to agent_foundry.egg-info/requires.txt
+writing top-level names to agent_foundry.egg-info/top_level.txt
+reading manifest file 'agent_foundry.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'agent_foundry.egg-info/SOURCES.txt'
+* Building wheel...
+running bdist_wheel
+running build
+running build_py
+creating build/lib/agent_foundry
+copying agent_foundry/policy_engine.py -> build/lib/agent_foundry
+copying agent_foundry/livekit_bridge.py -> build/lib/agent_foundry
+copying agent_foundry/benchmark.py -> build/lib/agent_foundry
+copying agent_foundry/crewai_bridge.py -> build/lib/agent_foundry
+copying agent_foundry/blackboard.py -> build/lib/agent_foundry
+copying agent_foundry/http_tools.py -> build/lib/agent_foundry
+copying agent_foundry/events.py -> build/lib/agent_foundry
+copying agent_foundry/batch.py -> build/lib/agent_foundry
+copying agent_foundry/security.py -> build/lib/agent_foundry
+copying agent_foundry/a2a_bridge.py -> build/lib/agent_foundry
+copying agent_foundry/data_connectors.py -> build/lib/agent_foundry
+copying agent_foundry/__init__.py -> build/lib/agent_foundry
+copying agent_foundry/serve.py -> build/lib/agent_foundry
+copying agent_foundry/observability.py -> build/lib/agent_foundry
+copying agent_foundry/feature_flags.py -> build/lib/agent_foundry
+copying agent_foundry/escalation.py -> build/lib/agent_foundry
+copying agent_foundry/runtime.py -> build/lib/agent_foundry
+copying agent_foundry/prompts.py -> build/lib/agent_foundry
+copying agent_foundry/orchestration.py -> build/lib/agent_foundry
+copying agent_foundry/agent_spec.py -> build/lib/agent_foundry
+copying agent_foundry/sandbox.py -> build/lib/agent_foundry
+copying agent_foundry/llm_gateway.py -> build/lib/agent_foundry
+copying agent_foundry/distributed.py -> build/lib/agent_foundry
+copying agent_foundry/experiments.py -> build/lib/agent_foundry
+copying agent_foundry/context.py -> build/lib/agent_foundry
+copying agent_foundry/cli.py -> build/lib/agent_foundry
+copying agent_foundry/execution_scope.py -> build/lib/agent_foundry
+copying agent_foundry/guardrails.py -> build/lib/agent_foundry
+copying agent_foundry/versioning.py -> build/lib/agent_foundry
+copying agent_foundry/autogen_bridge.py -> build/lib/agent_foundry
+copying agent_foundry/contracts.py -> build/lib/agent_foundry
+copying agent_foundry/planning.py -> build/lib/agent_foundry
+copying agent_foundry/eval_dataset.py -> build/lib/agent_foundry
+copying agent_foundry/i18n.py -> build/lib/agent_foundry
+copying agent_foundry/scaffold.py -> build/lib/agent_foundry
+copying agent_foundry/channels.py -> build/lib/agent_foundry
+copying agent_foundry/kpi.py -> build/lib/agent_foundry
+copying agent_foundry/eval.py -> build/lib/agent_foundry
+copying agent_foundry/mcp_tools.py -> build/lib/agent_foundry
+copying agent_foundry/governed_tools.py -> build/lib/agent_foundry
+copying agent_foundry/quickstart.py -> build/lib/agent_foundry
+copying agent_foundry/tools_gateway.py -> build/lib/agent_foundry
+copying agent_foundry/reinforcement.py -> build/lib/agent_foundry
+creating build/lib/agent_foundry/ui
+copying agent_foundry/ui/console.py -> build/lib/agent_foundry/ui
+copying agent_foundry/ui/__init__.py -> build/lib/agent_foundry/ui
+creating build/lib/agent_foundry/core
+copying agent_foundry/core/state_store.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/run.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/native_orchestration.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/engines.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/protocols.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/evalgate.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/__init__.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/result.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/agent.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/native_engine.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/execution_context.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/tool_decorator.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/model_router.py -> build/lib/agent_foundry/core
+copying agent_foundry/core/registries.py -> build/lib/agent_foundry/core
+running egg_info
+writing agent_foundry.egg-info/PKG-INFO
+writing dependency_links to agent_foundry.egg-info/dependency_links.txt
+writing entry points to agent_foundry.egg-info/entry_points.txt
+writing requirements to agent_foundry.egg-info/requires.txt
+writing top-level names to agent_foundry.egg-info/top_level.txt
+reading manifest file 'agent_foundry.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'agent_foundry.egg-info/SOURCES.txt'
+creating build/lib/agent_foundry/prompt_templates
+copying agent_foundry/prompt_templates/grounded_execution.md -> build/lib/agent_foundry/prompt_templates
+installing to build/bdist.macosx-26.0-arm64/wheel
+running install
+running install_lib
+creating build/bdist.macosx-26.0-arm64/wheel
+creating build/bdist.macosx-26.0-arm64/wheel/agent_foundry
+creating build/bdist.macosx-26.0-arm64/wheel/agent_foundry/ui
+copying build/lib/agent_foundry/ui/console.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/ui
+copying build/lib/agent_foundry/ui/__init__.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/ui
+copying build/lib/agent_foundry/policy_engine.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/livekit_bridge.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+creating build/bdist.macosx-26.0-arm64/wheel/agent_foundry/core
+copying build/lib/agent_foundry/core/state_store.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/run.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/native_orchestration.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/engines.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/protocols.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/evalgate.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/__init__.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/result.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/agent.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/native_engine.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/execution_context.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/tool_decorator.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/model_router.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/core/registries.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/core
+copying build/lib/agent_foundry/benchmark.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/crewai_bridge.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/blackboard.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/http_tools.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/events.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/batch.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/security.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/a2a_bridge.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/data_connectors.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/__init__.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/serve.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/observability.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/feature_flags.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/escalation.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/runtime.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/prompts.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/orchestration.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/agent_spec.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/sandbox.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/llm_gateway.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/distributed.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/experiments.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/context.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/cli.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/execution_scope.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/guardrails.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/versioning.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/autogen_bridge.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/contracts.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/planning.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/eval_dataset.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/i18n.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/scaffold.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/channels.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/kpi.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/eval.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/mcp_tools.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/governed_tools.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/quickstart.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+copying build/lib/agent_foundry/tools_gateway.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+creating build/bdist.macosx-26.0-arm64/wheel/agent_foundry/prompt_templates
+copying build/lib/agent_foundry/prompt_templates/grounded_execution.md -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry/prompt_templates
+copying build/lib/agent_foundry/reinforcement.py -> build/bdist.macosx-26.0-arm64/wheel/./agent_foundry
+running install_egg_info
+Copying agent_foundry.egg-info to build/bdist.macosx-26.0-arm64/wheel/./agent_foundry-0.1.0-py3.11.egg-info
+running install_scripts
+creating build/bdist.macosx-26.0-arm64/wheel/agent_foundry-0.1.0.dist-info/WHEEL
+creating '/private/tmp/agent-foundry-release-dist/.tmp-q9q3m0un/agent_foundry-0.1.0-py3-none-any.whl' and adding 'build/bdist.macosx-26.0-arm64/wheel' to it
+adding 'agent_foundry/__init__.py'
+adding 'agent_foundry/a2a_bridge.py'
+adding 'agent_foundry/agent_spec.py'
+adding 'agent_foundry/autogen_bridge.py'
+adding 'agent_foundry/batch.py'
+adding 'agent_foundry/benchmark.py'
+adding 'agent_foundry/blackboard.py'
+adding 'agent_foundry/channels.py'
+adding 'agent_foundry/cli.py'
+adding 'agent_foundry/context.py'
+adding 'agent_foundry/contracts.py'
+adding 'agent_foundry/crewai_bridge.py'
+adding 'agent_foundry/data_connectors.py'
+adding 'agent_foundry/distributed.py'
+adding 'agent_foundry/escalation.py'
+adding 'agent_foundry/eval.py'
+adding 'agent_foundry/eval_dataset.py'
+adding 'agent_foundry/events.py'
+adding 'agent_foundry/execution_scope.py'
+adding 'agent_foundry/experiments.py'
+adding 'agent_foundry/feature_flags.py'
+adding 'agent_foundry/governed_tools.py'
+adding 'agent_foundry/guardrails.py'
+adding 'agent_foundry/http_tools.py'
+adding 'agent_foundry/i18n.py'
+adding 'agent_foundry/kpi.py'
+adding 'agent_foundry/livekit_bridge.py'
+adding 'agent_foundry/llm_gateway.py'
+adding 'agent_foundry/mcp_tools.py'
+adding 'agent_foundry/observability.py'
+adding 'agent_foundry/orchestration.py'
+adding 'agent_foundry/planning.py'
+adding 'agent_foundry/policy_engine.py'
+adding 'agent_foundry/prompts.py'
+adding 'agent_foundry/quickstart.py'
+adding 'agent_foundry/reinforcement.py'
+adding 'agent_foundry/runtime.py'
+adding 'agent_foundry/sandbox.py'
+adding 'agent_foundry/scaffold.py'
+adding 'agent_foundry/security.py'
+adding 'agent_foundry/serve.py'
+adding 'agent_foundry/tools_gateway.py'
+adding 'agent_foundry/versioning.py'
+adding 'agent_foundry/core/__init__.py'
+adding 'agent_foundry/core/agent.py'
+adding 'agent_foundry/core/engines.py'
+adding 'agent_foundry/core/evalgate.py'
+adding 'agent_foundry/core/execution_context.py'
+adding 'agent_foundry/core/model_router.py'
+adding 'agent_foundry/core/native_engine.py'
+adding 'agent_foundry/core/native_orchestration.py'
+adding 'agent_foundry/core/protocols.py'
+adding 'agent_foundry/core/registries.py'
+adding 'agent_foundry/core/result.py'
+adding 'agent_foundry/core/run.py'
+adding 'agent_foundry/core/state_store.py'
+adding 'agent_foundry/core/tool_decorator.py'
+adding 'agent_foundry/prompt_templates/grounded_execution.md'
+adding 'agent_foundry/ui/__init__.py'
+adding 'agent_foundry/ui/console.py'
+adding 'agent_foundry-0.1.0.dist-info/licenses/LICENSE'
+adding 'agent_foundry-0.1.0.dist-info/METADATA'
+adding 'agent_foundry-0.1.0.dist-info/WHEEL'
+adding 'agent_foundry-0.1.0.dist-info/entry_points.txt'
+adding 'agent_foundry-0.1.0.dist-info/top_level.txt'
+adding 'agent_foundry-0.1.0.dist-info/RECORD'
+removing build/bdist.macosx-26.0-arm64/wheel
+Successfully built agent_foundry-0.1.0.tar.gz and agent_foundry-0.1.0-py3-none-any.whl

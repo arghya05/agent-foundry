@@ -2,8 +2,8 @@
 
 Reviewed **2026-09-27** against commit **`2623ea1b2fe2d93beb1976c0d4e2449891b6900a`**. The original review is preserved; subsequent implementation and experiments are tracked separately.
 
-**Current status:** [CURRENT_STATUS.md](CURRENT_STATUS.md) records five repair iterations,
-643 passing tests / 25 skips, and the remaining enterprise and research gates.
+**Current status:** [CURRENT_STATUS.md](CURRENT_STATUS.md) records six repair iterations,
+661 passing tests / 25 skips, and the remaining enterprise and research gates.
 [Live results](LIVE_BENCHMARK_RESULTS.md) cover seven archived campaigns and 578
 finished attempts. The fresh baseline stopped at 179/180 attempts; fresh guidance
 was not run. No SOTA or original-method claim is established.

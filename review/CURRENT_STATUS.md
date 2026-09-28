@@ -17,11 +17,11 @@ This document records the subsequent repairs and the remaining release gates.
   empty/unmeasured default gates fail; costs use per-case budget deltas and retain
   known failure costs. See [migration notes](EVALUATION_MIGRATION.md).
 
-The full local test invocation records **643 passed, 25 skipped**. Type checking
+The full local test invocation records **661 passed, 25 skipped**. Type checking
 reports no issues in 59 source files. This covers one Python 3.11/macOS environment,
 not every supported Python version, integration, database or deployment.
 See [implementation details](IMPLEMENTATION_20260928.md) and
-[the final test log](evidence/iteration-005-full-suite.txt).
+[the final test log](evidence/iteration-006-full-suite.txt).
 
 ## I005 enterprise follow-up
 
@@ -31,9 +31,19 @@ explicit opt-in; opaque CrewAI internals remain unsupported. Request-specific
 autonomy and approval policies are enforced in both runtimes. Approval-required
 exports stop before effects; authenticated durable approval resume is still open.
 
-The initial release was pushed as commit `2e8a240`. The unfinished paper remains
+The initial release was pushed as commit `2e8a240`; I005 was pushed as `9718a9d`.
+The unfinished paper remains
 local while enterprise work is prioritized. Subsequent commits record individual
 validated hardening steps; they do not close the whole deployment backlog.
+
+## I006 native state consistency
+
+[I006](IMPLEMENTATION_006_STATE_CONSISTENCY.md) repairs stale single-agent history,
+missing update persistence and mutable returned state. Shared Memory and local
+SQLite support atomic version checks; SQLite tests exercise real process exit
+and continuation. Conflicts do not automatically retry. Outer topology state,
+Redis/Postgres version checks, fenced ownership and external effect reconciliation
+remain open. These changes do not establish exactly-once tool execution.
 
 ## Benchmark outcome
 
