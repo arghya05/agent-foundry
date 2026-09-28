@@ -1,0 +1,11 @@
+agent_foundry-ablate-fail_open_always: 46/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=d334802f31c4f01e
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             4/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6
+  FAIL fail_mode_discipline.01_fail_closed_honored ['some calls were allowed']
+  FAIL fail_mode_discipline.03_5xx_not_silent_allow ['some calls were allowed']

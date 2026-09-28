@@ -1,0 +1,11 @@
+indep-agent_foundry-ablate-no_tenant_membership: 22/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=8479a33f5010f2d8
+  audit_completeness               3/3
+  cross_tenant_isolation           1/3
+  delegation_provenance            3/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               3/3
+  scope_inheritance                3/3
+  FAIL independent.cross_tenant_isolation.01_same_uid_different_scopes ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.02_same_uid_policy_and_role_scoped ['some calls were allowed', 'found 0 matching audit entries']

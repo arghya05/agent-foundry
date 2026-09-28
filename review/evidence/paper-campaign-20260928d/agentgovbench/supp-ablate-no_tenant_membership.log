@@ -1,0 +1,3 @@
+supp-agent_foundry-ablate-no_tenant_membership: 7/8  AV coverage 8/8 fidelity 8/8 liveness 8/8  sha256=7a68271c4c7cada2
+  discrimination                   7/8
+  FAIL supplemental.04_uid_collision_across_tenants ['some calls were allowed', 'found 0 matching audit entries']

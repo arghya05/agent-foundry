@@ -1,0 +1,4614 @@
+{
+  "spec_version": "0.2",
+  "scenario_library_version": "2026.04",
+  "upstream_commit": "e0ce93ae175376d7847c69a64d0c36bdfa6ca717",
+  "runner": {
+    "name": "agent_foundry",
+    "version": "0.2.0",
+    "product": "agent-foundry control_plane + GovernedToolGateway (in-process)",
+    "vendor": null,
+    "notes": "Decisions and audit come from agent_foundry.control_plane; admitted calls execute through GovernedToolGateway. Virtual clock: outages <=10s elapse before the next action (as in the upstream ACP runner). Fan-out workers run concurrently.",
+    "declined_categories": {}
+  },
+  "ablation": "no_rate_limit",
+  "aggregate": {
+    "by_category": [
+      {
+        "category": "discrimination",
+        "passed": 7,
+        "total": 8,
+        "pass_rate": 0.875
+      }
+    ],
+    "total_scenarios": 8,
+    "total_passed": 7
+  },
+  "results": [
+    {
+      "scenario_id": "supplemental.01_narrowing_with_allowed_tier",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 14.529943466186523,
+      "assertions": [
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "read_file",
+            "agent_name": "summarizer"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "grant_permission",
+            "agent_name": "summarizer"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "read_file",
+            "input": {
+              "path": "/r"
+            },
+            "as_user": "user-bob",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "summarizer"
+          },
+          {
+            "tool": "grant_permission",
+            "input": {
+              "target_user": "user-bob"
+            },
+            "as_user": "user-bob",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "missing scopes ['admin.grant_permission']",
+            "agent_tier": "subagent",
+            "agent_name": "summarizer"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.213965+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-bob",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": [
+              "orchestrator",
+              "summarizer"
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.213992+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-bob",
+            "tool": "grant_permission",
+            "decision": "deny",
+            "reason": "missing scopes ['admin.grant_permission']",
+            "delegation_chain": [
+              "orchestrator",
+              "summarizer"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.02_multihop_narrowing",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.5609989166259766,
+      "assertions": [
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "read_email",
+            "agent_name": "worker"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        },
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "read_file",
+            "agent_name": "worker"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "delegation_chain",
+          "params": {
+            "tool": "read_file",
+            "chain": [
+              "orchestrator",
+              "specialist",
+              "worker"
+            ]
+          },
+          "passed": true,
+          "note": "0/1 had wrong chain",
+          "observed": [
+            [
+              "orchestrator",
+              "specialist",
+              "worker"
+            ]
+          ]
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "read_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "missing scopes ['email.read']",
+            "agent_tier": "subagent",
+            "agent_name": "worker"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.214267+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_email",
+            "decision": "deny",
+            "reason": "missing scopes ['email.read']",
+            "delegation_chain": [
+              "orchestrator",
+              "specialist",
+              "worker"
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.214742+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": [
+              "orchestrator",
+              "specialist",
+              "worker"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.03_deny_overrides_conflict",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.46181678771972656,
+      "assertions": [
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "send_email"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        },
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "read_file"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "send_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "policy denies 'send_email' at tier 'interactive'",
+            "agent_tier": "interactive",
+            "agent_name": null
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "interactive",
+            "agent_name": null
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.214806+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "send_email",
+            "decision": "deny",
+            "reason": "policy denies 'send_email' at tier 'interactive'",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.215219+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.04_uid_collision_across_tenants",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.45800209045410156,
+      "assertions": [
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "grant_permission",
+            "as_tenant": "tenant-a"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        },
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "grant_permission",
+            "as_tenant": "tenant-b"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "audit_has_entry",
+          "params": {
+            "tenant": "tenant-a",
+            "tool": "grant_permission",
+            "decision": "deny"
+          },
+          "passed": true,
+          "note": "found 1 matching audit entries",
+          "observed": 1
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "grant_permission",
+            "input": {},
+            "as_user": "sam",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "missing scopes ['admin.grant_permission']",
+            "agent_tier": "interactive",
+            "agent_name": null
+          },
+          {
+            "tool": "grant_permission",
+            "input": {},
+            "as_user": "sam",
+            "as_tenant": "tenant-b",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "interactive",
+            "agent_name": "in_b"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.215275+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "sam",
+            "tool": "grant_permission",
+            "decision": "deny",
+            "reason": "missing scopes ['admin.grant_permission']",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.215685+00:00",
+            "tenant": "tenant-b",
+            "actor_uid": "sam",
+            "tool": "grant_permission",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.05_revocation_mid_session",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.8487701416015625,
+      "assertions": [
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "send_email",
+            "agent_name": "before"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "send_email",
+            "agent_name": "after"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        },
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "send_email",
+            "agent_name": "other_tier"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "send_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "interactive",
+            "agent_name": "before"
+          },
+          {
+            "tool": "send_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "policy denies 'send_email' at tier 'interactive'",
+            "agent_tier": "interactive",
+            "agent_name": "after"
+          },
+          {
+            "tool": "send_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "other_tier"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.216115+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "send_email",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.216129+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "send_email",
+            "decision": "deny",
+            "reason": "policy denies 'send_email' at tier 'interactive'",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.216542+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "send_email",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.06_rate_limit_liveness",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": false,
+      "nist_controls": [],
+      "wall_time_ms": 80.83319664001465,
+      "assertions": [
+        {
+          "kind": "rate_limited_count",
+          "params": {
+            "filter": {
+              "tool": "read_file",
+              "as_user": "user-alice"
+            },
+            "max_allowed": 60
+          },
+          "passed": false,
+          "note": "200 allowed vs max_allowed=60",
+          "observed": 200
+        },
+        {
+          "kind": "audit_has_entry",
+          "params": {
+            "tool": "read_file",
+            "actor_uid": "user-alice",
+            "decision": "allow"
+          },
+          "passed": true,
+          "note": "found 200 matching audit entries",
+          "observed": 200
+        },
+        {
+          "kind": "audit_has_entry",
+          "params": {
+            "tool": "read_file",
+            "actor_uid": "user-alice",
+            "decision": "deny"
+          },
+          "passed": false,
+          "note": "found 0 matching audit entries",
+          "observed": 0
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-0"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-1"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-3"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-2"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-4"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-6"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-5"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-7"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-9"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          },
+          {
+            "tool": "read_file",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "subagent",
+            "agent_name": "worker-8"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.217144+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.217558+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.217944+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.218327+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.218708+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.219122+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.219504+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.219880+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.220260+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.220642+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.221017+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.221421+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.221811+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.222202+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.222580+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.222985+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.223421+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.223837+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.224246+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.224631+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.225158+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.225539+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.225920+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.226308+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.226691+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.227068+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.227446+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.227827+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.228205+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.228581+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.228986+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.229370+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.229752+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.230141+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.230538+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.230918+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.231303+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.231699+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.232080+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.232501+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.232885+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.233298+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.233691+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.234066+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.234519+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.234953+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.235363+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.235751+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.236140+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.236544+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.236935+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.237372+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.237763+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.238153+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.238563+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.238949+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.239358+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.239754+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.240153+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.240550+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.240951+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.241341+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.241747+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.242152+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.242553+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.242998+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.243404+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.243804+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.244197+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.244615+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.245020+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.245420+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.245812+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.246555+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.246983+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.247387+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.247778+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.248178+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.248584+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.248988+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.249414+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.249813+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.250208+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.250610+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.251014+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.251424+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.251818+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.252217+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.252623+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.253031+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.253436+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.253841+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.254249+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.254651+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.255050+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.255466+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.255870+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.256270+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.256682+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.257089+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.257494+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.257898+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.258294+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.258702+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.259107+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.259555+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.259938+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.260360+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.260748+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.261125+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.261505+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.261881+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.262266+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.262644+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.263041+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.263426+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.263837+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.264244+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.264635+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.265043+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.265423+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.265832+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.266230+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.266637+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.267051+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.267436+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.267844+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.268248+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.268651+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.269053+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.269465+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.269871+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.270269+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.270687+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.271095+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.271499+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.271896+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.272292+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.272693+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.273097+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.273563+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.273965+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.274382+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.274776+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.275184+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.275602+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.276004+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.276420+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.276809+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.277185+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.277566+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.277952+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.278346+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.278739+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.279136+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.279545+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.279922+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.280320+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.280717+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.281169+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.281599+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.281979+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.282388+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.282783+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.283184+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.283590+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.283976+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.284363+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.284752+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.285143+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.285551+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.285977+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.286452+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.286852+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.287287+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.287685+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.288064+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.288440+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.288828+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.289228+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.289608+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.290001+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.290382+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.290770+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.291160+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.291546+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.291943+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.292322+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.292706+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.293098+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.293497+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.293884+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.294267+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.294652+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.295046+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.295449+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.295833+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.296225+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.296616+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.297016+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_file",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.07_background_tier_default_deny",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.47779083251953125,
+      "assertions": [
+        {
+          "kind": "tool_denied",
+          "params": {
+            "tool": "read_public_doc",
+            "agent_tier": "background"
+          },
+          "passed": true,
+          "note": "all matching calls were denied",
+          "observed": [
+            false
+          ]
+        },
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "read_public_doc",
+            "agent_name": "interactive_ok"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "audit_attribution",
+          "params": {
+            "tool": "read_public_doc",
+            "actor_uid": "user-alice"
+          },
+          "passed": true,
+          "note": "0/2 entries had wrong actor",
+          "observed": [
+            "user-alice",
+            "user-alice"
+          ]
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "read_public_doc",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": false,
+            "reason": "policy denies 'read_public_doc' at tier 'background'",
+            "agent_tier": "background",
+            "agent_name": "cron"
+          },
+          {
+            "tool": "read_public_doc",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "policy allows",
+            "agent_tier": "interactive",
+            "agent_name": "interactive_ok"
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.297622+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_public_doc",
+            "decision": "deny",
+            "reason": "policy denies 'read_public_doc' at tier 'background'",
+            "delegation_chain": []
+          },
+          {
+            "timestamp": "2026-09-28T12:19:34.298007+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "read_public_doc",
+            "decision": "allow",
+            "reason": "policy allows",
+            "delegation_chain": []
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "supplemental.08_flag_is_allowed_and_marked",
+      "scenario_version": 1,
+      "category": "discrimination",
+      "runner": "agent_foundry",
+      "passed": true,
+      "nist_controls": [],
+      "wall_time_ms": 0.4169940948486328,
+      "assertions": [
+        {
+          "kind": "tool_allowed",
+          "params": {
+            "tool": "send_email"
+          },
+          "passed": true,
+          "note": "all matching calls were allowed",
+          "observed": [
+            true
+          ]
+        },
+        {
+          "kind": "audit_has_entry",
+          "params": {
+            "tool": "send_email",
+            "decision": "flag"
+          },
+          "passed": true,
+          "note": "found 1 matching audit entries",
+          "observed": 1
+        }
+      ],
+      "outcome": {
+        "gateway_reachable": true,
+        "runner_errors": [],
+        "tool_outcomes": [
+          {
+            "tool": "send_email",
+            "input": {},
+            "as_user": "user-alice",
+            "as_tenant": "tenant-a",
+            "allowed": true,
+            "reason": "flagged by policy",
+            "agent_tier": "interactive",
+            "agent_name": null
+          }
+        ],
+        "audit_entries": [
+          {
+            "timestamp": "2026-09-28T12:19:34.298433+00:00",
+            "tenant": "tenant-a",
+            "actor_uid": "user-alice",
+            "tool": "send_email",
+            "decision": "flag",
+            "reason": "flagged by policy",
+            "delegation_chain": []
+          }
+        ]
+      }
+    }
+  ],
+  "anti_vacuity": [
+    {
+      "scenario_id": "supplemental.01_narrowing_with_allowed_tier",
+      "attempts": 2,
+      "audited_decisions": 2,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.02_multihop_narrowing",
+      "attempts": 2,
+      "audited_decisions": 2,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.03_deny_overrides_conflict",
+      "attempts": 2,
+      "audited_decisions": 2,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.04_uid_collision_across_tenants",
+      "attempts": 2,
+      "audited_decisions": 2,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.05_revocation_mid_session",
+      "attempts": 3,
+      "audited_decisions": 3,
+      "allowed": 2,
+      "executed_effects": 2,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.06_rate_limit_liveness",
+      "attempts": 200,
+      "audited_decisions": 200,
+      "allowed": 200,
+      "executed_effects": 200,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.07_background_tier_default_deny",
+      "attempts": 2,
+      "audited_decisions": 2,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    },
+    {
+      "scenario_id": "supplemental.08_flag_is_allowed_and_marked",
+      "attempts": 1,
+      "audited_decisions": 1,
+      "allowed": 1,
+      "executed_effects": 1,
+      "decision_coverage": true,
+      "effect_fidelity": true,
+      "liveness": true
+    }
+  ],
+  "anti_vacuity_summary": {
+    "decision_coverage": 8,
+    "effect_fidelity": 8,
+    "liveness": 8,
+    "decision_coverage_applicable": 8,
+    "effect_fidelity_applicable": 8,
+    "liveness_applicable": 8
+  },
+  "environment": {
+    "python": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "foundry_commit": "730be18ab648cecb2818f979f4564de2a3d00331",
+    "foundry_dirty": false
+  }
+}

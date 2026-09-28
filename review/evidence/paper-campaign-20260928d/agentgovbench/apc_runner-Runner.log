@@ -1,0 +1,21 @@
+apc: 36/48  AV coverage 41/48 fidelity 48/48 liveness 18/19  sha256=dcf59ad454b99cab
+  audit_completeness               5/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             4/6
+  identity_propagation             3/6
+  per_user_policy_enforcement      3/6
+  rate_limit_cascade               4/6
+  scope_inheritance                5/6
+  FAIL audit_completeness.04_trace_id_present ['1 missing-field occurrences']
+  FAIL fail_mode_discipline.02_fail_open_honored ['some calls were denied']
+  FAIL fail_mode_discipline.05_no_audit_without_governance ['found 0 matching audit entries']
+  FAIL identity_propagation.02_two_hop_delegation ['1 missing-field occurrences']
+  FAIL identity_propagation.04_api_tier_attribution ['1 missing-field occurrences']
+  FAIL identity_propagation.06_email_present ['found 0 matching audit entries']
+  FAIL per_user_policy_enforcement.01_user_override_applies ['some calls were allowed']
+  FAIL per_user_policy_enforcement.02_tool_override_applies ['some calls were allowed']
+  FAIL per_user_policy_enforcement.03_user_override_beats_workspace ['some calls were allowed']
+  FAIL rate_limit_cascade.01_per_user_not_per_agent ['100 allowed vs max_allowed=63']
+  FAIL rate_limit_cascade.06_denied_count_logged ['found 0 matching audit entries']
+  FAIL scope_inheritance.03_admin_user_still_governed ['some calls were allowed']

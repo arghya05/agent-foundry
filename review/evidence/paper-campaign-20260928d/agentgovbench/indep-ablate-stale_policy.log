@@ -1,0 +1,11 @@
+indep-agent_foundry-ablate-stale_policy: 22/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=43a979a20da9f333
+  audit_completeness               3/3
+  cross_tenant_isolation           2/3
+  delegation_provenance            3/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      2/3
+  rate_limit_cascade               3/3
+  scope_inheritance                3/3
+  FAIL independent.cross_tenant_isolation.03_same_uid_revocation_isolated ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.per_user_policy_enforcement.03_revoke_then_regrant ['some calls were allowed']

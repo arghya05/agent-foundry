@@ -1,0 +1,9 @@
+indep-agent_foundry-ablate-fail_mode_learned_only: 24/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=be517529dc3221dc
+  audit_completeness               3/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            3/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               3/3
+  scope_inheritance                3/3

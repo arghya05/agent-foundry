@@ -1,6 +1,6 @@
 \section{Evaluation Protocol}
 \label{sec:protocol}
-Table~\ref{tab:protocol} maps each layer to the evidence we collect. We prefer public benchmarks with published comparators and unmodified scorers; where none exists we build a deterministic benchmark, state that it is ours, and include a naive baseline. Model-free experiments were run from a clean commit by one script (\code{benchmarks/run\_paper\_campaign.py}), which refuses to reuse an output directory and records SHA-256 digests of every output. Three such campaigns were run and all are retained: the first exposed the clock anomaly of \S\ref{sec:formal}; the second followed the monotonic-clock fix; the third followed the principal-partitioned prompt cache (I5) and the conversion of gateway failures into audited denials (Proposition~\ref{prop:total}), and supplies every reported number.
+Table~\ref{tab:protocol} maps each layer to the evidence we collect. We prefer public benchmarks with published comparators and unmodified scorers; where none exists we build a deterministic benchmark, state that it is ours, and include a naive baseline. Model-free experiments were run from a clean commit by one script (\code{benchmarks/run\_paper\_campaign.py}), which refuses to reuse an output directory and records SHA-256 digests of every output. Four such campaigns were run and all are retained: the first exposed the clock anomaly of \S\ref{sec:formal}; the second followed the monotonic-clock fix; the third followed the principal-partitioned prompt cache (I5) and the conversion of gateway failures into audited denials (Proposition~\ref{prop:total}); the fourth adds the blind suite, the measured competitors and the AgentDojo study without changing \method{}'s code, and supplies every reported number.
 
 \begin{table}[t]
 \centering\small
@@ -10,15 +10,15 @@ Table~\ref{tab:protocol} maps each layer to the evidence we collect. We prefer p
 \toprule
 Layer / property & Benchmark & Primary metric & Comparator \\
 \midrule
-Governance (L3) & AgentGovBench v0.2, 48 scenarios, unmodified scorer & scenarios passed; 10 repetitions & 15 published runs; trivial runners \\
+Governance (L3) & AgentGovBench v0.2, 48 scenarios, unmodified scorer & scenarios passed; 10 repetitions & 15 published runs; AGT and Bounded Agents run by us; trivial runners \\
 Mechanisms & 13 single-control ablations & scenarios flipped & full system \\
-Measurement validity & 8 supplemental scenarios (ours); anti-vacuity checks & discrimination, coverage, fidelity, liveness & trivial runners \\
+Measurement validity & 8 supplemental scenarios (ours); 24 blind scenarios; anti-vacuity checks & discrimination, coverage, fidelity, liveness & trivial runners; competitors \\
 Boundary conformance (L0--L3) & regression suites across both engines & failing$\to$passing cases & pre-repair code \\
 Orchestration (L1--L2) & 8 topologies, scripted model, 5 runs & p50/p95 latency, memory & LangGraph engine \\
 Governance cost & per-call microbenchmark, 7 reps $\times$ 2{,}000 calls & $\mu$s per call & bare call, registry, gateway \\
 Scalability & 1--32 threads; 1--8 shards & calls/s; p99; exact limits & single thread/shard \\
 Context (L5) & long-history needle assembly (ours) & retention within budget & recency window; full history \\
-Security filter & deepset/prompt-injections & held-out recall, precision, FPR & marker filter; constants \\
+Security filter & deepset/prompt-injections; AgentDojo tool outputs (model-free) & held-out recall, precision, FPR & marker filter; constants \\
 Hallucination scorer & HaluEval-QA, 10{,}000 pairs & AUROC; length-matched AUROC & answer length \\
 Task execution (L0--L5) & WorkBench, matched 3-arm study & official accuracy; McNemar & reference loop; published runs \\
 \bottomrule

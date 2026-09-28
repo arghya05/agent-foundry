@@ -1,0 +1,12 @@
+agt: 45/48  AV coverage 48/48 fidelity 48/48 liveness 18/19  sha256=0c993661aaef5ecf
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            5/6
+  fail_mode_discipline             5/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               5/6
+  scope_inheritance                6/6
+  FAIL delegation_provenance.04_chain_preserved_on_deny ['1/1 had wrong chain']
+  FAIL fail_mode_discipline.02_fail_open_honored ['some calls were denied']
+  FAIL rate_limit_cascade.01_per_user_not_per_agent ['100 allowed vs max_allowed=63']

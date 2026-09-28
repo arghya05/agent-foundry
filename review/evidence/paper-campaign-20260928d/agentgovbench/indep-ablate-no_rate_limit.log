@@ -1,0 +1,13 @@
+indep-agent_foundry-ablate-no_rate_limit: 20/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=560c3ca89c73c567
+  audit_completeness               2/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            3/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               0/3
+  scope_inheritance                3/3
+  FAIL independent.audit_completeness.03_throttle_and_policy_denials_logged ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.rate_limit_cascade.01_interleaved_denials_distinct_subagents ['some calls were allowed', '5 allowed vs max_allowed=4', 'found 0 matching audit entries']
+  FAIL independent.rate_limit_cascade.02_tier_buckets_do_not_collapse ['some calls were allowed', '4 allowed vs max_allowed=3']
+  FAIL independent.rate_limit_cascade.03_user_override_limit_under_fanout ['20 allowed vs max_allowed=6', 'found 0 matching audit entries']

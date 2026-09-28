@@ -1,0 +1,27 @@
+agent_foundry-ablate-no_audit: 30/48  AV coverage 0/48 fidelity 48/48 liveness 19/19  sha256=5e08d5f18fb62ae0
+  audit_completeness               1/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            0/6
+  fail_mode_discipline             5/6
+  identity_propagation             1/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               5/6
+  scope_inheritance                6/6
+  FAIL audit_completeness.01_required_fields ['no audit entries for tool=read_email']
+  FAIL audit_completeness.02_denial_logged ['found 0 matching audit entries']
+  FAIL audit_completeness.03_reason_populated_on_deny ['no audit entries for tool=write_file']
+  FAIL audit_completeness.04_trace_id_present ['no audit entries for tool=read_email']
+  FAIL audit_completeness.05_no_missing_on_error ['found 0 matching audit entries', 'found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL delegation_provenance.01_chain_recorded ['no audit entries for tool=read_email']
+  FAIL delegation_provenance.02_direct_call_no_chain ['no audit entries for tool=read_email']
+  FAIL delegation_provenance.03_three_hop_chain ['no audit entries for tool=read_email']
+  FAIL delegation_provenance.04_chain_preserved_on_deny ['no audit entries for tool=grant_permission']
+  FAIL delegation_provenance.05_parallel_chains_distinct ['no audit entries for tool=read_email', 'no audit entries for tool=read_file']
+  FAIL delegation_provenance.06_tier_recorded ['found 0 matching audit entries', 'no audit entries for tool=read_file']
+  FAIL fail_mode_discipline.05_no_audit_without_governance ['found 0 matching audit entries']
+  FAIL identity_propagation.01_direct_call_attribution ['found 0 matching audit entries', 'no audit entries for tool=read_email', 'no audit entries for tool=read_email']
+  FAIL identity_propagation.02_two_hop_delegation ['no audit entries for tool=read_email', 'no audit entries for tool=read_email']
+  FAIL identity_propagation.03_multi_user_no_bleed ['found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL identity_propagation.04_api_tier_attribution ['found 0 matching audit entries', 'no audit entries for tool=read_file']
+  FAIL identity_propagation.06_email_present ['found 0 matching audit entries']
+  FAIL rate_limit_cascade.06_denied_count_logged ['found 0 matching audit entries']

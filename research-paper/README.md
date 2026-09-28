@@ -14,8 +14,8 @@ only from the repository:
 
 | Source | Contents |
 | --- | --- |
-| `review/evidence/paper-campaign-20260928c/` | AgentGovBench (10 repetitions, baselines, 13 ablations, 2 probes, supplemental suite), overhead, runtime, scaling, sharding, long-context, injection and hallucination datasets, test log; `manifest.json` has SHA-256 digests |
-| `review/evidence/paper-campaign-20260928{,b}/` | Earlier campaigns, retained (the first recorded the clock anomaly discussed in §3) |
+| `review/evidence/paper-campaign-20260928d/` | AgentGovBench (10 repetitions, baselines, 13 ablations, 2 probes, supplemental and blind suites, Agent Governance Toolkit and Bounded Agents runs), AgentDojo detector replay, overhead, runtime, scaling, sharding, long-context, injection and hallucination datasets, test log; `manifest.json` has SHA-256 digests |
+| `review/evidence/paper-campaign-20260928{,b,c}/` | Earlier campaigns, retained (the first recorded the clock anomaly discussed in §3) |
 | `review/evidence/agentgovbench-published-results-20260928.json` | Published AgentGovBench runs recounted per scenario, with file hashes |
 | `review/evidence/live-workbench-20260928/`, `workbench-published-frontier/` | Earlier WorkBench study and the 24 rescored published runs |
 
@@ -25,7 +25,8 @@ only from the repository:
 # 1. (optional) re-run every model-free experiment from a clean commit
 git clone https://github.com/agentic-control-plane/agentgovbench /tmp/agb
 git -C /tmp/agb checkout e0ce93ae175376d7847c69a64d0c36bdfa6ca717
-python benchmarks/run_paper_campaign.py --agentgovbench /tmp/agb --out review/evidence/paper-campaign-<date>
+python benchmarks/run_paper_campaign.py --agentgovbench /tmp/agb --out review/evidence/paper-campaign-<date> \
+    [--competitor-python <env with AGT + bounded-agents>] [--agentdojo-python <env with agentdojo>]
 # 2. regenerate numbers and compile (Tectonic); fails on undefined refs/citations or overfull boxes
 python research-paper/build_paper.py --compiler /path/to/tectonic
 ```

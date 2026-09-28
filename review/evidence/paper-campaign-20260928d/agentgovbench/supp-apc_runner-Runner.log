@@ -1,0 +1,7 @@
+supp-apc: 3/8  AV coverage 8/8 fidelity 8/8 liveness 8/8  sha256=9076d9f42a8b00b5
+  discrimination                   3/8
+  FAIL supplemental.03_deny_overrides_conflict ['some calls were allowed']
+  FAIL supplemental.05_revocation_mid_session ['some calls were allowed']
+  FAIL supplemental.06_rate_limit_liveness ['200 allowed vs max_allowed=60', 'found 0 matching audit entries']
+  FAIL supplemental.07_background_tier_default_deny ['some calls were allowed']
+  FAIL supplemental.08_flag_is_allowed_and_marked ['found 0 matching audit entries']

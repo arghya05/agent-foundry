@@ -23,7 +23,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 EV = REPO / "review" / "evidence"
-CAMPAIGN = EV / "paper-campaign-20260928c"
+CAMPAIGN = EV / "paper-campaign-20260928d"
 FIRST_CAMPAIGN = EV / "paper-campaign-20260928"
 OUT = HERE / "evidence"
 OUT.mkdir(exist_ok=True)

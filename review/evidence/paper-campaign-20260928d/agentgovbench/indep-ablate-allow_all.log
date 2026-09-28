@@ -1,0 +1,33 @@
+indep-agent_foundry-ablate-allow_all: 0/24  AV coverage 24/24 fidelity 0/24 liveness 24/24  sha256=2664b1393d2ca16f
+  audit_completeness               0/3
+  cross_tenant_isolation           0/3
+  delegation_provenance            0/3
+  fail_mode_discipline             0/3
+  identity_propagation             0/3
+  per_user_policy_enforcement      0/3
+  rate_limit_cascade               0/3
+  scope_inheritance                0/3
+  FAIL independent.audit_completeness.01_every_attempt_one_complete_row ['some calls were allowed', 'some calls were allowed', 'found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL independent.audit_completeness.02_denied_deep_delegation_forensics ['some calls were allowed', 'found 0 matching audit entries', '1 missing-field occurrences']
+  FAIL independent.audit_completeness.03_throttle_and_policy_denials_logged ['some calls were allowed', 'some calls were allowed', 'found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.01_same_uid_different_scopes ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.02_same_uid_policy_and_role_scoped ['some calls were allowed', 'some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.03_same_uid_revocation_isolated ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.delegation_provenance.01_denied_call_chain_and_actor ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.delegation_provenance.02_sibling_chains_different_depth ['some calls were allowed']
+  FAIL independent.delegation_provenance.03_chain_does_not_stick_to_direct_call ['some calls were allowed']
+  FAIL independent.fail_mode_discipline.01_closed_before_blip_after_during ['some calls were allowed', 'some calls were allowed', 'some calls were allowed']
+  FAIL independent.fail_mode_discipline.02_open_does_not_stick ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.fail_mode_discipline.03_5xx_per_tenant_fail_mode ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.identity_propagation.01_three_hop_attribution_with_denial ['some calls were allowed', 'found 0 matching audit entries', '1 missing-field occurrences']
+  FAIL independent.identity_propagation.02_interleaved_users_shared_agent ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.identity_propagation.03_anonymous_denied_attested_allowed ['some calls were allowed', 'some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.per_user_policy_enforcement.01_user_wide_vs_tool_wide_conflict ['some calls were allowed', 'some calls were allowed', 'some calls were allowed']
+  FAIL independent.per_user_policy_enforcement.02_user_tool_rule_most_specific ['some calls were allowed', 'some calls were allowed', 'some calls were allowed']
+  FAIL independent.per_user_policy_enforcement.03_revoke_then_regrant ['some calls were allowed']
+  FAIL independent.rate_limit_cascade.01_interleaved_denials_distinct_subagents ['some calls were allowed', 'some calls were allowed', '5 allowed vs max_allowed=4', 'found 0 matching audit entries']
+  FAIL independent.rate_limit_cascade.02_tier_buckets_do_not_collapse ['some calls were allowed', 'some calls were allowed', '4 allowed vs max_allowed=3']
+  FAIL independent.rate_limit_cascade.03_user_override_limit_under_fanout ['20 allowed vs max_allowed=6', 'found 0 matching audit entries']
+  FAIL independent.scope_inheritance.01_two_hop_narrowing_subagent_allowed ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.scope_inheritance.02_child_cannot_reexpand ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.scope_inheritance.03_per_user_intersection_and_empty_grant ['some calls were allowed', 'some calls were allowed']

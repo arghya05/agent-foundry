@@ -1,0 +1,10 @@
+agent_foundry-ablate-stale_policy: 47/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=cd62619d47c858ca
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             6/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      5/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6
+  FAIL per_user_policy_enforcement.06_revoked_scope_immediate ['some calls were allowed']

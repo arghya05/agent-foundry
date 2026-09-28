@@ -1,0 +1,4 @@
+supp-agt_shared_identity: 6/8  AV coverage 8/8 fidelity 8/8 liveness 6/8  sha256=d9f32158baaca0c4
+  discrimination                   6/8
+  FAIL supplemental.02_multihop_narrowing ['some calls were denied', '1/1 had wrong chain']
+  FAIL supplemental.08_flag_is_allowed_and_marked ['some calls were denied', 'found 0 matching audit entries']

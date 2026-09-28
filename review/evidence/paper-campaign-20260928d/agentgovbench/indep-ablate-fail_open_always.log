@@ -1,0 +1,11 @@
+indep-agent_foundry-ablate-fail_open_always: 22/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=97e86a9a5fc4f743
+  audit_completeness               3/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            3/3
+  fail_mode_discipline             1/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               3/3
+  scope_inheritance                3/3
+  FAIL independent.fail_mode_discipline.01_closed_before_blip_after_during ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.fail_mode_discipline.03_5xx_per_tenant_fail_mode ['some calls were allowed']

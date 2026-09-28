@@ -1,0 +1,10 @@
+indep-agent_foundry-ablate-no_deny_overrides: 23/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=bd4e741670ad4ee0
+  audit_completeness               3/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            3/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      2/3
+  rate_limit_cascade               3/3
+  scope_inheritance                3/3
+  FAIL independent.per_user_policy_enforcement.01_user_wide_vs_tool_wide_conflict ['some calls were allowed']

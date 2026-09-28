@@ -1,0 +1,12 @@
+indep-agent_foundry-ablate-no_scope_check_plane: 21/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=2eaf105592235bbf
+  audit_completeness               3/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            3/3
+  fail_mode_discipline             1/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               2/3
+  scope_inheritance                3/3
+  FAIL independent.fail_mode_discipline.02_open_does_not_stick ['some calls were denied']
+  FAIL independent.fail_mode_discipline.03_5xx_per_tenant_fail_mode ['some calls were denied']
+  FAIL independent.rate_limit_cascade.01_interleaved_denials_distinct_subagents ['some calls were denied']

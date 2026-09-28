@@ -1,0 +1,16 @@
+indep-agt_shared_identity: 17/24  AV coverage 24/24 fidelity 24/24 liveness 23/24  sha256=d1c3292bc0e06eb9
+  audit_completeness               2/3
+  cross_tenant_isolation           3/3
+  delegation_provenance            2/3
+  fail_mode_discipline             1/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      2/3
+  rate_limit_cascade               3/3
+  scope_inheritance                1/3
+  FAIL independent.audit_completeness.01_every_attempt_one_complete_row ['found 0 matching audit entries', '1 missing-field occurrences']
+  FAIL independent.delegation_provenance.01_denied_call_chain_and_actor ['some calls were denied', '1/1 had wrong chain', '1/1 had wrong chain', '1/1 entries had wrong actor', 'found 0 matching audit entries']
+  FAIL independent.fail_mode_discipline.02_open_does_not_stick ['some calls were denied']
+  FAIL independent.fail_mode_discipline.03_5xx_per_tenant_fail_mode ['some calls were denied']
+  FAIL independent.per_user_policy_enforcement.01_user_wide_vs_tool_wide_conflict ['some calls were allowed']
+  FAIL independent.scope_inheritance.02_child_cannot_reexpand ['some calls were denied']
+  FAIL independent.scope_inheritance.03_per_user_intersection_and_empty_grant ['some calls were denied']

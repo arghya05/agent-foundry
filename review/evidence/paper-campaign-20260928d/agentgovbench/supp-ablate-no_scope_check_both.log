@@ -1,0 +1,5 @@
+supp-agent_foundry-ablate-no_scope_check_both: 5/8  AV coverage 8/8 fidelity 8/8 liveness 8/8  sha256=2f347c9534258f03
+  discrimination                   5/8
+  FAIL supplemental.01_narrowing_with_allowed_tier ['some calls were allowed']
+  FAIL supplemental.02_multihop_narrowing ['some calls were allowed']
+  FAIL supplemental.04_uid_collision_across_tenants ['some calls were allowed', 'found 0 matching audit entries']

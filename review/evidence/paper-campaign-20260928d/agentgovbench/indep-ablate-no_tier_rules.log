@@ -1,0 +1,17 @@
+indep-agent_foundry-ablate-no_tier_rules: 16/24  AV coverage 24/24 fidelity 24/24 liveness 24/24  sha256=8172d6645363f8e0
+  audit_completeness               2/3
+  cross_tenant_isolation           1/3
+  delegation_provenance            2/3
+  fail_mode_discipline             3/3
+  identity_propagation             3/3
+  per_user_policy_enforcement      0/3
+  rate_limit_cascade               2/3
+  scope_inheritance                3/3
+  FAIL independent.audit_completeness.02_denied_deep_delegation_forensics ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.02_same_uid_policy_and_role_scoped ['some calls were allowed']
+  FAIL independent.cross_tenant_isolation.03_same_uid_revocation_isolated ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL independent.delegation_provenance.02_sibling_chains_different_depth ['some calls were allowed']
+  FAIL independent.per_user_policy_enforcement.01_user_wide_vs_tool_wide_conflict ['some calls were allowed', 'some calls were allowed', 'some calls were allowed']
+  FAIL independent.per_user_policy_enforcement.02_user_tool_rule_most_specific ['some calls were allowed', 'some calls were allowed']
+  FAIL independent.per_user_policy_enforcement.03_revoke_then_regrant ['some calls were allowed']
+  FAIL independent.rate_limit_cascade.02_tier_buckets_do_not_collapse ['some calls were allowed']

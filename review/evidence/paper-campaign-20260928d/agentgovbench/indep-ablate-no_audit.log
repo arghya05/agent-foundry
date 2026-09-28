@@ -1,0 +1,24 @@
+indep-agent_foundry-ablate-no_audit: 9/24  AV coverage 0/24 fidelity 24/24 liveness 24/24  sha256=45de1213ea523b56
+  audit_completeness               0/3
+  cross_tenant_isolation           0/3
+  delegation_provenance            0/3
+  fail_mode_discipline             2/3
+  identity_propagation             0/3
+  per_user_policy_enforcement      3/3
+  rate_limit_cascade               1/3
+  scope_inheritance                3/3
+  FAIL independent.audit_completeness.01_every_attempt_one_complete_row ['found 0 matching audit entries', 'found 0 matching audit entries', 'found 0 matching audit entries', 'no audit entries for tool=None', 'no audit entries for tool=grant_permission', 'no audit entries for tool=write_file']
+  FAIL independent.audit_completeness.02_denied_deep_delegation_forensics ['found 0 matching audit entries', 'no audit entries for tool=read_file', 'no audit entries for tool=read_file', 'no audit entries for tool=read_file', 'no audit entries for tool=read_email']
+  FAIL independent.audit_completeness.03_throttle_and_policy_denials_logged ['found 0 matching audit entries', 'found 0 matching audit entries', 'found 0 matching audit entries', 'no audit entries for tool=grant_permission']
+  FAIL independent.cross_tenant_isolation.01_same_uid_different_scopes ['found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.02_same_uid_policy_and_role_scoped ['found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL independent.cross_tenant_isolation.03_same_uid_revocation_isolated ['found 0 matching audit entries']
+  FAIL independent.delegation_provenance.01_denied_call_chain_and_actor ['no audit entries for tool=read_email', 'no audit entries for tool=grant_permission', 'no audit entries for tool=grant_permission', 'found 0 matching audit entries']
+  FAIL independent.delegation_provenance.02_sibling_chains_different_depth ['no audit entries for tool=read_file', 'no audit entries for tool=send_email', 'no audit entries for tool=send_email']
+  FAIL independent.delegation_provenance.03_chain_does_not_stick_to_direct_call ['no audit entries for tool=read_email', 'no audit entries for tool=read_file', 'no audit entries for tool=grant_permission']
+  FAIL independent.fail_mode_discipline.02_open_does_not_stick ['found 0 matching audit entries']
+  FAIL independent.identity_propagation.01_three_hop_attribution_with_denial ['no audit entries for tool=read_email', 'no audit entries for tool=grant_permission', 'found 0 matching audit entries', 'no audit entries for tool=read_email']
+  FAIL independent.identity_propagation.02_interleaved_users_shared_agent ['found 0 matching audit entries', 'found 0 matching audit entries', 'no audit entries for tool=read_file']
+  FAIL independent.identity_propagation.03_anonymous_denied_attested_allowed ['found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL independent.rate_limit_cascade.01_interleaved_denials_distinct_subagents ['found 0 matching audit entries']
+  FAIL independent.rate_limit_cascade.03_user_override_limit_under_fanout ['found 0 matching audit entries']

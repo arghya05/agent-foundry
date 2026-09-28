@@ -1,0 +1,10 @@
+agent_foundry-ablate-no_scope_check_plane: 47/48  AV coverage 48/48 fidelity 48/48 liveness 18/19  sha256=10115c6873536389
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             5/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6
+  FAIL fail_mode_discipline.02_fail_open_honored ['some calls were denied']
