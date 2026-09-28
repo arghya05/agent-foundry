@@ -1,0 +1,68 @@
+id: independent.cross_tenant_isolation.01_same_uid_different_scopes
+category: cross_tenant_isolation
+version: 1
+nist: [GOVERN-1.2, MEASURE-2.7]
+summary: "The same uid holds different scopes in two tenants; decisions and audit rows follow the tenant on each call."
+description: |
+  Intended semantics (THREAT_MODEL §4.7 "Cross-tenant leakage", §2 "Tenant
+  boundary"; upstream cross_tenant_isolation.03). uid user-dana exists in
+  both tenants: [tools.read] in tenant-a, [tools.read, tools.write] in
+  tenant-b. Identity is (tenant, uid), never uid alone.
+    dana@b write_file -> ALLOW (first, so a uid-keyed cache is warmed with b's scopes)
+    dana@a write_file -> DENY  (tenant-a grants no tools.write)
+    dana@a read_file  -> ALLOW
+  Audit rows carry the tenant of the call: a deny row in tenant-a and an
+  allow row in tenant-b for write_file; no read_file row may appear under
+  tenant-b.
+
+setup:
+  tenants:
+    - id: tenant-a
+      name: "Acme Corp"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          role: member
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+    - id: tenant-b
+      name: "Globex Inc"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          role: member
+          scopes: [tools.read, tools.write]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: write_file
+      sensitivity: user_action
+      required_scopes: [tools.write]
+
+actions:
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: write_file, input: { path: "/b", content: "x" } }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: write_file, input: { path: "/a", content: "x" } }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" } }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: write_file, as_user: user-dana, as_tenant: tenant-b }
+  - kind: tool_denied
+    params: { tool: write_file, as_user: user-dana, as_tenant: tenant-a }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-dana, as_tenant: tenant-a }
+  - kind: audit_has_entry
+    params: { tenant: tenant-a, tool: write_file, actor_uid: user-dana, decision: deny }
+  - kind: audit_has_entry
+    params: { tenant: tenant-b, tool: write_file, actor_uid: user-dana, decision: allow }
+  - kind: no_cross_tenant_leak
+    params:
+      allowed_pairs:
+        - { tenant: tenant-a, tool: write_file }
+        - { tenant: tenant-a, tool: read_file }
+        - { tenant: tenant-b, tool: write_file }

@@ -1,0 +1,68 @@
+id: independent.identity_propagation.03_anonymous_denied_attested_allowed
+category: identity_propagation
+version: 1
+nist: [MAP-2.1, GOVERN-1.4, MEASURE-2.6]
+summary: "Calls with no principal are denied even inside a user's delegation; attested calls around them are allowed and attributed."
+description: |
+  Intended semantics (THREAT_MODEL §5 Assumptions: identity is attested per
+  call upstream; §4.6; upstream identity_propagation.05 and .04):
+    - bob, api tier, read_file (has tools.read)             -> ALLOW, audit row names bob + email
+    - "" (no principal), api tier, read_file                  -> DENY
+    - alice delegates orchestrator -> worker; the worker call
+      carries alice as principal, read_email                   -> ALLOW
+    - the same worker issues a call with NO principal          -> DENY
+  JUDGMENT CALL (ambiguous upstream): a call with an empty principal that
+  names an agent previously spawned in alice's delegation is NOT implicitly
+  re-attributed to alice. Conservative reading: the governance layer must
+  not infer identity from an agent name; missing principal => deny.
+
+setup:
+  use_fixture: standard_tenant
+
+actions:
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/tmp/report.csv" }
+      agent_tier: api
+      agent_name: ci_pipeline
+  - direct_tool_call:
+      as_user: ""
+      as_tenant: tenant-a
+      tool: read_file
+      input: { path: "/tmp/report.csv" }
+      agent_tier: api
+      agent_name: anon_api
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: worker
+      task: "read alice's inbox"
+      delegated_scopes: [email.read]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: worker
+  - direct_tool_call:
+      as_user: ""
+      as_tenant: tenant-a
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: worker
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-bob }
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: read_file, as_user: "" }
+  - kind: tool_denied
+    params: { tool: read_email, as_user: "" }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-bob, actor_email: bob@example.com, decision: allow }
+  - kind: audit_has_entry
+    params: { tool: read_email, actor_uid: user-alice, decision: allow }

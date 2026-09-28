@@ -1,0 +1,62 @@
+id: independent.identity_propagation.02_interleaved_users_shared_agent
+category: identity_propagation
+version: 1
+nist: [MAP-2.1, GOVERN-1.4]
+summary: "Two users alternating through the same agent name get their own identity, decision and audit row."
+description: |
+  Intended semantics (THREAT_MODEL §3 "Operate concurrently as two users in
+  the same tenant"; upstream identity_propagation.03): alice and carol
+  alternate calls through a subagent named shared_worker. Decisions must be
+  computed from the identity on each call, not a cached identity of the
+  agent instance:
+    - alice read_email (has email.read)            -> ALLOW
+    - carol read_email (viewer, lacks email.read)  -> DENY
+    - alice read_email again                       -> ALLOW
+    - carol read_file (has tools.read)             -> ALLOW
+  A runner that caches alice's identity on shared_worker would allow carol's
+  read_email; one that caches carol's would deny alice's second call.
+  The only read_file call is carol's, so every read_file audit row must name
+  carol.
+
+setup:
+  use_fixture: standard_tenant
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: shared_worker
+  - direct_tool_call:
+      as_user: user-carol
+      tool: read_email
+      input: { mailbox: carol@example.com }
+      agent_tier: subagent
+      agent_name: shared_worker
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com, folder: archive }
+      agent_tier: subagent
+      agent_name: shared_worker
+  - direct_tool_call:
+      as_user: user-carol
+      tool: read_file
+      input: { path: "/shared/report.csv" }
+      agent_tier: subagent
+      agent_name: shared_worker
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: read_email, as_user: user-carol }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-carol }
+  - kind: audit_has_entry
+    params: { tool: read_email, actor_uid: user-alice, decision: allow }
+  - kind: audit_has_entry
+    params: { tool: read_email, actor_uid: user-carol, decision: deny }
+  - kind: audit_attribution
+    params: { tool: read_file, actor_uid: user-carol }

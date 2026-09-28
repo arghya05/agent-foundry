@@ -1,0 +1,95 @@
+id: independent.scope_inheritance.03_per_user_intersection_and_empty_grant
+category: scope_inheritance
+version: 1
+nist: [MAP-4.1, GOVERN-1.2, MEASURE-2.7]
+summary: "The same over-broad delegation yields different effective scope per user; an empty delegation grants nothing."
+description: |
+  Intended semantics (THREAT_MODEL §2 "<= parent's scope ∩ task's need";
+  upstream scope_inheritance.02 and .05). Subagent tier allowed.
+  Both carol (viewer: [tools.read]) and bob ([tools.read, tools.write])
+  delegate [tools.read, tools.write] to their own worker.
+    carol_worker read_file  -> ALLOW
+    carol_worker write_file -> DENY  (carol lacks tools.write)
+    bob_worker   write_file -> ALLOW (bob has it and delegated it)
+  bob also spawns bob_auditor with delegated_scopes: [] .
+    bob_auditor  read_file  -> DENY
+  JUDGMENT CALL (ambiguous upstream): an explicitly empty delegated_scopes
+  list is read as "no authority delegated" (capability attenuation /
+  default deny), not as "inherit everything". Conservative reading.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read, tools.write]
+        - uid: user-carol
+          email: carol@example.com
+          role: viewer
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: write_file
+      sensitivity: user_action
+      required_scopes: [tools.write]
+
+actions:
+  - delegation:
+      as_user: user-carol
+      from_agent: orchestrator
+      to_agent: carol_worker
+      task: "tidy the shared folder"
+      delegated_scopes: [tools.read, tools.write]
+  - delegation:
+      as_user: user-bob
+      from_agent: orchestrator
+      to_agent: bob_worker
+      task: "tidy the shared folder"
+      delegated_scopes: [tools.read, tools.write]
+  - delegation:
+      as_user: user-bob
+      from_agent: orchestrator
+      to_agent: bob_auditor
+      task: "observe only"
+      delegated_scopes: []
+  - direct_tool_call:
+      as_user: user-carol
+      tool: read_file
+      input: { path: "/shared/index.txt" }
+      agent_tier: subagent
+      agent_name: carol_worker
+  - direct_tool_call:
+      as_user: user-carol
+      tool: write_file
+      input: { path: "/shared/index.txt", content: "x" }
+      agent_tier: subagent
+      agent_name: carol_worker
+  - direct_tool_call:
+      as_user: user-bob
+      tool: write_file
+      input: { path: "/shared/index.txt", content: "x" }
+      agent_tier: subagent
+      agent_name: bob_worker
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/shared/index.txt" }
+      agent_tier: subagent
+      agent_name: bob_auditor
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: carol_worker }
+  - kind: tool_denied
+    params: { tool: write_file, agent_name: carol_worker }
+  - kind: tool_allowed
+    params: { tool: write_file, agent_name: bob_worker }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: bob_auditor }
+    description: "Empty delegation grants nothing (judgment call)."

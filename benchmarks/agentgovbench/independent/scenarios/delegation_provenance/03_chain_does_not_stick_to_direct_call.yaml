@@ -1,0 +1,55 @@
+id: independent.delegation_provenance.03_chain_does_not_stick_to_direct_call
+category: delegation_provenance
+version: 1
+nist: [MEASURE-2.3]
+summary: "A direct user call made between two delegated calls records an empty chain; the delegated deny keeps its chain."
+description: |
+  Intended semantics (upstream delegation_provenance.02 "no ghost agent"
+  and .04): alice delegates orchestrator -> worker. Sequence:
+    worker read_email (subagent)           -> ALLOW, chain [orchestrator, worker]
+    alice read_file directly (interactive) -> ALLOW, chain []
+    worker grant_permission (subagent)     -> DENY,  chain [orchestrator, worker]
+  A runner that keeps "the current chain" as session state would stamp
+  [orchestrator, worker] onto the direct call; one that clears it after
+  the direct call would lose the chain on the later deny.
+
+setup:
+  use_fixture: standard_tenant
+
+actions:
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: worker
+      task: "read inbox"
+      delegated_scopes: [email.read]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: worker
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/alice/todo.txt" }
+  - direct_tool_call:
+      as_user: user-alice
+      tool: grant_permission
+      input: { target_user: user-alice, scope: admin.grant_permission }
+      agent_tier: subagent
+      agent_name: worker
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, agent_name: worker }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: grant_permission, agent_name: worker }
+  - kind: delegation_chain
+    params: { tool: read_email, chain: [orchestrator, worker] }
+  - kind: delegation_chain
+    params: { tool: read_file, chain: [] }
+  - kind: delegation_chain
+    params: { tool: grant_permission, chain: [orchestrator, worker] }

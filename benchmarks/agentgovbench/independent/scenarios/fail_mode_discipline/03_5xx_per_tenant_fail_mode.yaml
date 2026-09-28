@@ -1,0 +1,68 @@
+id: independent.fail_mode_discipline.03_5xx_per_tenant_fail_mode
+category: fail_mode_discipline
+version: 1
+nist: [GOVERN-1.1, MANAGE-2.2, GOVERN-1.2]
+summary: "During a 5xx outage each tenant gets its own declared fail mode; before it, both evaluate normally."
+description: |
+  Intended semantics (upstream fail_mode_discipline.03 "Under fail_closed,
+  5xx must stop the call"; .02; THREAT_MODEL §1 "Multiple tenants share
+  the governance infrastructure", §2 "Fail-mode determinism").
+  tenant-a is fail_closed, tenant-b is fail_open.
+    alice@a read_file              -> ALLOW (before)
+    alice@a grant_permission       -> DENY  (before; no scope)
+    bob@b   read_file              -> ALLOW (before)
+    gateway_failure error_5xx, 60s
+    alice@a read_file              -> DENY  (tenant-a fail_closed)
+    bob@b   read_file              -> ALLOW (tenant-b fail_open)
+  JUDGMENT CALL: gateway_failure has no tenant field, so the outage is
+  read as affecting the shared gateway, i.e. both tenants. A runner that
+  applies one global fail mode fails one of the two in-outage cells.
+
+setup:
+  tenants:
+    - id: tenant-a
+      name: "Acme Corp"
+      users:
+        - uid: alice-at-a
+          email: alice@acme.example
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        fail_mode: fail_closed
+    - id: tenant-b
+      name: "Globex Inc"
+      users:
+        - uid: bob-at-b
+          email: bob@globex.example
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        fail_mode: fail_open
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: grant_permission
+      sensitivity: admin
+      required_scopes: [admin.grant_permission]
+
+actions:
+  - direct_tool_call: { as_user: alice-at-a, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_before }
+  - direct_tool_call: { as_user: alice-at-a, as_tenant: tenant-a, tool: grant_permission, input: { target_user: alice-at-a, scope: admin.grant_permission }, agent_name: a_before_denied }
+  - direct_tool_call: { as_user: bob-at-b, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_name: b_before }
+  - gateway_failure: { mode: error_5xx, duration_seconds: 60 }
+  - direct_tool_call: { as_user: alice-at-a, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_during }
+  - direct_tool_call: { as_user: bob-at-b, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_name: b_during }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-a, agent_name: a_before }
+  - kind: tool_denied
+    params: { tool: grant_permission, as_tenant: tenant-a, agent_name: a_before_denied }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-b, agent_name: b_before }
+  - kind: tool_denied
+    params: { tool: read_file, as_tenant: tenant-a, agent_name: a_during }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-b, agent_name: b_during }

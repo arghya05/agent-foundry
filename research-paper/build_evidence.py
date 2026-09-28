@@ -197,6 +197,50 @@ with (OUT / "leaderboard_rows.tex").open("w") as fh:
 summary["leaderboard"] = {"foundry": int(macros["AGBFoundry"]), "best_published": best,
                           "governed": [(r["runner"], r["passed"]) for r in governed]}
 
+# Blind independent suite (authored without access to Foundry code).
+indep = {r: load(f"indep-{r}") for r in ("agent_foundry", "vanilla", "audit_only")}
+m("IndepFoundry", score(indep["agent_foundry"])[0])
+m("IndepTotal", score(indep["agent_foundry"])[1])
+m("IndepVanilla", score(indep["vanilla"])[0])
+m("IndepAuditOnly", score(indep["audit_only"])[0])
+m("IndepDenyAll", score(load("indep-agent_foundry-ablate-deny_all"))[0])
+m("IndepAllowAll", score(load("indep-agent_foundry-ablate-allow_all"))[0])
+indep_rows = []
+for key, label in ABLATION_LABELS.items():
+    b = load(f"indep-agent_foundry-ablate-{key}")
+    indep_rows.append((key, score(b)[0], score(b)[1] - score(b)[0]))
+m("IndepObservable", sum(1 for _, _, lost in indep_rows if lost > 0))
+m("IndepUnobservableList", ", ".join(ABLATION_LABELS[k].lower() for k, _, lost in indep_rows if lost == 0) or "none")
+with (OUT / "ablation_rows.tex").open("w") as fh:
+    for (label, so, fo, ss, fs), (_, si, li) in zip(rows, indep_rows):
+        flag = r"$^\dagger$" if fo == 0 and fs > 0 else ""
+        fh.write(f"{label}{flag} & {so}/{macros['AGBTotal']} & {fo} & {ss}/{macros['SuppTotal']} & {fs} & "
+                 f"{si}/{macros['IndepTotal']} & {li} \\\\\n")
+
+# Measured competitors (run by this study through the same harness).
+COMP = [("agt", "MS Agent Governance Toolkit"), ("agt_shared_identity", "AGT, workers share user identity"),
+        ("apc", "Bounded Agents (APC)")]
+have_comp = all((agb / f"{k}.json").exists() for k, _ in COMP)
+if have_comp:
+    comp_scores = {k: tuple(score(load(f"{t}{k}"))[0] for t in ("", "supp-", "indep-")) for k, _ in COMP}
+    m("AGTOfficial", comp_scores["agt"][0]); m("AGTSupp", comp_scores["agt"][1]); m("AGTIndep", comp_scores["agt"][2])
+    m("AGTBestOfficial", comp_scores["agt_shared_identity"][0]); m("AGTBestSupp", comp_scores["agt_shared_identity"][1])
+    m("AGTBestIndep", comp_scores["agt_shared_identity"][2])
+    m("APCOfficial", comp_scores["apc"][0]); m("APCSupp", comp_scores["apc"][1]); m("APCIndep", comp_scores["apc"][2])
+    with (OUT / "headtohead_rows.tex").open("w") as fh:
+        def av(name):
+            a = load(name)["anti_vacuity_summary"]
+            return f"{a['decision_coverage']}/{a['decision_coverage_applicable']}"
+        fh.write(rf"\textbf{{Agent Foundry}} & \textbf{{{macros['AGBFoundry']}}} & \textbf{{{macros['SuppFoundry']}}} & "
+                 rf"\textbf{{{macros['IndepFoundry']}}} & {av('agent_foundry')} \\" + "\n")
+        for k, label in COMP:
+            o, sp, ind = comp_scores[k]
+            fh.write(f"{label} & {o} & {sp} & {ind} & {av(k)} \\\\\n")
+        fh.write("\\midrule\n")
+        for label, off, sp, ind, avn in (("No governance (vanilla)", "vanilla", "supp-vanilla", "indep-vanilla", "vanilla"),
+                                          ("Audit-only", "audit_only", "supp-audit_only", "indep-audit_only", "audit_only")):
+            fh.write(f"{label} & {score(load(off))[0]} & {score(load(sp))[0]} & {score(load(ind))[0]} & {av(avn)} \\\\\n")
+
 # ---------------------------------------------------------------- overhead
 ov = json.loads((CAMPAIGN / "governance_overhead.json").read_text())["layers"]
 for key, macro in (("tool_registry", "OvRegistry"), ("governed_gateway", "OvGateway"),
@@ -331,6 +375,30 @@ for key, macro in (("word_overlap_auroc", "HaluOverlap"), ("length_baseline_auro
 m("HaluMatchedPairs", h["length_matched_pairs"])
 m("HaluHeldoutAcc", pct(h["word_overlap_heldout_accuracy"]))
 m("HaluNumeric", f"{h['numeric_fact_check_auroc']:.3f}")
+
+# ---------------------------------------------------------------- AgentDojo (offline detector study)
+dojo_path = CAMPAIGN / "agentdojo_detectors.json"
+if dojo_path.exists():
+    dj = json.loads(dojo_path.read_text())
+    m("DojoUserTasks", dj["user_tasks"])
+    m("DojoAttackCases", f"{dj['attack_cases']:,}")
+    m("DojoPositives", f"{dj['overall']['combined']['positives']:,}")
+    m("DojoNegatives", f"{dj['overall']['combined']['n'] - dj['overall']['combined']['positives']:,}")
+    for key, macro in (("marker", "Marker"), ("nb", "NB"), ("combined", "Comb")):
+        x = dj["overall"][key]
+        m(f"Dojo{macro}Recall", pct(x["recall"]))
+        m(f"Dojo{macro}Precision", pct(x["precision"]))
+        m(f"Dojo{macro}FPR", pct(x["fpr"]))
+    ATT = {"direct": "Direct", "ignore_previous": "Ignore previous", "system_message": "System message",
+           "injecagent": "InjecAgent", "important_instructions_no_names": "Important instructions"}
+    with (OUT / "agentdojo_rows.tex").open("w") as fh:
+        for a, label in ATT.items():
+            v = dj["recall_per_attack"][a]
+            fh.write(f"{label} & " + " & ".join(f"{100 * v[k]:.1f}" for k in ("marker", "nb", "combined")) + " \\\\\n")
+    with (OUT / "agentdojo_suite_rows.tex").open("w") as fh:
+        for suite_name, v in dj["per_suite"].items():
+            fh.write(f"{suite_name} & " + " & ".join(f"{100 * v[k]['recall']:.1f} / {100 * v[k]['fpr']:.1f}"
+                                                   for k in ("marker", "nb", "combined")) + " \\\\\n")
 
 # ---------------------------------------------------------------- WorkBench (earlier study)
 live = list(csv.DictReader((EV / "live-workbench-20260928/derived/live_results.csv").open()))

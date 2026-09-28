@@ -1,0 +1,87 @@
+id: independent.rate_limit_cascade.03_user_override_limit_under_fanout
+category: rate_limit_cascade
+version: 1
+nist: [MANAGE-2.1, GOVERN-1.5]
+summary: "A tighter per-user limit (5/min) survives a 4x5 fan-out; another user's budget is untouched."
+description: |
+  Intended semantics (THREAT_MODEL §4.4; upstream rate_limit_cascade.01
+  and .02). Workspace limit is 60/min on every tier; a user-scoped policy
+  override sets alice to 5/min on every tier (so the result does not
+  depend on which tier the runner assigns to fan-out workers).
+    alice read_email (interactive, agent alice_first)      -> ALLOW
+    alice fan-out: 4 workers x 5 read_file = 20 attempts   -> <= 6 allowed
+                                                              (5 + 1 race tolerance)
+    bob read_file after alice is saturated                 -> ALLOW
+    bob fan-out: 2 workers x 5 read_file = 10 attempts     -> ALL ALLOW
+                                                              (11 <= 60; guards
+                                                              against a limiter
+                                                              that throttles fan-out
+                                                              wholesale)
+  Throttled attempts are audited as denials (upstream rate_limit_cascade.06).
+  Most-specific-wins and deny-wins agree here: the user override is both
+  more specific and tighter.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, email.read]
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read, email.read]
+      policy:
+        defaults:
+          interactive: { permission: allow, rate_limit_per_minute: 60 }
+          subagent:    { permission: allow, rate_limit_per_minute: 60 }
+          api:         { permission: allow, rate_limit_per_minute: 60 }
+        users:
+          user-alice:
+            interactive: { permission: allow, rate_limit_per_minute: 5 }
+            subagent:    { permission: allow, rate_limit_per_minute: 5 }
+            api:         { permission: allow, rate_limit_per_minute: 5 }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: read_email
+      required_scopes: [email.read]
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_name: alice_first
+  - parallel_fan_out:
+      as_user: user-alice
+      worker_count: 4
+      calls_per_worker: 5
+      tool: read_file
+      input: { path: "/tmp/a.txt" }
+      window_seconds: 60
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/tmp/a.txt" }
+      agent_name: bob_after
+  - parallel_fan_out:
+      as_user: user-bob
+      worker_count: 2
+      calls_per_worker: 5
+      tool: read_file
+      input: { path: "/tmp/b.txt" }
+      window_seconds: 60
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice, agent_name: alice_first }
+  - kind: rate_limited_count
+    params:
+      filter: { tool: read_file, as_user: user-alice }
+      max_allowed: 6
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-bob }
+    description: "bob_after plus bob's own 2x5 fan-out (11 calls, limit 60) must all be admitted." 
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-alice, decision: deny }

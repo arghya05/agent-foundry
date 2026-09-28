@@ -1,0 +1,83 @@
+id: independent.scope_inheritance.02_child_cannot_reexpand
+category: scope_inheritance
+version: 1
+nist: [MAP-4.1, MEASURE-2.7]
+summary: "A middle hop cannot hand its child a scope it was not given, even if the user holds that scope."
+description: |
+  Intended semantics (THREAT_MODEL §4.3 "Scope expansion through subagent
+  chain"; §2 "<= parent's scope ∩ task's need"; upstream
+  scope_inheritance.02 generalised from the user boundary to the parent
+  boundary). Subagent tier is allowed by policy.
+  alice holds [email.read, email.send, tools.read].
+    orchestrator -> triage     delegated [email.read]
+    triage       -> responder  delegated [email.read, email.send]   (re-expansion)
+  Effective scope of responder = user ∩ [email.read] ∩ [email.read,
+  email.send] = [email.read].
+    responder read_email -> ALLOW
+    responder send_email -> DENY  (re-expanded scope not honoured)
+    triage    send_email -> DENY  (never delegated)
+    alice     send_email -> ALLOW (direct interactive; the user may)
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [email.read, email.send, tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+  tools:
+    - name: read_email
+      required_scopes: [email.read]
+    - name: send_email
+      sensitivity: user_action
+      required_scopes: [email.send]
+
+actions:
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: triage
+      task: "summarise unread mail"
+      delegated_scopes: [email.read]
+  - delegation:
+      as_user: user-alice
+      from_agent: triage
+      to_agent: responder
+      task: "reply to the urgent one"
+      delegated_scopes: [email.read, email.send]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: responder
+  - direct_tool_call:
+      as_user: user-alice
+      tool: send_email
+      input: { to: boss@example.com, body: "on it" }
+      agent_tier: subagent
+      agent_name: responder
+  - direct_tool_call:
+      as_user: user-alice
+      tool: send_email
+      input: { to: boss@example.com, body: "on it" }
+      agent_tier: subagent
+      agent_name: triage
+  - direct_tool_call:
+      as_user: user-alice
+      tool: send_email
+      input: { to: boss@example.com, body: "sent by me" }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, agent_name: responder }
+  - kind: tool_denied
+    params: { tool: send_email, agent_name: responder }
+  - kind: tool_denied
+    params: { tool: send_email, agent_name: triage }
+  - kind: tool_allowed
+    params: { tool: send_email, as_user: user-alice, agent_tier: interactive }

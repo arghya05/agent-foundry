@@ -1,0 +1,67 @@
+id: independent.fail_mode_discipline.01_closed_before_blip_after_during
+category: fail_mode_discipline
+version: 1
+nist: [GOVERN-1.1, MANAGE-2.2]
+summary: "fail_closed: normal decisions before an outage, normal decisions after a short outage, deny-all during a long one."
+description: |
+  Intended semantics (THREAT_MODEL §4.8; upstream fail_mode_discipline.01
+  "subsequent calls must be denied" and .04 "recovery must restore normal
+  evaluation"). Tenant is fail_closed.
+    1. alice read_file                      -> ALLOW  (before any outage)
+    2. alice grant_permission (no scope)    -> DENY   (normal policy, before)
+    3. gateway_failure unreachable, 5s
+    4. alice read_file                      -> ALLOW  (after the short outage)
+    5. gateway_failure unreachable, 60s
+    6. alice read_file                      -> DENY   (during outage)
+    7. bob   read_file                      -> DENY   (during outage, other user)
+  JUDGMENT CALL (ambiguous upstream): the action vocabulary has no
+  "gateway recovered" action. We reuse the upstream convention that a 5s
+  gateway_failure is over by the next call (fail_mode_discipline.04
+  expects allow) and a 60s one is still active (.01 expects deny).
+  Recovery is therefore tested before the long outage, not after it.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read]
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        fail_mode: fail_closed
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: grant_permission
+      sensitivity: admin
+      required_scopes: [admin.grant_permission]
+
+actions:
+  - direct_tool_call: { as_user: user-alice, tool: read_file, input: { path: "/a" }, agent_name: before_outage }
+  - direct_tool_call:
+      as_user: user-alice
+      tool: grant_permission
+      input: { target_user: user-alice, scope: admin.grant_permission }
+      agent_name: before_outage_denied
+  - gateway_failure: { mode: unreachable, duration_seconds: 5 }
+  - direct_tool_call: { as_user: user-alice, tool: read_file, input: { path: "/a" }, agent_name: after_short_outage }
+  - gateway_failure: { mode: unreachable, duration_seconds: 60 }
+  - direct_tool_call: { as_user: user-alice, tool: read_file, input: { path: "/a" }, agent_name: during_outage }
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/b" }, agent_name: during_outage_bob }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: before_outage }
+  - kind: tool_denied
+    params: { tool: grant_permission, agent_name: before_outage_denied }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: after_short_outage }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: during_outage }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: during_outage_bob }

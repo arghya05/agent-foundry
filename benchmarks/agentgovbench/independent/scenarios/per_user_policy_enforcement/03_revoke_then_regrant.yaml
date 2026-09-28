@@ -1,0 +1,88 @@
+id: independent.per_user_policy_enforcement.03_revoke_then_regrant
+category: per_user_policy_enforcement
+version: 1
+nist: [GOVERN-1.2, MANAGE-2.1]
+summary: "A user+tool revocation applies on the next call, stays narrow, and a re-grant restores access."
+description: |
+  Intended semantics (THREAT_MODEL §4.10 "Revocation lag"; §2 "Policy doc
+  integrity"; upstream per_user_policy_enforcement.06):
+    1. alice read_file                       -> ALLOW (before_revoke)
+    2. policy_change: alice / read_file / interactive -> deny
+    3. alice read_file                       -> DENY  (revoked; next call, zero lag)
+    4. alice read_email                      -> ALLOW (revocation is read_file-only)
+    5. bob   read_file                       -> ALLOW (revocation is alice-only)
+    6. policy_change: alice / read_file / interactive -> allow
+    7. alice read_file                       -> ALLOW (after_regrant; no sticky deny cache)
+  JUDGMENT CALL: a policy_change naming both user and tool targets the
+  user+tool (user_tools) layer, not the user-wide layer; step 4 tests this.
+  A runner that widens the change to all of alice's tools fails step 4.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, email.read]
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: read_email
+      required_scopes: [email.read]
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/a" }
+      agent_name: before_revoke
+  - policy_change:
+      tenant: tenant-a
+      user: user-alice
+      tool: read_file
+      tier: interactive
+      set_permission: deny
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/a" }
+      agent_name: after_revoke
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_name: other_tool_during_revoke
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/a" }
+      agent_name: other_user_during_revoke
+  - policy_change:
+      tenant: tenant-a
+      user: user-alice
+      tool: read_file
+      tier: interactive
+      set_permission: allow
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/a" }
+      agent_name: after_regrant
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-alice, agent_name: before_revoke }
+  - kind: tool_denied
+    params: { tool: read_file, as_user: user-alice, agent_name: after_revoke }
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice, agent_name: other_tool_during_revoke }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-bob, agent_name: other_user_during_revoke }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-alice, agent_name: after_regrant }

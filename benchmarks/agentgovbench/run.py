@@ -6,7 +6,9 @@ being dropped, so the denominator is always the full scenario library.
 
     python benchmarks/agentgovbench/run.py --upstream /path/to/agentgovbench \
         --out review/evidence/agentgovbench-foundry-<date>
-Optional: --runner vanilla|audit_only|agent_foundry, --ablate <control>.
+Optional: --runner vanilla|audit_only|agent_foundry, --ablate <control>,
+--runner-module <python.module.path>:<ClassName> (resolved with
+benchmarks/agentgovbench on sys.path; used for third-party competitor runners).
 """
 from __future__ import annotations
 
@@ -31,14 +33,19 @@ def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
 
 
-def run(upstream: Path, runner_name: str, ablate: str | None = None, scenarios_dir: Path | None = None):
+def run(upstream: Path, runner_name: str, ablate: str | None = None, scenarios_dir: Path | None = None,
+        runner_module: str | None = None):
     sys.path[:0] = [str(upstream), str(HERE), str(REPO)]
     from benchmark import SCENARIO_LIBRARY_VERSION, SPEC_VERSION
     from benchmark.cli import _result_to_dict
     from benchmark.loader import load_all
     from benchmark.scorer import aggregate, score_scenario
     from benchmark.types import RunOutcome
-    if runner_name == "agent_foundry":
+    if runner_module:
+        import importlib
+        mod_name, _, cls_name = runner_module.partition(":")
+        runner = getattr(importlib.import_module(mod_name), cls_name or "Runner")()
+    elif runner_name == "agent_foundry":
         import foundry_runner
         runner = foundry_runner.Runner()
         if ablate:
@@ -110,18 +117,21 @@ def main() -> None:
     ap.add_argument("--ablate", default=None)
     ap.add_argument("--scenarios", type=Path, default=None, help="alternative scenario library (supplemental)")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--runner-module", default=None,
+                    help="<python.module.path>:<ClassName>; overrides --runner")
     args = ap.parse_args()
     up = args.upstream.resolve()
     if git(up, "rev-parse", "HEAD") != COMMIT:
         raise SystemExit(f"upstream must be pinned to {COMMIT}")
     if git(up, "status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("upstream tracked files must be unchanged")
-    blob = run(up, args.runner, args.ablate, args.scenarios)
+    blob = run(up, args.runner, args.ablate, args.scenarios, args.runner_module)
     blob["environment"] = {"python": sys.version, "platform": platform.platform(),
                            "foundry_commit": git(REPO, "rev-parse", "HEAD"),
                            "foundry_dirty": bool(git(REPO, "status", "--porcelain", "--untracked-files=no"))}
     args.out.mkdir(parents=True, exist_ok=True)
-    name = args.tag + args.runner + (f"-ablate-{args.ablate}" if args.ablate else "")
+    runner_label = blob["runner"]["name"] if args.runner_module else args.runner
+    name = args.tag + runner_label + (f"-ablate-{args.ablate}" if args.ablate else "")
     path = args.out / f"{name}.json"
     text = json.dumps(blob, indent=2, default=str)
     path.write_text(text)

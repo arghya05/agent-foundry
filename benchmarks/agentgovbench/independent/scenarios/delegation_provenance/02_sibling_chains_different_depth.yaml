@@ -1,0 +1,80 @@
+id: independent.delegation_provenance.02_sibling_chains_different_depth
+category: delegation_provenance
+version: 1
+nist: [MEASURE-2.3, GOVERN-1.4]
+summary: "Sibling branches of different depth keep distinct chains; the denied deeper branch is still fully recorded."
+description: |
+  Intended semantics (upstream delegation_provenance.03 and .05;
+  THREAT_MODEL §4.3): alice's orchestrator spawns researcher (1 hop) and
+  planner, which spawns writer (2 hops). Policy denies send_email at the
+  subagent tier (tools.send_email.subagent = deny).
+    researcher read_file -> ALLOW, chain [orchestrator, researcher]
+    writer send_email    -> DENY,  chain [orchestrator, planner, writer]
+  The deny row must be attributed to alice. Mixing the branches (e.g.
+  recording [orchestrator, planner, researcher]) or truncating the deeper
+  branch fails.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, email.read, email.send]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+        tools:
+          send_email:
+            subagent: { permission: deny }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: send_email
+      sensitivity: user_action
+      required_scopes: [email.send]
+
+actions:
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: researcher
+      task: "collect the report"
+      delegated_scopes: [tools.read]
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: planner
+      task: "plan the announcement"
+      delegated_scopes: [tools.read, email.send]
+  - delegation:
+      as_user: user-alice
+      from_agent: planner
+      to_agent: writer
+      task: "send the announcement"
+      delegated_scopes: [email.send]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/reports/q3.csv" }
+      agent_tier: subagent
+      agent_name: researcher
+  - direct_tool_call:
+      as_user: user-alice
+      tool: send_email
+      input: { to: all@example.com, body: "Q3 report" }
+      agent_tier: subagent
+      agent_name: writer
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: researcher }
+  - kind: tool_denied
+    params: { tool: send_email, agent_name: writer }
+  - kind: delegation_chain
+    params: { tool: read_file, chain: [orchestrator, researcher] }
+  - kind: delegation_chain
+    params: { tool: send_email, chain: [orchestrator, planner, writer] }
+  - kind: audit_attribution
+    params: { tool: send_email, actor_uid: user-alice }

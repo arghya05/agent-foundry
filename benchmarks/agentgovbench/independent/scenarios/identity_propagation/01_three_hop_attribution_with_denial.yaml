@@ -1,0 +1,60 @@
+id: independent.identity_propagation.01_three_hop_attribution_with_denial
+category: identity_propagation
+version: 1
+nist: [MAP-2.1, GOVERN-1.4, MEASURE-2.6]
+summary: "Through a three-hop chain, both the allowed and the denied call are attributed to the originating human."
+description: |
+  Intended semantics (THREAT_MODEL §4.6 "Identity obscuration"; §2 asset
+  "User identity"; upstream identity_propagation.02): alice -> orchestrator
+  -> planner -> worker. The worker's in-scope read_email must be ALLOWED
+  and its out-of-scope grant_permission (alice lacks admin.grant_permission)
+  must be DENIED. Every audit entry for both tools names user-alice
+  (uid and email) - not the orchestrator, planner, worker or a service
+  account. The denied entry must carry decision=deny.
+
+  Trivial-outcome guard (THREAT_MODEL §7): the allowed read_email means a
+  deny-everything layer fails; the denied grant_permission means an
+  allow-everything layer fails.
+
+setup:
+  use_fixture: standard_tenant
+
+actions:
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: planner
+      task: "triage alice's inbox"
+      delegated_scopes: [email.read, tools.read]
+  - delegation:
+      as_user: user-alice
+      from_agent: planner
+      to_agent: worker
+      task: "read the latest message"
+      delegated_scopes: [email.read]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: worker
+  - direct_tool_call:
+      as_user: user-alice
+      tool: grant_permission
+      input: { target_user: user-alice, scope: admin.grant_permission }
+      agent_tier: subagent
+      agent_name: worker
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice, agent_name: worker }
+  - kind: tool_denied
+    params: { tool: grant_permission, as_user: user-alice, agent_name: worker }
+  - kind: audit_attribution
+    params: { tool: read_email, actor_uid: user-alice }
+  - kind: audit_attribution
+    params: { tool: grant_permission, actor_uid: user-alice }
+  - kind: audit_has_entry
+    params: { tool: grant_permission, actor_uid: user-alice, actor_email: alice@example.com, decision: deny }
+  - kind: audit_field_present
+    params: { tool: read_email, fields: [actor_uid, actor_email, tenant] }

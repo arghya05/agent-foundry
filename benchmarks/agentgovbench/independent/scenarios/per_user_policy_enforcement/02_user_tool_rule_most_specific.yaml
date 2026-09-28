@@ -1,0 +1,105 @@
+id: independent.per_user_policy_enforcement.02_user_tool_rule_most_specific
+category: per_user_policy_enforcement
+version: 1
+nist: [GOVERN-1.2]
+summary: "A user+tool rule beats both a user-wide and a tool-wide rule, but cannot grant a scope the user lacks."
+description: |
+  Policy:
+    users.user-alice.interactive               = deny
+    tools.write_file.interactive               = deny
+    user_tools.user-alice.write_file.interactive = allow
+    user_tools.user-carol.write_file.interactive = allow
+  Expected:
+    alice write_file -> ALLOW  (user+tool is strictly more specific than both
+                                the user-wide and the tool-wide rule; types.py
+                                "user_tools ... Wins over workspace.tools
+                                (most-specific-wins)"; upstream
+                                per_user_policy_enforcement.03)
+    alice read_file  -> DENY   (user-wide deny; the user+tool allow is for
+                                write_file only and must not spread)
+    bob   write_file -> DENY   (tool-wide deny; alice's override must not
+                                leak to bob - THREAT_MODEL §2 "Policy doc
+                                integrity")
+    bob   read_file  -> ALLOW  (no rule beyond the allow default)
+    carol write_file -> DENY   (policy allows, but carol lacks tools.write)
+    carol read_file  -> ALLOW
+  JUDGMENT CALL: tier permission and scope are conjunctive - a policy allow
+  never grants a missing scope (upstream per_user_policy_enforcement.04
+  denies "on scope grounds, not tier grounds"). Deny wins.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, tools.write]
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read, tools.write]
+        - uid: user-carol
+          email: carol@example.com
+          role: viewer
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        tools:
+          write_file:
+            interactive: { permission: deny }
+        users:
+          user-alice:
+            interactive: { permission: deny }
+        user_tools:
+          user-alice:
+            write_file:
+              interactive: { permission: allow }
+          user-carol:
+            write_file:
+              interactive: { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: write_file
+      sensitivity: user_action
+      required_scopes: [tools.write]
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: write_file
+      input: { path: "/alice/notes.txt", content: "x" }
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/alice/notes.txt" }
+  - direct_tool_call:
+      as_user: user-bob
+      tool: write_file
+      input: { path: "/bob/notes.txt", content: "x" }
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/bob/notes.txt" }
+  - direct_tool_call:
+      as_user: user-carol
+      tool: write_file
+      input: { path: "/carol/notes.txt", content: "x" }
+  - direct_tool_call:
+      as_user: user-carol
+      tool: read_file
+      input: { path: "/carol/notes.txt" }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: write_file, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: read_file, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: write_file, as_user: user-bob }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-bob }
+  - kind: tool_denied
+    params: { tool: write_file, as_user: user-carol }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-carol }

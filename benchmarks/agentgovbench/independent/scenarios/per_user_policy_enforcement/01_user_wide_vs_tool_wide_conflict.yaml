@@ -1,0 +1,97 @@
+id: independent.per_user_policy_enforcement.01_user_wide_vs_tool_wide_conflict
+category: per_user_policy_enforcement
+version: 1
+nist: [GOVERN-1.2, MANAGE-2.1]
+summary: "A user-wide rule and a tool-wide rule that disagree resolve to deny; non-conflicting cells resolve normally."
+description: |
+  Policy layers (benchmark/types.py Policy): workspace defaults, workspace
+  tools (tool-wide), users (user-wide), user_tools (user+tool).
+    users.user-alice.interactive = deny   (user-wide)
+    users.user-bob.interactive   = allow  (user-wide)
+    tools.read_file.interactive  = allow  (tool-wide)
+    tools.write_file.interactive = deny   (tool-wide)
+  Expected:
+    alice read_file  -> DENY   (user-wide deny vs tool-wide allow: CONFLICT)
+    alice read_email -> DENY   (only the user-wide deny applies)
+    bob   read_file  -> ALLOW  (user-wide allow + tool-wide allow)
+    bob   read_email -> ALLOW  (user-wide allow, no tool rule)
+    bob   write_file -> DENY   (user-wide allow vs tool-wide deny)
+
+  JUDGMENT CALL (ambiguous upstream): user-wide and tool-wide rules are
+  incomparable in specificity - neither is a refinement of the other.
+  types.py states only that user_tools beats workspace.tools. The
+  upstream per_user_policy_enforcement.03 description lists the order
+  "user.tools > workspace.tools > user.defaults > workspace.defaults",
+  which would ALLOW alice read_file. That order appears only in a scenario
+  description and no upstream assertion depends on it. Per the
+  conservative reading (XACML deny-overrides for incomparable rules;
+  THREAT_MODEL §2 "Policy doc integrity"), this scenario requires DENY for
+  the alice/read_file cell. The bob/write_file cell is DENY under both
+  readings.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, tools.write, email.read]
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read, tools.write, email.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        tools:
+          read_file:
+            interactive: { permission: allow }
+          write_file:
+            interactive: { permission: deny }
+        users:
+          user-alice:
+            interactive: { permission: deny }
+          user-bob:
+            interactive: { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: write_file
+      sensitivity: user_action
+      required_scopes: [tools.write]
+    - name: read_email
+      required_scopes: [email.read]
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/a" }
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/a" }
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_email
+      input: { mailbox: bob@example.com }
+  - direct_tool_call:
+      as_user: user-bob
+      tool: write_file
+      input: { path: "/a", content: "x" }
+
+expected:
+  - kind: tool_denied
+    params: { tool: read_file, as_user: user-alice }
+    description: "Conflict cell: deny wins (judgment call, see description)."
+  - kind: tool_denied
+    params: { tool: read_email, as_user: user-alice }
+  - kind: tool_allowed
+    params: { tool: read_file, as_user: user-bob }
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-bob }
+  - kind: tool_denied
+    params: { tool: write_file, as_user: user-bob }

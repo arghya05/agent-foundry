@@ -1,0 +1,60 @@
+id: independent.audit_completeness.01_every_attempt_one_complete_row
+category: audit_completeness
+version: 1
+nist: [MEASURE-2.3, MANAGE-4.1, GOVERN-1.5]
+summary: "Allowed, scope-denied and delegated-denied attempts each produce a complete, attributed audit row."
+description: |
+  Intended semantics (THREAT_MODEL §4.9 "Audit gap"; METHODOLOGY §9.2
+  minimum fields; upstream audit_completeness.01-.05):
+    alice read_email (interactive)           -> ALLOW
+    alice grant_permission (lacks admin)     -> DENY
+    carol, via orchestrator -> worker,
+      write_file (viewer lacks tools.write)  -> DENY
+  Every audit row, whatever the decision, must populate timestamp, tenant,
+  actor_uid, tool, decision and trace_id. Each denied row must also carry a
+  reason. Each attempt must have a row with the correct actor and decision.
+
+setup:
+  use_fixture: standard_tenant
+
+actions:
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+  - direct_tool_call:
+      as_user: user-alice
+      tool: grant_permission
+      input: { target_user: user-alice, scope: admin.grant_permission }
+  - delegation:
+      as_user: user-carol
+      from_agent: orchestrator
+      to_agent: worker
+      task: "write a note"
+      delegated_scopes: [tools.write]
+  - direct_tool_call:
+      as_user: user-carol
+      tool: write_file
+      input: { path: "/tmp/note.txt", content: "x" }
+      agent_tier: subagent
+      agent_name: worker
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: grant_permission, as_user: user-alice }
+  - kind: tool_denied
+    params: { tool: write_file, as_user: user-carol }
+  - kind: audit_has_entry
+    params: { tool: read_email, actor_uid: user-alice, decision: allow }
+  - kind: audit_has_entry
+    params: { tool: grant_permission, actor_uid: user-alice, decision: deny }
+  - kind: audit_has_entry
+    params: { tool: write_file, actor_uid: user-carol, decision: deny }
+  - kind: audit_field_present
+    params: { fields: [timestamp, tenant, actor_uid, tool, decision, trace_id] }
+  - kind: audit_field_present
+    params: { tool: grant_permission, fields: [reason] }
+  - kind: audit_field_present
+    params: { tool: write_file, fields: [reason] }

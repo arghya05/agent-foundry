@@ -1,0 +1,67 @@
+id: independent.audit_completeness.03_throttle_and_policy_denials_logged
+category: audit_completeness
+version: 1
+nist: [MEASURE-2.3, MANAGE-4.1]
+summary: "Rate-limit denials and policy denials both leave audit rows alongside the allowed rows."
+description: |
+  Intended semantics (upstream rate_limit_cascade.06 "A silent denial is
+  operationally worse than an explicit one"; audit_completeness.02/.03).
+  bob's api tier limit is 2/min.
+    b1, b2 read_file (api)          -> ALLOW
+    b3 read_file (api)              -> over limit (tolerated +1)
+    b4 read_file (api)              -> DENY (throttled)
+    carol grant_permission          -> DENY (scope), with reason
+  Audit must contain an allow row AND a deny row for bob/read_file, and a
+  deny row with a reason for carol/grant_permission. Reason is asserted
+  only on the grant_permission rows because allowed read_file rows may
+  legitimately have no reason.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read]
+        - uid: user-carol
+          email: carol@example.com
+          role: viewer
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow, rate_limit_per_minute: 60 }
+          api:         { permission: allow, rate_limit_per_minute: 2 }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: grant_permission
+      sensitivity: admin
+      required_scopes: [admin.grant_permission]
+
+actions:
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/1" }, agent_tier: api, agent_name: b1 }
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/2" }, agent_tier: api, agent_name: b2 }
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/3" }, agent_tier: api, agent_name: b3 }
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/4" }, agent_tier: api, agent_name: b4 }
+  - direct_tool_call:
+      as_user: user-carol
+      tool: grant_permission
+      input: { target_user: user-carol, scope: admin.grant_permission }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: b1 }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: b2 }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: b4 }
+  - kind: tool_denied
+    params: { tool: grant_permission, as_user: user-carol }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-bob, decision: allow }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-bob, decision: deny }
+  - kind: audit_has_entry
+    params: { tool: grant_permission, actor_uid: user-carol, decision: deny }
+  - kind: audit_field_present
+    params: { tool: grant_permission, fields: [reason, trace_id] }

@@ -20,21 +20,37 @@ System & Aud & Ten & Del & Fail & Id & Pol & Rate & Sco & Total \\
 \end{tabular}
 \end{table}
 
+\paragraph{Measured head-to-head.} Published rows were produced by their authors. To compare mechanisms under identical conditions we also ran the two closest open-source systems through our harness (Table~\ref{tab:h2h}): Microsoft's Agent Governance Toolkit~\cite{msagentgovernance} (\code{agentmesh}, commit \code{6b64456}) and Bounded Agents~\cite{muruaga2026boundedagents}. Their runners (\code{benchmarks/agentgovbench/competitors/}) map each scenario onto the system's own identity, delegation, policy, rate-limit and audit APIs; every decision and audit record is the system's own, and features a system lacks are declared rather than emulated. The toolkit scores \AGTOfficial{}/48 on the official suite, \AGTSupp{}/8 supplemental and \AGTIndep{}/24 blind. Its losses trace to design choices its documentation states: rate-limit counters are keyed per agent identity, so fan-out multiplies a user's allowance; a delegation that requests more than the parent holds is rejected rather than narrowed, leaving the child without an identity or chain; there is no fail-open mode (its ADR~0013); and its \code{warn} action blocks rather than flags. Because the first of these depends on how fan-out workers are modelled, we also report the configuration most favourable to it, in which workers act under the user's own identity: \AGTBestOfficial{}/48, \AGTBestSupp{}/8 and \AGTBestIndep{}/24. Bounded Agents scores \APCOfficial{}/48, \APCSupp{}/8 and \APCIndep{}/24: it has strong attenuation and evidence binding but no tiers, allow/deny policy layers, per-principal rate limits or fail-open, and several of its denials return before evidence is written, which the decision-coverage column shows. We installed the toolkit's Python core without its Rust policy dependency, which the code path we use does not import; the full mapping, gaps and environment are in \evpath{review/evidence/competitors-20260928/README.md}.
+
+\begin{table}[t]
+\centering\small
+\caption{Head-to-head under one harness and scorer. Coverage: scenarios with exactly one audited decision per attempted call (official suite).}
+\label{tab:h2h}
+\begin{tabular}{lrrrr}
+\toprule
+System & Official (48) & Supplemental (8) & Blind (24) & Coverage \\
+\midrule
+\tablerows{evidence/headtohead_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{Mechanism attribution.} Table~\ref{tab:ablation} removes one control at a time. Removing the decision audit costs \emph{18} scenarios, the most of any control, because identity, provenance and audit categories all assert on audit records. All scope checks together account for 7 scenarios, tier rules for 5, and the delegation chain for 4. Two results expose defense in depth: removing only the control plane's scope check changes a single scenario, because the gateway's PDP re-checks scopes; and the one scenario it does change is the fail-open case, where the plane is the only layer that can supply the scope decision. In total \AttributedOfficial{} of \AGBTotal{} scenarios are attributed to at least one control; the other \UnattributedOfficial{} expect benign calls to succeed and are satisfied by any system that does not over-deny.
 
 \begin{table}[t]
 \centering\small
-\caption{Single-control ablations. Each row disables exactly one control after normal setup (\code{benchmarks/agentgovbench/ablations.py}). ``Lost'' counts scenarios that fail. $^\dagger$Controls unobservable in the official suite (no official scenario fails without them) but caught by the supplemental suite.}
+\caption{Single-control ablations. Each row disables exactly one control after normal setup (\code{benchmarks/agentgovbench/ablations.py}). ``Lost'' counts scenarios that fail. Supplemental: our 8 discriminating scenarios; Blind: 24 scenarios written without access to \method{}'s code (\S\ref{sec:blind}). $^\dagger$Controls unobservable in the official suite but caught by the supplemental suite.}
 \label{tab:ablation}
-\begin{tabular}{lrrrr}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{lrrrrrr}
 \toprule
-& \multicolumn{2}{c}{Official (48)} & \multicolumn{2}{c}{Supplemental (8)} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-Control removed & Score & Lost & Score & Lost \\
+& \multicolumn{2}{c}{Official (48)} & \multicolumn{2}{c}{Supplemental (8)} & \multicolumn{2}{c}{Blind (24)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Control removed & Score & Lost & Score & Lost & Score & Lost \\
 \midrule
 \tablerows{evidence/ablation_rows.tex}
 \midrule
-None (full system) & \AGBFoundry{}/\AGBTotal{} & 0 & \SuppFoundry{}/\SuppTotal{} & 0 \\
+None (full system) & \AGBFoundry{}/\AGBTotal{} & 0 & \SuppFoundry{}/\SuppTotal{} & 0 & \IndepFoundry{}/\IndepTotal{} & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -44,6 +60,12 @@ None (full system) & \AGBFoundry{}/\AGBTotal{} & 0 & \SuppFoundry{}/\SuppTotal{}
 Three observations answer RQ3. \emph{First}, constant policies score well: a runner that denies every call and audits the denial scores \AGBDenyAll{}/\AGBTotal{}, above the audit-only reference (\AGBAuditOnly{}), and an allow-and-audit runner scores \AGBAllowAll{}. Individually, \VacuousAny{} of the \AGBTotal{} scenarios are passed by at least one trivial runner; only \VacuousNone{} require both an allowed and a denied outcome. Aggregate scores still separate systems, but most single scenarios cannot distinguish enforcement from a constant. \emph{Second}, two controls are unobservable: without attenuation, \method{} still scores 48/48, because the only narrowing scenario (\code{scope\_inheritance.04}) configures no subagent-tier rule, so a fail-closed default denies the call before narrowing matters; without deny-overrides it also scores 48/48, because no scenario contains conflicting incomparable rules. \emph{Third}, published results show the same gap independently: \ACPDeclaredNarrowingPassed{} of the \ACPDeclaredNarrowing{} published governed runs that declare ``does not currently enforce task-scoped narrowing'' nevertheless pass \code{scope\_inheritance.04}.
 
 \paragraph{Remedy.} We wrote eight supplemental scenarios in the upstream format, each designed so that a specific control is necessary: narrowing with an allowed subagent tier; multi-hop narrowing where a grandchild re-requests a dropped scope; a user-wide allow against a tool-wide deny; one user ID in two tenants with different scopes; revocation affecting only its tier; concurrent rate limiting that must admit as well as deny; background-tier denial; and flagging. They are listed in Appendix~\ref{app:supp}. \method{} passes \SuppFoundry{}/\SuppTotal{}; vanilla, audit-only, deny-everything and allow-and-audit pass \SuppVanilla{}, \SuppAuditOnly{}, \SuppDenyAll{} and \SuppAllowAll{}. Both previously unobservable controls now fail scenarios when removed (Table~\ref{tab:ablation}). On the official suite, \method{} also satisfies all three anti-vacuity checks: decision coverage \AVCoverage{}/48 (audit-only \AVAuditOnlyCoverage{}, vanilla \AVVanillaCoverage{}), effect fidelity \AVFidelity{}/48, and liveness \AVLiveness{}/\AVLivenessApplicable{} (deny-everything \AVDenyAllLiveness{}/\AVLivenessApplicable{}). The supplemental scenarios are authored by us and are reported separately from, never merged into, the official score.
+
+\subsection{A blind, independently authored suite}
+\label{sec:blind}
+The supplemental scenarios were written by the same party as the control plane, so they cannot answer whether the system was built to its tests. We therefore commissioned a separate suite from an author (an AI agent, instructed and audited for this) who was denied access to \method{}'s source, runner, ablations, supplemental scenarios and this manuscript, and who worked only from AgentGovBench's own specification documents, loader, scorer and scenarios. The protocol required every scenario to assert both an admitted and a denied (or rate-capped) outcome, and targeted properties the upstream suite under-tests: multi-hop narrowing on an allowed tier, conflicting rules at different specificities, one uid in two tenants, revocation and re-grant, interleaved rate limits across tiers, calls before, during and after an outage, and attribution of denied delegated calls. The author validated that an empty outcome, an all-allowed outcome and an all-denied outcome each fail all 24 scenarios, and recorded eleven judgment calls where the upstream semantics were ambiguous (\evpath{benchmarks/agentgovbench/independent/README.md}).
+
+Run once, without any change to \method{}, the suite gives \method{} \IndepFoundry{}/\IndepTotal{}, against \IndepVanilla{} for no governance, \IndepAuditOnly{} for audit-only, and \IndepDenyAll{} and \IndepAllowAll{} for the two constant probes. Unlike the official suite, it observes \IndepObservable{} of the \AblationCount{} controls (Table~\ref{tab:ablation}); the exception is \IndepUnobservableList{}, because its outage scenarios read the policy before the outage begins. Two caveats limit this evidence. The author shares a model family with the system's designer, so the suite is blind but not human-independent. And one judgment call---that a tool-wide deny overrides a user-wide allow---coincides with a design decision of \method{}; the author notes that a system following the precedence stated in an upstream scenario description would fail that one assertion.
 
 \subsection{Boundary conformance across engines}
 \label{sec:conformance}
@@ -136,6 +158,32 @@ Strategy & 100 & 1{,}000 & 10{,}000 & 50{,}000 \\
 \label{sec:security}
 On the public deepset/prompt-injections~\cite{deepset2023promptinjections} test split (\InjTestN{} prompts, \InjTestPos{} attacks, revision \code{\InjRevision{}}), the default marker filter detects \InjRegexRecall{} of attacks (Wilson 95\% \InjRegexRecallCI{}) with no false positives; on the training split it detects \InjRegexTrainRecall{}. Marker lists do not generalize to paraphrased or non-English attacks. We therefore added a dependency-free trained gate (\code{injection\_classifier}, multinomial naive Bayes over word and character n-grams), fitted only on the \InjTrainN{}-prompt training split with a fixed threshold. On the held-out test split it reaches recall \InjNBRecall{} (\InjNBRecallCI{}), precision \InjNBPrecision{}, F1 \InjNBFone{}, false-positive rate \InjNBFPR{}, and AUROC \InjNBAUROC{} (\InjNBAUROCCI{}). It is now an optional detector on both the input guardrail and the context filter. Fine-tuned transformer classifiers can be expected to do better; the point is that the platform's default statistical filter is no longer ineffective, and that filters remain a mitigation layered in front of least-authority tool access, not a boundary.
 
+\paragraph{Injected tool outputs: AgentDojo.} Filters for tool outputs, not user prompts, are what indirect injection requires. Using AgentDojo~\cite{debenedetti2024agentdojo} v1.2.2 without a model, we replay each of the \DojoUserTasks{} user tasks' ground-truth tool calls in the clean environment (\DojoNegatives{} negative outputs) and in environments injected by five of AgentDojo's registered attacks for every injection task (\DojoAttackCases{} cases, \DojoPositives{} tool outputs that contain the injected goal). Table~\ref{tab:dojo} reports detection. The marker filter catches the InjecAgent template and almost nothing else (overall recall \DojoMarkerRecall{}, false-positive rate \DojoMarkerFPR{}). The trained gate, fitted only on deepset's training split and therefore out of domain here, reaches \DojoNBRecall{} overall and is strongest on the important-instructions attack, but its false-positive rate is \DojoNBFPR{} and concentrated in the banking and Slack suites, whose ordinary tool outputs contain imperative text. Combined, recall is \DojoCombRecall{} at precision \DojoCombPrecision{}. This transfer result is honest but weak: a deployer would need in-domain training data or a model-based detector, and filters remain a secondary layer. Utility and attack success with a model in the loop were not measured.
+
+\begin{table}[t]
+\centering\small
+\caption{AgentDojo v1.2.2 injected tool outputs, model-free replay. Left: recall (\%) per attack. Right: recall / false-positive rate (\%) per suite.}
+\label{tab:dojo}
+\begin{minipage}{0.47\textwidth}\centering
+\begin{tabular}{lrrr}
+\toprule
+Attack & Marker & NB & Both \\
+\midrule
+\tablerows{evidence/agentdojo_rows.tex}
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}{0.5\textwidth}\centering\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Suite & Marker & NB & Both \\
+\midrule
+\tablerows{evidence/agentdojo_suite_rows.tex}
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{table}
+
 \paragraph{Hallucination scorer.} On HaluEval-QA~\cite{li2023halueval} (\HaluPairs{} pairs of a correct and a hallucinated answer with supporting knowledge, revision \code{\HaluRevision{}}), the grounding overlap behind \code{reference\_check\_kpi} separates correct from hallucinated answers with AUROC \HaluOverlap{} (\HaluOverlapCI{}). Answer length alone does better, \HaluLength{}, because hallucinated answers are systematically longer. On the \HaluMatchedPairs{} pairs whose answer lengths differ by at most 20\%, length falls to chance (\HaluMatchedLength{}, \HaluMatchedLengthCI{}) while grounding overlap keeps \HaluMatchedOverlap{} (\HaluMatchedOverlapCI{}). The grounding signal is therefore real, and length-controlled evaluation is necessary to show it. The numeric fact-check scorer is uninformative here (AUROC \HaluNumeric{}), since few answers contain numeric claims.
 
 \paragraph{Task execution: WorkBench.} Table~\ref{tab:workbench} reports the matched three-arm study. Differences from the reference loop are small and non-significant in every campaign; on the only untouched set the native engine solves \WBFreshB{} tasks the reference fails and fails \WBFreshC{} it solves (exact $p=\WBFreshP{}$). We rescored all \WBFrontierRuns{} published WorkBench model runs (\WBFrontierPredictions{} predictions) and matched every published count; the best, \WBFrontierModel{}, reaches \WBFrontierCorrect{}/690 (\WBFrontierAcc{}) with its own harness. Our subsets use a smaller model and cannot be compared with it. The conclusion we draw is limited but useful: running tasks through \method{}'s governed engines, with its default guards active, did not measurably cost task accuracy.
@@ -164,8 +212,8 @@ Table~\ref{tab:scorecard} collects the verdicts.
 \toprule
 Dimension & Evidence & Verdict \\
 \midrule
-Governance & \AGBFoundry{}/\AGBTotal{} vs.\ best published \AGBBestPublished{}/\AGBTotal{}; 10/10 repetitions & SOTA on AgentGovBench \\
-Measurement validity & \OfficialBlindControls{} unobservable controls found and made observable; anti-vacuity checks & New analysis \\
+Governance & \AGBFoundry{}/\AGBTotal{} (10/10 runs) vs.\ best published \AGBBestPublished{}; measured AGT \AGTBestOfficial{}, Bounded Agents \APCOfficial{}; blind \IndepFoundry{}/24 vs.\ \AGTBestIndep{} and \APCIndep{} & SOTA on AgentGovBench \\
+Measurement validity & \OfficialBlindControls{} unobservable controls found and made observable; anti-vacuity checks; blind suite \IndepFoundry{}/\IndepTotal{} & New for enforcement benchmarks \\
 Coordination overhead & \CoordSpeedMin{}--\CoordSpeedMax{}$\times$ lower median than LangGraph on 6 topologies & Better than LangGraph \\
 Governance cost, scale & +\OvPlaneDelta{}\,$\mu$s/call; exact limits to 32 threads; \ShardSpeedup{}$\times$ on \ShardMax{} shards & Adequate; network scale untested \\
 Long-context assembly & \LCFoundryRetention{} vs.\ \LCRecencyRetention{} (recency) within budget & Better than recency default \\

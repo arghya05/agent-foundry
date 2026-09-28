@@ -1,0 +1,64 @@
+id: independent.cross_tenant_isolation.03_same_uid_revocation_isolated
+category: cross_tenant_isolation
+version: 1
+nist: [GOVERN-1.2, MEASURE-2.7, MANAGE-2.1]
+summary: "Revoking and re-granting a uid in one tenant never changes the same uid's decisions in the other tenant."
+description: |
+  Intended semantics (THREAT_MODEL §4.7 "Tenant A edits a policy. Tenant
+  B's request ... picks up A's policy"; §4.10 revocation; upstream
+  cross_tenant_isolation.01 and per_user_policy_enforcement.06).
+    dana@a read_file -> ALLOW   (a_before)
+    dana@b read_file -> ALLOW   (b_before)
+    policy_change tenant-a, user-dana, interactive -> deny
+    dana@a read_file -> DENY    (a_revoked)
+    dana@b read_file -> ALLOW   (b_during; revocation is tenant-a only)
+    policy_change tenant-a, user-dana, interactive -> allow
+    dana@a read_file -> ALLOW   (a_regranted)
+    dana@b read_file -> ALLOW   (b_after)
+
+setup:
+  tenants:
+    - id: tenant-a
+      name: "Acme Corp"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+    - id: tenant-b
+      name: "Globex Inc"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+
+actions:
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_before }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_name: b_before }
+  - policy_change: { tenant: tenant-a, user: user-dana, tier: interactive, set_permission: deny }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_revoked }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_name: b_during }
+  - policy_change: { tenant: tenant-a, user: user-dana, tier: interactive, set_permission: allow }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_regranted }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_name: b_after }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-a, agent_name: a_before }
+  - kind: tool_denied
+    params: { tool: read_file, as_tenant: tenant-a, agent_name: a_revoked }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-a, agent_name: a_regranted }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-b }
+    description: "All four tenant-b calls (before, during, after) are admitted."
+  - kind: audit_has_entry
+    params: { tenant: tenant-a, tool: read_file, actor_uid: user-dana, decision: deny }

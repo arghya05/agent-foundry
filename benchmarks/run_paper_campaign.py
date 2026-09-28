@@ -45,6 +45,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--agentgovbench", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--agentdojo-python", type=Path, default=None,
+                    help="interpreter with agentdojo installed (optional offline detector study)")
+    ap.add_argument("--competitor-python", type=Path, default=None,
+                    help="interpreter with the Agent Governance Toolkit and Bounded Agents installed")
     args = ap.parse_args()
     if subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=REPO, capture_output=True,
                       text=True).stdout.strip():
@@ -61,12 +65,25 @@ def main() -> None:
     for runner in ("vanilla", "audit_only", "agent_foundry"):
         sh(run + ["--runner", runner], agb / f"{runner}.log")
         sh(run + ["--runner", runner, "--scenarios", supp, "--tag", "supp-"], agb / f"supp-{runner}.log")
+    indep = str(REPO / "benchmarks/agentgovbench/independent/scenarios")
+    for runner in ("vanilla", "audit_only", "agent_foundry"):
+        sh(run + ["--runner", runner, "--scenarios", indep, "--tag", "indep-"], agb / f"indep-{runner}.log")
     for a in ABLATIONS:
         sh(run + ["--ablate", a], agb / f"ablate-{a}.log")
         sh(run + ["--ablate", a, "--scenarios", supp, "--tag", "supp-"], agb / f"supp-ablate-{a}.log")
+        sh(run + ["--ablate", a, "--scenarios", indep, "--tag", "indep-"], agb / f"indep-ablate-{a}.log")
     for name in ("governance_overhead", "long_context", "security_hallucination", "control_plane_scaling",
                  "sharded_scaling"):
         capture([py, f"benchmarks/{name}.py"], out / f"{name}.json")
+    if args.competitor_python:
+        comp = [str(args.competitor_python), "benchmarks/agentgovbench/run.py", "--upstream", up, "--out", str(agb)]
+        for mod in ("agt_runner:Runner", "agt_runner:RunnerSharedIdentity", "apc_runner:Runner"):
+            for tag, scen in (("", None), ("supp-", supp), ("indep-", indep)):
+                extra = ["--scenarios", scen, "--tag", tag] if scen else []
+                log = f"{tag}{mod.replace(':', '-')}.log"
+                sh(comp + ["--runner-module", f"competitors.{mod}", *extra], agb / log)
+    if args.agentdojo_python:
+        capture([str(args.agentdojo_python), "benchmarks/agentdojo_detectors.py"], out / "agentdojo_detectors.json")
     (out / "runtime").mkdir()
     for i in range(1, 6):
         sh([py, "benchmarks/native_vs_langgraph.py"], out / "runtime" / f"run{i}.txt")

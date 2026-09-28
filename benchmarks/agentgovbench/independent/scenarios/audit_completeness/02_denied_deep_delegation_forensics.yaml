@@ -1,0 +1,75 @@
+id: independent.audit_completeness.02_denied_deep_delegation_forensics
+category: audit_completeness
+version: 1
+nist: [MEASURE-2.3, MANAGE-4.1, GOVERN-1.4]
+summary: "A tier-denied call three hops deep has a forensically complete row: human actor, email, chain, reason, trace."
+description: |
+  Intended semantics (THREAT_MODEL §4.9 and §4.6; upstream
+  delegation_provenance.04 and .06, audit_completeness.03):
+  alice -> orchestrator -> scheduler -> nightly. Background tier is denied
+  by workspace policy; subagent tier is allowed.
+    scheduler read_email (subagent)  -> ALLOW, chain [orchestrator, scheduler]
+    nightly   read_file  (background)-> DENY,  chain [orchestrator, scheduler, nightly]
+  The deny row must name user-alice with email, carry decision=deny, a
+  reason and a trace_id, so an investigator can answer "which human, via
+  which agents, why refused" from the row alone.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-alice
+          email: alice@example.com
+          scopes: [tools.read, email.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+          background:  { permission: deny }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: read_email
+      required_scopes: [email.read]
+
+actions:
+  - delegation:
+      as_user: user-alice
+      from_agent: orchestrator
+      to_agent: scheduler
+      task: "set up a nightly digest"
+      delegated_scopes: [tools.read, email.read]
+  - delegation:
+      as_user: user-alice
+      from_agent: scheduler
+      to_agent: nightly
+      task: "compile the digest overnight"
+      delegated_scopes: [tools.read]
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_email
+      input: { mailbox: alice@example.com }
+      agent_tier: subagent
+      agent_name: scheduler
+  - direct_tool_call:
+      as_user: user-alice
+      tool: read_file
+      input: { path: "/digest/sources.txt" }
+      agent_tier: background
+      agent_name: nightly
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_email, agent_name: scheduler }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: nightly }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-alice, actor_email: alice@example.com, decision: deny }
+  - kind: audit_attribution
+    params: { tool: read_file, actor_uid: user-alice }
+  - kind: audit_field_present
+    params: { tool: read_file, fields: [timestamp, tenant, actor_uid, actor_email, decision, reason, trace_id] }
+  - kind: delegation_chain
+    params: { tool: read_file, chain: [orchestrator, scheduler, nightly] }
+  - kind: delegation_chain
+    params: { tool: read_email, chain: [orchestrator, scheduler] }

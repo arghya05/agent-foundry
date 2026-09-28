@@ -1,0 +1,111 @@
+id: independent.rate_limit_cascade.02_tier_buckets_do_not_collapse
+category: rate_limit_cascade
+version: 1
+nist: [MANAGE-2.1, GOVERN-1.5]
+summary: "Interactive, api, subagent and background tiers are budgeted separately; the tight api limit binds only api calls."
+description: |
+  Intended semantics (upstream rate_limit_cascade.03 "If the limiter
+  collapses tiers into one bucket, this fails"; THREAT_MODEL §2 "Rate /
+  budget envelopes"). bob's limits: interactive 5/min, api 2/min,
+  subagent 60/min, background denied by tier policy.
+    int-1, int-2 (interactive)  -> ALLOW
+    api-1, api-2 (api)          -> ALLOW  (a single collapsed bucket with
+                                           the api ceiling would already be
+                                           at 2 and deny these)
+    api-3 (api)                 -> over limit (tolerated +1)
+    api-4 (api)                 -> DENY  (rate limited)
+    bg-1  (background)          -> DENY  (tier policy, interleaved)
+    int-3 (interactive)         -> ALLOW (3/5)
+    sub-1 (subagent)            -> ALLOW
+  Allowed api read_file calls <= 3.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-bob
+          email: bob@example.com
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow, rate_limit_per_minute: 5 }
+          api:         { permission: allow, rate_limit_per_minute: 2 }
+          subagent:    { permission: allow, rate_limit_per_minute: 60 }
+          background:  { permission: deny,  rate_limit_per_minute: 20 }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+
+actions:
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/int-1.txt" }
+      agent_tier: interactive
+      agent_name: int-1
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/int-2.txt" }
+      agent_tier: interactive
+      agent_name: int-2
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/api-1.txt" }
+      agent_tier: api
+      agent_name: api-1
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/api-2.txt" }
+      agent_tier: api
+      agent_name: api-2
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/api-3.txt" }
+      agent_tier: api
+      agent_name: api-3
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/api-4.txt" }
+      agent_tier: api
+      agent_name: api-4
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/bg-1.txt" }
+      agent_tier: background
+      agent_name: bg-1
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/int-3.txt" }
+      agent_tier: interactive
+      agent_name: int-3
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/data/sub-1.txt" }
+      agent_tier: subagent
+      agent_name: sub-1
+
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_tier: interactive }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: api-1 }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: api-2 }
+  - kind: tool_denied
+    params: { tool: read_file, agent_name: api-4 }
+  - kind: tool_denied
+    params: { tool: read_file, agent_tier: background }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_tier: subagent }
+  - kind: rate_limited_count
+    params:
+      filter: { tool: read_file, as_user: user-bob, agent_tier: api }
+      max_allowed: 3

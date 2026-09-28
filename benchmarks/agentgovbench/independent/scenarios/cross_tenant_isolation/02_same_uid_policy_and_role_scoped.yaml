@@ -1,0 +1,74 @@
+id: independent.cross_tenant_isolation.02_same_uid_policy_and_role_scoped
+category: cross_tenant_isolation
+version: 1
+nist: [GOVERN-1.2, MEASURE-2.7]
+summary: "Same uid is admin in one tenant and a restricted member in the other; role, scope and user overrides stay in their tenant."
+description: |
+  Intended semantics (THREAT_MODEL §4.7; upstream cross_tenant_isolation.01
+  "policy does not leak" and .05 "admin cannot cross").
+  tenant-a: user-dana is a member with [tools.read] and a user-scoped
+            override users.user-dana.subagent = deny.
+  tenant-b: user-dana is an admin with [tools.read, admin.grant_permission];
+            no override.
+    dana@b subagent grant_permission    -> ALLOW
+    dana@a subagent read_file           -> DENY  (tenant-a user override)
+    dana@b subagent read_file           -> ALLOW (override must not follow the uid)
+    dana@a interactive read_file        -> ALLOW (override is subagent-only)
+    dana@a interactive grant_permission -> DENY  (admin role in b is not admin in a)
+
+setup:
+  tenants:
+    - id: tenant-a
+      name: "Acme Corp"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          role: member
+          scopes: [tools.read]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+        users:
+          user-dana:
+            subagent: { permission: deny }
+    - id: tenant-b
+      name: "Globex Inc"
+      users:
+        - uid: user-dana
+          email: dana@shared.example
+          role: admin
+          scopes: [tools.read, admin.grant_permission]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: grant_permission
+      sensitivity: admin
+      required_scopes: [admin.grant_permission]
+
+actions:
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: grant_permission, input: { target_user: user-dana, scope: tools.write }, agent_tier: subagent, agent_name: b_sub }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_tier: subagent, agent_name: a_sub }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-b, tool: read_file, input: { path: "/b" }, agent_tier: subagent, agent_name: b_sub }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: read_file, input: { path: "/a" }, agent_name: a_int }
+  - direct_tool_call: { as_user: user-dana, as_tenant: tenant-a, tool: grant_permission, input: { target_user: user-dana, scope: tools.write }, agent_name: a_int }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: grant_permission, as_tenant: tenant-b }
+  - kind: tool_denied
+    params: { tool: read_file, as_tenant: tenant-a, agent_tier: subagent }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-b, agent_tier: subagent }
+  - kind: tool_allowed
+    params: { tool: read_file, as_tenant: tenant-a, agent_tier: interactive }
+  - kind: tool_denied
+    params: { tool: grant_permission, as_tenant: tenant-a }
+  - kind: audit_has_entry
+    params: { tenant: tenant-b, tool: grant_permission, actor_uid: user-dana, decision: allow }
+  - kind: audit_has_entry
+    params: { tenant: tenant-a, tool: grant_permission, actor_uid: user-dana, decision: deny }

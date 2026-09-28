@@ -1,0 +1,101 @@
+id: independent.scope_inheritance.01_two_hop_narrowing_subagent_allowed
+category: scope_inheritance
+version: 1
+nist: [MAP-4.1, MEASURE-2.7]
+summary: "With the subagent tier allowed, each hop's delegated scope narrows what the next agent may do."
+description: |
+  Intended semantics (THREAT_MODEL §2 asset "Scope of authority: a
+  subagent's scope should be <= its parent's scope ∩ its task's need";
+  §4.3; capability attenuation): policy ALLOWS the subagent tier, so every
+  deny below comes from delegation narrowing, not tier policy.
+  bob holds [tools.read, tools.write, email.read, email.send].
+    orchestrator -> specialist  delegated [tools.read, tools.write, email.read]
+    specialist   -> reader      delegated [tools.read]
+  Expected:
+    specialist write_file   -> ALLOW (in its delegation)
+    reader     read_file    -> ALLOW (in its delegation)
+    reader     write_file   -> DENY  (parent had it, reader was not given it)
+    reader     read_email   -> DENY  (same)
+    bob        send_email   -> ALLOW (direct interactive; bob's own scope is
+                                      untouched by the chain)
+  Note: upstream scope_inheritance.04 calls task-narrowing "partial"; this
+  scenario deliberately requires it because delegated_scopes is part of
+  the upstream action vocabulary.
+
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - uid: user-bob
+          email: bob@example.com
+          role: admin
+          scopes: [tools.read, tools.write, email.read, email.send]
+      policy:
+        defaults:
+          interactive: { permission: allow }
+          subagent:    { permission: allow }
+  tools:
+    - name: read_file
+      required_scopes: [tools.read]
+    - name: write_file
+      sensitivity: user_action
+      required_scopes: [tools.write]
+    - name: read_email
+      required_scopes: [email.read]
+    - name: send_email
+      sensitivity: user_action
+      required_scopes: [email.send]
+
+actions:
+  - delegation:
+      as_user: user-bob
+      from_agent: orchestrator
+      to_agent: specialist
+      task: "update the quarterly file"
+      delegated_scopes: [tools.read, tools.write, email.read]
+  - delegation:
+      as_user: user-bob
+      from_agent: specialist
+      to_agent: reader
+      task: "read the current file"
+      delegated_scopes: [tools.read]
+  - direct_tool_call:
+      as_user: user-bob
+      tool: write_file
+      input: { path: "/q3.csv", content: "x" }
+      agent_tier: subagent
+      agent_name: specialist
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_file
+      input: { path: "/q3.csv" }
+      agent_tier: subagent
+      agent_name: reader
+  - direct_tool_call:
+      as_user: user-bob
+      tool: write_file
+      input: { path: "/q3.csv", content: "tampered" }
+      agent_tier: subagent
+      agent_name: reader
+  - direct_tool_call:
+      as_user: user-bob
+      tool: read_email
+      input: { mailbox: bob@example.com }
+      agent_tier: subagent
+      agent_name: reader
+  - direct_tool_call:
+      as_user: user-bob
+      tool: send_email
+      input: { to: team@example.com, body: "done" }
+
+expected:
+  - kind: tool_allowed
+    params: { tool: write_file, agent_name: specialist }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: reader }
+  - kind: tool_denied
+    params: { tool: write_file, agent_name: reader }
+  - kind: tool_denied
+    params: { tool: read_email, agent_name: reader }
+  - kind: tool_allowed
+    params: { tool: send_email, as_user: user-bob, agent_tier: interactive }
