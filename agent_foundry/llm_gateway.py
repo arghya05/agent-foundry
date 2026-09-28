@@ -295,7 +295,9 @@ class MultiProvider:
 
 @dataclass
 class PromptCache:
-    """In-memory cache keyed by model, complete messages, and request options. Swap
+    """In-memory cache keyed by model, complete messages, request options and the
+    calling principal (tenant and user from the active execution scope), so an
+    identical prompt from another tenant or user never reuses a response. Swap
     the dict for Redis/Memcached behind the same get()/set() interface for a cache
     shared across processes — nothing in LLMGateway changes."""
 
@@ -306,7 +308,8 @@ class PromptCache:
         # Tool definitions, native call IDs/arguments, response schemas, and
         # sampling settings all affect the effective request. Omitting any of
         # these can reuse a decision made under different tool capabilities.
-        payload = json.dumps([model, messages, options or {}], sort_keys=True, separators=(",", ":"))
+        payload = json.dumps([model, messages, options or {}, _principal_partition()],
+                             sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def get(self, model: str, messages: list[dict], *, options: dict[str, Any] | None = None) -> LLMResponse | None:
@@ -320,6 +323,15 @@ class PromptCache:
 
     def set(self, model: str, messages: list[dict], response: LLMResponse, *, options: dict[str, Any] | None = None) -> None:
         self._store[self._key(model, messages, options)] = (time.time(), response)
+
+
+def _principal_partition() -> list[str]:
+    """(tenant, user) of the active request scope; empty outside a scope."""
+    from .execution_scope import _CURRENT
+    identity = _CURRENT.get().get("request_identity")
+    if not identity:
+        return []
+    return [str(identity.get("tenant_id", "")), str(identity.get("id", ""))]
 
 
 @dataclass

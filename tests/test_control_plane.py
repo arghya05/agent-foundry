@@ -171,3 +171,20 @@ def test_flag_admits_and_marks():
     plane, _, _, effects = build(WorkspacePolicy(defaults={'interactive': TierRule('flag')}))
     d = plane.invoke('read', {}, tenant_id='t1', user_id='alice')
     assert d.allowed and d.decision == 'flag' and len(effects) == 1
+
+
+def test_prompt_cache_is_partitioned_by_request_principal():
+    from agent_foundry.contracts import LLMResponse
+    from agent_foundry.execution_scope import request_scope
+    from agent_foundry.llm_gateway import PromptCache
+    cache = PromptCache()
+    msgs = [{'role': 'user', 'content': 'same prompt'}]
+    reply = LLMResponse('tenant-a answer', 'm', 1, 1, 0.0)
+    ident = lambda t, u: {'request_identity': {'id': u, 'tenant_id': t, 'roles': ()}}  # noqa: E731
+    with request_scope(ident('a', 'alice'), thread_id='x'):
+        cache.set('m', msgs, reply)
+        assert cache.get('m', msgs) is reply
+    with request_scope(ident('b', 'alice'), thread_id='y'):
+        assert cache.get('m', msgs) is None
+    with request_scope(ident('a', 'bob'), thread_id='z'):
+        assert cache.get('m', msgs) is None
