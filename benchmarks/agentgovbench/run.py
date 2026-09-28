@@ -119,7 +119,7 @@ def main() -> None:
     blob = run(up, args.runner, args.ablate, args.scenarios)
     blob["environment"] = {"python": sys.version, "platform": platform.platform(),
                            "foundry_commit": git(REPO, "rev-parse", "HEAD"),
-                           "foundry_dirty": bool(git(REPO, "status", "--porcelain"))}
+                           "foundry_dirty": bool(git(REPO, "status", "--porcelain", "--untracked-files=no"))}
     args.out.mkdir(parents=True, exist_ok=True)
     name = args.tag + args.runner + (f"-ablate-{args.ablate}" if args.ablate else "")
     path = args.out / f"{name}.json"
