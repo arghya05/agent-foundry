@@ -188,3 +188,17 @@ def test_prompt_cache_is_partitioned_by_request_principal():
         assert cache.get('m', msgs) is None
     with request_scope(ident('a', 'bob'), thread_id='z'):
         assert cache.get('m', msgs) is None
+
+
+@pytest.mark.parametrize('failure', ['budget', 'cancel', 'crash'])
+def test_gateway_failures_become_one_audited_denial(failure):
+    from agent_foundry.runtime import BudgetExceeded, RunCancelled
+    plane, _, _, effects = build()
+    def raise_(*a, **k):
+        raise {'budget': BudgetExceeded('steps'), 'cancel': RunCancelled('stop'),
+               'crash': RuntimeError('boom')}[failure]
+    plane.gateway.invoke = raise_
+    before = len(decisions(plane))
+    d = plane.invoke('read', {}, tenant_id='t1', user_id='alice')
+    assert not d.allowed and d.decision == 'deny' and effects == []
+    assert len(decisions(plane)) == before + 1 and decisions(plane)[-1]['decision'] == 'deny'

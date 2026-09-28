@@ -274,6 +274,12 @@ class ControlPlane:
             result = self.gateway.invoke(base["tool"], base["args"], context=context)
         except PermissionDenied as exc:
             return self._record(base, principal, False, "deny", f"gateway: {exc}", reachable=reachable)
+        except Exception as exc:
+            # Budget exhaustion, cancellation, deadlines and unexpected gateway
+            # errors are denials too: every call still ends in exactly one
+            # audited decision, and admission fails closed.
+            return self._record(base, principal, False, "deny", f"gateway {type(exc).__name__}: {exc}",
+                                reachable=reachable)
         return self._record(base, principal, True, decision, reason, result=result, reachable=reachable)
 
     def _record(self, base: dict, principal: Principal | None, allowed: bool, decision: str,
