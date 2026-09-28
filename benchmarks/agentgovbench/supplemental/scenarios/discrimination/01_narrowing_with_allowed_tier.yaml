@@ -1,0 +1,14 @@
+id: supplemental.01_narrowing_with_allowed_tier
+category: discrimination
+summary: "Task narrowing when the subagent tier is allowed: only attenuation can deny."
+setup:
+  use_fixture: standard_tenant
+actions:
+  - delegation: { as_user: user-bob, from_agent: orchestrator, to_agent: summarizer, task: "summarize", delegated_scopes: [tools.read] }
+  - direct_tool_call: { as_user: user-bob, tool: read_file, input: { path: "/r" }, agent_tier: subagent, agent_name: summarizer }
+  - direct_tool_call: { as_user: user-bob, tool: grant_permission, input: { target_user: user-bob }, agent_tier: subagent, agent_name: summarizer }
+expected:
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: summarizer }
+  - kind: tool_denied
+    params: { tool: grant_permission, agent_name: summarizer }

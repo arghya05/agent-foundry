@@ -1,0 +1,15 @@
+id: supplemental.04_uid_collision_across_tenants
+category: discrimination
+summary: "Scopes come from the tenant of the call, even when a uid exists in both."
+setup:
+  use_fixture: uid_collision
+actions:
+  - direct_tool_call: { as_user: sam, as_tenant: tenant-a, tool: grant_permission, input: {} }
+  - direct_tool_call: { as_user: sam, as_tenant: tenant-b, tool: grant_permission, input: {}, agent_name: in_b }
+expected:
+  - kind: tool_denied
+    params: { tool: grant_permission, as_tenant: tenant-a }
+  - kind: tool_allowed
+    params: { tool: grant_permission, as_tenant: tenant-b }
+  - kind: audit_has_entry
+    params: { tenant: tenant-a, tool: grant_permission, decision: deny }

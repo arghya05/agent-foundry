@@ -1,0 +1,20 @@
+id: supplemental.08_flag_is_allowed_and_marked
+category: discrimination
+summary: "A flag rule admits the call but records decision=flag."
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - { uid: user-alice, email: alice@example.com, scopes: [email.send] }
+      policy:
+        defaults:
+          interactive: { permission: flag }
+  tools:
+    - { name: send_email, required_scopes: [email.send] }
+actions:
+  - direct_tool_call: { as_user: user-alice, tool: send_email, input: {} }
+expected:
+  - kind: tool_allowed
+    params: { tool: send_email }
+  - kind: audit_has_entry
+    params: { tool: send_email, decision: flag }

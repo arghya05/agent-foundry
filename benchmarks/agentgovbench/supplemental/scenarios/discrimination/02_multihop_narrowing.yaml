@@ -1,0 +1,17 @@
+id: supplemental.02_multihop_narrowing
+category: discrimination
+summary: "A grandchild cannot regain a scope its parent hop dropped."
+setup:
+  use_fixture: standard_tenant
+actions:
+  - delegation: { as_user: user-alice, from_agent: orchestrator, to_agent: specialist, task: "files only", delegated_scopes: [tools.read] }
+  - delegation: { as_user: user-alice, from_agent: specialist, to_agent: worker, task: "read mail", delegated_scopes: [tools.read, email.read] }
+  - direct_tool_call: { as_user: user-alice, tool: read_email, input: {}, agent_tier: subagent, agent_name: worker }
+  - direct_tool_call: { as_user: user-alice, tool: read_file, input: {}, agent_tier: subagent, agent_name: worker }
+expected:
+  - kind: tool_denied
+    params: { tool: read_email, agent_name: worker }
+  - kind: tool_allowed
+    params: { tool: read_file, agent_name: worker }
+  - kind: delegation_chain
+    params: { tool: read_file, chain: [orchestrator, specialist, worker] }

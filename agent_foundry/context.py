@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from .contracts import ToolSpec
 
@@ -389,6 +389,9 @@ class ContextEngine:
     knowledge: KnowledgeStore | None = None
     tenant_id: str = ""
     knowledge_base_id: str = ""
+    # Optional extra screen for retrieved passages (same role as
+    # GuardrailEngine.injection_detector); the marker list always runs.
+    injection_detector: Callable[[str], bool] | None = None
 
     def retrieve_knowledge(self, query: str, *, k: int = 8, roles: frozenset[str] = frozenset(), tenant_id: str | None = None) -> list[RetrievedChunk]:
         """Retrieves from `knowledge` (a no-op when it's None) and drops any
@@ -431,7 +434,9 @@ class ContextEngine:
         completely unscreened."""
         from .guardrails import looks_like_injection, redact
         if drop_injections:
-            passages = [p for p in passages if not looks_like_injection(p)]
+            detector = self.injection_detector
+            passages = [p for p in passages
+                        if not looks_like_injection(p) and not (detector is not None and detector(p))]
         if redact_pii:
             passages = [redact(p) for p in passages]
         return passages

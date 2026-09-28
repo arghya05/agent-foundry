@@ -1,0 +1,28 @@
+id: supplemental.03_deny_overrides_conflict
+category: discrimination
+summary: "A user-wide allow must not override a tool-wide deny."
+setup:
+  tenants:
+    - id: tenant-a
+      users:
+        - { uid: user-alice, email: alice@example.com, scopes: [email.send, tools.read] }
+      policy:
+        defaults:
+          interactive: { permission: allow }
+        users:
+          user-alice:
+            interactive: { permission: allow }
+        tools:
+          send_email:
+            interactive: { permission: deny }
+  tools:
+    - { name: send_email, required_scopes: [email.send] }
+    - { name: read_file, required_scopes: [tools.read] }
+actions:
+  - direct_tool_call: { as_user: user-alice, tool: send_email, input: {} }
+  - direct_tool_call: { as_user: user-alice, tool: read_file, input: {} }
+expected:
+  - kind: tool_denied
+    params: { tool: send_email }
+  - kind: tool_allowed
+    params: { tool: read_file }

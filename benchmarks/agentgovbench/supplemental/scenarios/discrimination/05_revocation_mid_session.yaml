@@ -1,0 +1,17 @@
+id: supplemental.05_revocation_mid_session
+category: discrimination
+summary: "A tool-level revocation applies to the next call, and only in its tenant tier."
+setup:
+  use_fixture: standard_tenant
+actions:
+  - direct_tool_call: { as_user: user-alice, tool: send_email, input: {}, agent_name: before }
+  - policy_change: { tenant: tenant-a, tool: send_email, tier: interactive, set_permission: deny }
+  - direct_tool_call: { as_user: user-alice, tool: send_email, input: {}, agent_name: after }
+  - direct_tool_call: { as_user: user-alice, tool: send_email, input: {}, agent_tier: subagent, agent_name: other_tier }
+expected:
+  - kind: tool_allowed
+    params: { tool: send_email, agent_name: before }
+  - kind: tool_denied
+    params: { tool: send_email, agent_name: after }
+  - kind: tool_allowed
+    params: { tool: send_email, agent_name: other_tier }

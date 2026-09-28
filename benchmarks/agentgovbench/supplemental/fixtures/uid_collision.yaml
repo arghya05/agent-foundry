@@ -1,0 +1,28 @@
+# Same uid in two tenants with different scopes.
+tenants:
+  - id: tenant-a
+    name: "Acme"
+    policy:
+      defaults:
+        interactive: { permission: allow }
+      fail_mode: fail_closed
+    users:
+      - uid: sam
+        email: sam@acme.example
+        scopes: [tools.read]
+  - id: tenant-b
+    name: "Globex"
+    policy:
+      defaults:
+        interactive: { permission: allow }
+      fail_mode: fail_closed
+    users:
+      - uid: sam
+        email: sam@globex.example
+        scopes: [tools.read, admin.grant_permission]
+tools:
+  - name: read_file
+    required_scopes: [tools.read]
+  - name: grant_permission
+    sensitivity: admin
+    required_scopes: [admin.grant_permission]

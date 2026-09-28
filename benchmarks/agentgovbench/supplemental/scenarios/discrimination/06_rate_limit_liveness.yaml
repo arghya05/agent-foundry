@@ -1,0 +1,14 @@
+id: supplemental.06_rate_limit_liveness
+category: discrimination
+summary: "Under concurrent fan-out the limiter admits the limit, not zero (checked with the liveness supplement)."
+setup:
+  use_fixture: standard_tenant
+actions:
+  - parallel_fan_out: { as_user: user-alice, worker_count: 10, calls_per_worker: 20, tool: read_file, input: {} }
+expected:
+  - kind: rate_limited_count
+    params: { filter: { tool: read_file, as_user: user-alice }, max_allowed: 60 }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-alice, decision: allow }
+  - kind: audit_has_entry
+    params: { tool: read_file, actor_uid: user-alice, decision: deny }

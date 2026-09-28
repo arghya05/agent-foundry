@@ -1,0 +1,15 @@
+id: supplemental.07_background_tier_default_deny
+category: discrimination
+summary: "Background tier is denied for a benign read, and the denial is attributed."
+setup:
+  use_fixture: standard_tenant
+actions:
+  - direct_tool_call: { as_user: user-alice, tool: read_public_doc, input: {}, agent_tier: background, agent_name: cron }
+  - direct_tool_call: { as_user: user-alice, tool: read_public_doc, input: {}, agent_name: interactive_ok }
+expected:
+  - kind: tool_denied
+    params: { tool: read_public_doc, agent_tier: background }
+  - kind: tool_allowed
+    params: { tool: read_public_doc, agent_name: interactive_ok }
+  - kind: audit_attribution
+    params: { tool: read_public_doc, actor_uid: user-alice }

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from .contracts import AutonomyLevel, GuardrailResult, Policy
 
@@ -91,12 +91,18 @@ def looks_like_injection(text: str) -> bool:
 @dataclass
 class GuardrailEngine:
     policy: Policy
+    # Optional second input screen, e.g. a trained
+    # injection_classifier.InjectionClassifier. The marker list still runs
+    # first; either one flagging the text blocks it.
+    injection_detector: Callable[[str], bool] | None = None
 
     def check_input(self, text: str) -> GuardrailResult:
         lowered = text.lower()
         for marker in _INJECTION_MARKERS:
             if marker in lowered:
                 return GuardrailResult(False, f"possible prompt injection: {marker!r}", "input")
+        if self.injection_detector is not None and self.injection_detector(text):
+            return GuardrailResult(False, "possible prompt injection: flagged by injection detector", "input")
         return GuardrailResult(True, stage="input")
 
     def check_output(self, text: str) -> GuardrailResult:
