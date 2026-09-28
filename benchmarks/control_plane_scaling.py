@@ -59,8 +59,11 @@ def run(threads: int) -> dict:
         t0 = time.perf_counter()
         d = plane.invoke("read", {}, tenant_id=job[0], user_id=job[1], tier="subagent")
         lat.append((time.perf_counter() - t0) * 1e3)
+        if not d.allowed:
+            reasons[d.reason] = reasons.get(d.reason, 0) + 1
         return job, d.allowed
 
+    reasons: dict = {}
     t0 = time.perf_counter()
     with ThreadPoolExecutor(threads) as pool:
         results = list(pool.map(call, jobs))
@@ -73,11 +76,12 @@ def run(threads: int) -> dict:
     return dict(threads=threads, calls=len(jobs), throughput_per_s=len(jobs) / wall,
                 p50_ms=lat[len(lat) // 2], p95_ms=lat[int(0.95 * len(lat)) - 1], p99_ms=lat[int(0.99 * len(lat)) - 1],
                 limit_exact=all(v == min(LIMIT, CALLS_PER_USER) for v in admitted.values()),
-                admitted_per_principal=sorted(set(admitted.values())), audit_exact=decisions == len(jobs))
+                admitted_per_principal=sorted(set(admitted.values())), audit_exact=decisions == len(jobs),
+                denial_reasons=reasons)
 
 
 def main():
-    reps = 3
+    reps = 10
     out = []
     with contextlib.redirect_stdout(io.StringIO()):
         for threads in (1, 2, 4, 8, 16, 32):
@@ -88,7 +92,9 @@ def main():
                             p95_ms=statistics.median(r["p95_ms"] for r in runs),
                             p99_ms=statistics.median(r["p99_ms"] for r in runs),
                             limit_exact_all_reps=all(r["limit_exact"] for r in runs),
-                            audit_exact_all_reps=all(r["audit_exact"] for r in runs)))
+                            audit_exact_all_reps=all(r["audit_exact"] for r in runs),
+                            inexact_reps=[{"admitted": r["admitted_per_principal"], "denials": r["denial_reasons"]}
+                                          for r in runs if not r["limit_exact"]]))
     print(json.dumps({"tenants": TENANTS, "principals": TENANTS * USERS_PER_TENANT, "calls_per_principal": CALLS_PER_USER,
                       "limit_per_minute": LIMIT, "python": sys.version.split()[0], "results": out}, indent=1))
 

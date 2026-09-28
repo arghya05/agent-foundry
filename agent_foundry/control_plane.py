@@ -130,9 +130,12 @@ class InMemoryPolicyStore:
 
 
 class SlidingWindowLimiter:
-    """Counts admitted calls per key over a trailing window."""
+    """Counts admitted calls per key over a trailing window.
 
-    def __init__(self, window_s: float = 60.0, clock: Callable[[], float] = time.time) -> None:
+    The default clock is monotonic: a wall-clock adjustment must not shrink
+    or extend a window."""
+
+    def __init__(self, window_s: float = 60.0, clock: Callable[[], float] = time.monotonic) -> None:
         self.window_s = window_s
         self._clock = clock
         self._events: dict[tuple, deque] = {}
@@ -200,7 +203,7 @@ class ControlPlane:
         self.gateway = gateway
         self.store = store
         self.required_scopes = dict(required_scopes or {})
-        self.limiter = limiter or SlidingWindowLimiter(clock=clock)
+        self.limiter = limiter or SlidingWindowLimiter(clock=time.monotonic if clock is time.time else clock)
         self._clock = clock
         # The fail mode is deployment configuration, not a remote fact: it is
         # needed precisely when the policy source cannot be read. Declared
