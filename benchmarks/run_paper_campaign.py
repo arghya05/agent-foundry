@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -22,12 +23,12 @@ ABLATIONS = ["no_attenuation", "no_chain", "no_rate_limit", "fail_mode_learned_o
              "no_tenant_membership", "no_deny_overrides", "stale_policy", "no_audit", "no_scope_check_plane",
              "no_scope_check_both", "no_tier_rules", "anonymous_allowed", "deny_all", "allow_all"]
 REPEATS = 10
+ENV = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 def sh(cmd: list[str], log: Path, **kw) -> None:
     with log.open("w") as fh:
-        rc = subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT, env={"PYTHONDONTWRITEBYTECODE": "1",
-                            "PATH": "/usr/bin:/bin"}, **kw).returncode
+        rc = subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT, env=ENV, **kw).returncode
     if rc:
         raise SystemExit(f"{' '.join(cmd)} failed ({rc}); see {log}")
 
@@ -35,7 +36,7 @@ def sh(cmd: list[str], log: Path, **kw) -> None:
 def capture(cmd: list[str], out: Path) -> None:
     with out.open("w") as fh:
         rc = subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.DEVNULL,
-                            env={"PYTHONDONTWRITEBYTECODE": "1", "PATH": "/usr/bin:/bin"}).returncode
+                            env=ENV).returncode
     if rc and out.stat().st_size == 0:
         raise SystemExit(f"{' '.join(cmd)} failed ({rc})")
 
