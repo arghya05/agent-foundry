@@ -1,5 +1,34 @@
 # Agent Foundry
 
+> 📄 **Research paper:** [*Agent Foundry: A Boundary-Preserving Architecture for Governed Agentic Platforms*](research-paper/AgentFoundry_Paper.pdf) (preprint, NeurIPS 2026 style) · [LaTeX source](research-paper/) · [raw evidence](review/evidence/paper-campaign-20260928c/)
+
+### Research results at a glance
+
+Every number below is regenerated from committed raw evidence by
+[`research-paper/build_evidence.py`](research-paper/build_evidence.py); the
+paper states the conditions, comparators and limitations of each.
+
+| Dimension | Benchmark | Agent Foundry | Comparator | Verdict |
+| --- | --- | --- | --- | --- |
+| Governance | [AgentGovBench](https://github.com/agentic-control-plane/agentgovbench) v0.2, 48 scenarios, unmodified scorer | **48/48**, identical in 10/10 repetitions | Best published governed run 46/48; LangGraph, CrewAI, OpenAI Agents SDK, Claude Agent SDK, Claude Code, Codex, Cursor without a governance layer: 13/48 each | State of the art on this benchmark |
+| Benchmark validity | 13 single-control ablations, 2 trivial probes, 8 supplemental scenarios | 35/48 scenarios attributed to a specific control; 8/8 supplemental | A deny-everything runner scores 31/48; 2 controls are invisible to the official suite | New analysis |
+| Multi-agent coordination overhead | 8 topologies, scripted model | Native engine 5–150× lower median latency | LangGraph engine, identical topologies and call counts | Better than LangGraph |
+| Governance cost and scale | per-call microbenchmark; 1–32 threads; 1–8 shards | +≈14 µs per call over the tool gateway; exact rate limits at every concurrency level; ≈26k governed calls/s on 8 principal-affine processes | single process ≈3.4k calls/s | Adequate; network serving untested |
+| Long context | planted fact, 100–50,000 turns (≈1.4M tokens), 2k-token budget | 100% retention within budget | Recency window 20%; full history violates the budget | Better than the common default |
+| Prompt-injection filter | deepset/prompt-injections, held-out test split | Trained gate: recall 80.0%, precision 94.1% | Previous default marker filter: recall 0% | Repaired; below model-based detectors |
+| Hallucination scorer | HaluEval-QA, 10,000 pairs | Length-matched AUROC 0.917 | Answer length alone: 0.513 on the same pairs | Informative |
+| Task execution | WorkBench, matched 3-arm study, one model | No significant difference from the reference loop (untouched set 50/60 vs 45/59, p = 0.39) | Best published run 674/690 with a stronger model | Not state of the art |
+
+What changed in the repository as a result: a multi-tenant
+[control plane](agent_foundry/control_plane.py) (tier-aware policy with
+deny-overrides, per-principal rate limits shared across subagents,
+attenuating delegation with recorded chains, a locally declared fail mode, one
+audit record per decision), a trained [injection gate](agent_foundry/injection_classifier.py)
+wired into the guardrail engine and context filter, a principal-partitioned
+prompt cache, a monotonic clock for rate-limit windows, and the benchmark
+harnesses under [`benchmarks/`](benchmarks/).
+
+
 Start with the [startup guide](docs/STARTUP_GUIDE.md) for installation, a tested
 runtime path, application evaluation and the requirements for a production pilot.
 
@@ -1218,7 +1247,7 @@ No public-benchmark leadership or conference-publication claim is currently made
 | [WorkBench scoring follow-up](review/evidence/workbench-adapter-validation-002.txt) | 19 offline tests passed | Unknown tool calls cannot disappear from scoring after recovery |
 | [Current WorkBench adapter](review/evidence/workbench-adapter-validation-008.txt) | 24 offline tests passed | Protocol v4, prompt/schema parity, transport/accounting and resume checks |
 | [First hardening iteration](review/evidence/iteration-001-validation.txt) | 178 passed, 2 skipped in the targeted suite | Tested hard-denial precedence and effective-request cache identity |
-| [AgentGovBench baseline and scorer audit](review/CLOSEST_REPOSITORIES.md) | Vanilla 13/48; all scenario IDs accounted for | Upstream baseline only; evidence gaps documented; **not a Foundry score** |
+| [AgentGovBench baseline and scorer audit](review/CLOSEST_REPOSITORIES.md) | Vanilla 13/48; all scenario IDs accounted for | Upstream baseline only; evidence gaps documented. The later Foundry run scores 48/48 ([paper](research-paper/AgentFoundry_Paper.pdf), [evidence](review/evidence/paper-campaign-20260928c/agentgovbench/)) |
 | [Live WorkBench results](review/LIVE_BENCHMARK_RESULTS.md) | Initial 60-task baseline: native 49/60, LangGraph 48/60, reference 50/60; all failures retained | No demonstrated advantage; later diagnostic reuse and incomplete fresh run disclosed |
 | [Full local validation](review/evidence/iteration-006-full-suite.txt) | 661 passed, 25 skipped | Six tested repair iterations; one local environment |
 | Other frameworks, multi-agent benchmarks, and proposed research method | **Pending** | No superiority or novelty conclusion |
