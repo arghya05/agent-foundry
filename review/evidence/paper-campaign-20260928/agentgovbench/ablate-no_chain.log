@@ -1,0 +1,13 @@
+agent_foundry-ablate-no_chain: 44/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=8ce82418f64e8f1b
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            2/6
+  fail_mode_discipline             6/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6
+  FAIL delegation_provenance.01_chain_recorded ['1/1 had wrong chain']
+  FAIL delegation_provenance.03_three_hop_chain ['1/1 had wrong chain']
+  FAIL delegation_provenance.04_chain_preserved_on_deny ['1/1 had wrong chain']
+  FAIL delegation_provenance.05_parallel_chains_distinct ['1/1 had wrong chain', '1/1 had wrong chain']

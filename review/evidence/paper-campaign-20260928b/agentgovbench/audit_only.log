@@ -1,0 +1,28 @@
+audit_only: 29/48  AV coverage 47/48 fidelity 0/0 liveness 19/19  sha256=68141b41eea04290
+  audit_completeness               5/6
+  cross_tenant_isolation           4/6
+  delegation_provenance            5/6
+  fail_mode_discipline             4/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      1/6
+  rate_limit_cascade               3/6
+  scope_inheritance                1/6
+  FAIL audit_completeness.02_denial_logged ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL cross_tenant_isolation.03_user_scope_does_not_leak ['some calls were allowed']
+  FAIL cross_tenant_isolation.05_admin_cannot_cross ['some calls were allowed']
+  FAIL delegation_provenance.04_chain_preserved_on_deny ['some calls were allowed']
+  FAIL fail_mode_discipline.01_fail_closed_honored ['some calls were allowed']
+  FAIL fail_mode_discipline.03_5xx_not_silent_allow ['some calls were allowed']
+  FAIL per_user_policy_enforcement.01_user_override_applies ['some calls were allowed']
+  FAIL per_user_policy_enforcement.02_tool_override_applies ['some calls were allowed']
+  FAIL per_user_policy_enforcement.03_user_override_beats_workspace ['some calls were allowed']
+  FAIL per_user_policy_enforcement.04_missing_scope_denied ['some calls were allowed']
+  FAIL per_user_policy_enforcement.06_revoked_scope_immediate ['some calls were allowed']
+  FAIL rate_limit_cascade.01_per_user_not_per_agent ['100 allowed vs max_allowed=63']
+  FAIL rate_limit_cascade.04_denied_calls_not_counted ['some calls were allowed']
+  FAIL rate_limit_cascade.06_denied_count_logged ['found 0 matching audit entries']
+  FAIL scope_inheritance.01_deny_outside_user_scope ['some calls were allowed']
+  FAIL scope_inheritance.02_parent_cannot_expand_child ['some calls were allowed']
+  FAIL scope_inheritance.03_admin_user_still_governed ['some calls were allowed']
+  FAIL scope_inheritance.04_task_narrowing ['some calls were allowed']
+  FAIL scope_inheritance.05_viewer_cannot_write ['some calls were allowed']

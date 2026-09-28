@@ -1,0 +1,16 @@
+agent_foundry-ablate-no_scope_check_both: 41/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=4d2b37a3fb5c2679
+  audit_completeness               5/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            5/6
+  fail_mode_discipline             6/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      5/6
+  rate_limit_cascade               5/6
+  scope_inheritance                3/6
+  FAIL audit_completeness.02_denial_logged ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL delegation_provenance.04_chain_preserved_on_deny ['some calls were allowed']
+  FAIL per_user_policy_enforcement.04_missing_scope_denied ['some calls were allowed']
+  FAIL rate_limit_cascade.04_denied_calls_not_counted ['some calls were allowed']
+  FAIL scope_inheritance.01_deny_outside_user_scope ['some calls were allowed']
+  FAIL scope_inheritance.02_parent_cannot_expand_child ['some calls were allowed']
+  FAIL scope_inheritance.05_viewer_cannot_write ['some calls were allowed']

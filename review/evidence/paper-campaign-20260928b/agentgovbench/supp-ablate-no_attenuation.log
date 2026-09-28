@@ -1,0 +1,4 @@
+supp-agent_foundry-ablate-no_attenuation: 6/8  AV coverage 8/8 fidelity 8/8 liveness 8/8  sha256=58e9d5e8a504627e
+  discrimination                   6/8
+  FAIL supplemental.01_narrowing_with_allowed_tier ['some calls were allowed']
+  FAIL supplemental.02_multihop_narrowing ['some calls were allowed']

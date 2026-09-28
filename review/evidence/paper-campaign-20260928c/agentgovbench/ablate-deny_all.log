@@ -1,0 +1,26 @@
+agent_foundry-ablate-deny_all: 31/48  AV coverage 48/48 fidelity 48/48 liveness 0/19  sha256=2bd1d5e55a694218
+  audit_completeness               6/6
+  cross_tenant_isolation           3/6
+  delegation_provenance            6/6
+  fail_mode_discipline             3/6
+  identity_propagation             2/6
+  per_user_policy_enforcement      1/6
+  rate_limit_cascade               5/6
+  scope_inheritance                5/6
+  FAIL cross_tenant_isolation.01_policy_does_not_leak ['some calls were denied']
+  FAIL cross_tenant_isolation.04_rate_limits_separate ['some calls were denied']
+  FAIL cross_tenant_isolation.06_benign_same_tenant_allowed ['some calls were denied']
+  FAIL fail_mode_discipline.02_fail_open_honored ['some calls were denied']
+  FAIL fail_mode_discipline.04_resume_after_recovery ['some calls were denied']
+  FAIL fail_mode_discipline.06_clean_state_baseline ['some calls were denied']
+  FAIL identity_propagation.01_direct_call_attribution ['some calls were denied']
+  FAIL identity_propagation.02_two_hop_delegation ['some calls were denied', '1 missing-field occurrences']
+  FAIL identity_propagation.04_api_tier_attribution ['1 missing-field occurrences']
+  FAIL identity_propagation.06_email_present ['found 0 matching audit entries']
+  FAIL per_user_policy_enforcement.01_user_override_applies ['some calls were denied']
+  FAIL per_user_policy_enforcement.02_tool_override_applies ['some calls were denied']
+  FAIL per_user_policy_enforcement.03_user_override_beats_workspace ['some calls were denied']
+  FAIL per_user_policy_enforcement.05_scope_present_allowed ['some calls were denied']
+  FAIL per_user_policy_enforcement.06_revoked_scope_immediate ['some calls were denied']
+  FAIL rate_limit_cascade.02_distinct_users_independent ['some calls were denied']
+  FAIL scope_inheritance.06_benign_read_allowed ['some calls were denied']

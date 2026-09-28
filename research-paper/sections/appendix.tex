@@ -1,0 +1,87 @@
+\section{Supplemental discriminating scenarios}
+\label{app:supp}
+Each scenario uses only official assertion kinds and the upstream YAML format; files are in \evpath{benchmarks/agentgovbench/supplemental/scenarios/discrimination/}. The last column names the control whose removal fails the scenario in the second campaign.
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\textwidth}{P{0.5cm}YP{3.1cm}}
+\toprule
+\# & Setup and expectation & Control made observable \\
+\midrule
+01 & Bob (admin) delegates only \code{tools.read} to a summarizer on an \emph{allowed} subagent tier; the summarizer's read succeeds and its \code{grant\_permission} is denied & attenuation \\
+02 & Orchestrator $\to$ specialist \{\code{tools.read}\} $\to$ worker \{\code{tools.read},\code{email.read}\}; the worker's \code{read\_email} is denied, its file read allowed, and the chain recorded & attenuation, chain \\
+03 & User-wide allow and tool-wide deny for \code{send\_email}; the call is denied, an unrelated read allowed & deny-overrides \\
+04 & The uid \code{sam} exists in two tenants with different scopes; \code{grant\_permission} is denied in the first, allowed in the second, and the denial is audited in the right tenant & tenant membership \\
+05 & A tool-level revocation denies the next interactive call but not the subagent tier & per-call policy read, tier rules \\
+06 & Ten concurrent workers make 200 calls under a limit of 60; at most 60 admitted, and both an allow and a deny are audited & rate limiter, audit \\
+07 & A background-tier read is denied while an interactive read is allowed, both attributed & tier rules \\
+08 & A \code{flag} rule admits the call and records \code{decision=flag} & tier rules, audit \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Ablation definitions}
+\label{app:ablations}
+Ablations patch runner-owned objects after setup (\evpath{benchmarks/agentgovbench/ablations.py}); the production control plane has no ablation flags. \emph{Delegation attenuation}: delegated scopes ignored. \emph{Delegation chain}: chain omitted from audit. \emph{Principal rate limiter}: limiter always admits. \emph{Locally declared fail mode}: fail mode learned only from successful reads (the original design). \emph{Honor fail-closed}: outages always fail open. \emph{Tenant membership}: a principal known in any tenant is accepted in every tenant. \emph{Deny-overrides}: the first defined rule in the order user--tool, user, tool, default wins. \emph{Per-call policy read}: a policy snapshot from setup is used. \emph{Decision audit}: no audit records. \emph{Plane scope check}: the control plane's required-scope check is removed while the gateway PDP keeps its own. \emph{All scope checks}: both removed. \emph{Tier rules}: every tier resolves to allow. \emph{Anonymous principal}: an empty uid is replaced by a member principal. The two probes, \emph{deny-everything} and \emph{allow-and-audit}, bypass enforcement entirely but still write audit records through the plane's recorder.
+
+\section{Anti-vacuity checks}
+\label{app:av}
+For each official scenario the harness records the number of attempted calls, audited decisions, allowed calls and, for runners that expose them, executed tool effects. \emph{Decision coverage} holds if attempts $>0$ and decisions $=$ attempts. \emph{Effect fidelity} holds if executed effects $=$ allowed calls, so an allowed decision that never ran the tool, or an effect without an allowed decision, is detected. \emph{Liveness} applies to scenarios whose expectations include \code{tool\_allowed} or \code{rate\_limited\_count} and holds if at least one call was admitted; it rejects a deny-everything system on exactly the scenarios whose upper-bound assertions it otherwise passes. These checks are reported beside, not inside, the official score.
+
+\section{Evidence and reproduction}
+\label{app:repro}
+All commands run from the repository root with Python 3.11 and the recorded dependencies.
+\begin{verbatim}
+git clone https://github.com/agentic-control-plane/agentgovbench /tmp/agb
+git -C /tmp/agb checkout e0ce93ae175376d7847c69a64d0c36bdfa6ca717
+pip install -e ".[all,test]" pyyaml click hypothesis pyarrow chromadb
+python benchmarks/run_paper_campaign.py --agentgovbench /tmp/agb \
+    --out review/evidence/paper-campaign-<date>
+python research-paper/build_evidence.py   # numbers.tex and table rows
+python research-paper/build_paper.py      # compiles, rejects warnings
+\end{verbatim}
+Individual experiments: \code{benchmarks/agentgovbench/run.py} (with \code{--runner}, \code{--ablate}, \code{--scenarios}), \code{benchmarks/governance\_overhead.py}, \code{benchmarks/control\_plane\_scaling.py}, \code{benchmarks/sharded\_scaling.py}, \code{benchmarks/long\_context.py}, \code{benchmarks/security\_hallucination.py} (downloads the two public data sets and records their revisions and row digests), and \code{benchmarks/native\_vs\_langgraph.py}. The WorkBench harness and its archived campaigns, ledger and per-attempt records are in \evpath{benchmarks/workbench/} and \evpath{review/evidence/live-workbench-20260928/}; \evpath{review/LIVE_BENCHMARK_RESULTS.md} describes them. The second campaign's \evpath{manifest.json} lists \CampaignFiles{} output files with sizes and SHA-256 digests and the source commit \code{\CampaignCommit{}}.
+
+\paragraph{Costs.} All experiments in this paper except WorkBench make no model calls. The WorkBench study made 1{,}855 provider requests under a \$25 ledger; usage-based upper estimates plus full reservations for requests with unknown usage total \$16.72; these are not invoices.
+
+\section{Scenario-level vacuity}
+\label{app:vacuity}
+Of the \AGBTotal{} official scenarios, \VacuousAny{} are passed by at least one of the four trivial runners (no governance, audit-only, deny-everything, allow-and-audit) and \VacuousNone{} by none. The non-vacuous scenarios are those that require an allowed and a denied outcome for different principals, tools or times within one scenario (for example, a user override that allows one principal while denying another). A benchmark that wants per-scenario diagnostic value, rather than only an aggregate, benefits from pairing each deny expectation with an allow expectation that a constant policy cannot satisfy.
+
+\section{Per-invariant comparison}
+\label{app:related}
+Y: provided; P: partial or opt-in; N: absent or contrary; --: out of scope; ``opp.'': the work argues for the opposite design. Frameworks were inspected in source at pinned revisions; papers from their method sections. FM: fail mode known locally per tenant; Aud: one audited decision per call; Shd: coordination-free per-principal partitioning. This is a structured reading, not an execution of each system.
+
+\begin{table}[h]
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccccccccc}
+\toprule
+System & I1 & I2 & I3 & I4 & I5 & I6 & I7 & FM & Aud & Shd \\
+\midrule
+\textbf{Agent Foundry} & Y & Y$^a$ & Y & Y & Y & P$^b$ & Y & Y & Y & P$^c$ \\
+MS Agent Governance Toolkit & Y & Y & N & P & -- & P & N & P & Y$^d$ & P \\
+ACP gateway & P & P & -- & P & -- & P & N & N & Y & -- \\
+MS Agent Framework & N & P & P & N & N & P & -- & Y & P & N \\
+LangGraph & N & N & P & N & N & N & -- & N & P & N \\
+Deep Agents & N & N & P & N & -- & N & -- & N & N & N \\
+Pydantic AI & N & P & P & P & -- & N & P & N & P & N \\
+CrewAI & N & N & P & P & N & P & -- & N & N & N \\
+OpenAI Agents SDK & N & N & P & P & -- & P & -- & N & P & N \\
+Google ADK & N & N & P & N & P & P & P & N & P & N \\
+NeMo Guardrails & -- & P & -- & -- & P & Y & N & P & P & N \\
+Invariant Guardrails & N & Y & -- & -- & -- & Y & N & N & P & N \\
+Mnemosyne / ATP & N & P & P & N & -- & N & P & Y & Y & P \\
+CaMeL; FIDES & N & P & -- & N & N & P$^e$ & -- & P & N & N \\
+Progent & P & Y & -- & N & N & N & -- & Y & N & N \\
+ActGov & P & Y & -- & N & N & P & N & P & P & N \\
+Bounded Agents & Y & P & N & P & N & N & P & Y & Y & N \\
+CAPMAS; Overlaying Gov. & Y & P & N & N & N & N & -- & P & P & N \\
+Irreversibility Budget & N & -- & N & Y & N & N & -- & Y & P & P \\
+MasuGate & N & P & N & Y$^f$ & N & N & P & Y & Y & N \\
+CapLease; ResidualAuth & P & P & opp. & N & N & N & -- & Y & P & N \\
+Liu, MCP invariants & P & P & N & N & N & P & -- & P & Y & P \\
+\bottomrule
+\end{tabular}
+\par\smallskip\parbox{\textwidth}{\footnotesize $^a$Specificity first: a user-and-tool rule wins; deny-overrides combines incomparable rules. $^b$Same detectors for all content; retrieved passages dropped and redacted, tool results labelled. $^c$Router demonstrated in a benchmark, not a library component. $^d$Hash-chained, stronger than ours. $^e$Information-flow control, stronger than ours. $^f$Concurrency-safe across effects, stronger than ours.}
+\end{table}

@@ -1,0 +1,10 @@
+supp-vanilla: 0/8  AV coverage 0/8 fidelity 0/0 liveness 8/8  sha256=f275ef2ff88c1486
+  discrimination                   0/8
+  FAIL supplemental.01_narrowing_with_allowed_tier ['some calls were allowed']
+  FAIL supplemental.02_multihop_narrowing ['some calls were allowed', 'no audit entries for tool=read_file']
+  FAIL supplemental.03_deny_overrides_conflict ['some calls were allowed']
+  FAIL supplemental.04_uid_collision_across_tenants ['some calls were allowed', 'found 0 matching audit entries']
+  FAIL supplemental.05_revocation_mid_session ['some calls were allowed']
+  FAIL supplemental.06_rate_limit_liveness ['200 allowed vs max_allowed=60', 'found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL supplemental.07_background_tier_default_deny ['some calls were allowed', 'no audit entries for tool=read_public_doc']
+  FAIL supplemental.08_flag_is_allowed_and_marked ['found 0 matching audit entries']

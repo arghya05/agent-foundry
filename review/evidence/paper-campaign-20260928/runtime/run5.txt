@@ -1,0 +1,18 @@
+| Topology | Runtime | P50 (ms) | P95 (ms) | Memory (KB) | Tool throughput (calls/s) | Cost (USD) | Eval score |
+|---|---|---|---|---|---|---|---|
+| agent | native | 0.11 | 0.16 | 55.4 | n/a | 0.0090 | 100% |
+| agent | langgraph | 1.96 | 2.78 | 12199.3 | n/a | 0.0090 | 100% |
+| agent (tool-calling) | native | 1.43 | 18.96 | 1979.8 | 187.0 | 0.0180 | 100% |
+| agent (tool-calling) | langgraph | 4.44 | 4.75 | 345.6 | 222.4 | 0.0180 | 100% |
+| supervisor | native | 0.12 | 0.14 | 33.6 | n/a | 0.0090 | 100% |
+| supervisor | langgraph | 2.29 | 2.62 | 203.7 | n/a | 0.0090 | 100% |
+| swarm | native | 0.22 | 0.24 | 62.5 | n/a | 0.0090 | 100% |
+| swarm | langgraph | 2.77 | 3.20 | 281.3 | n/a | 0.0090 | 100% |
+| blackboard | native | 0.53 | 0.54 | 124.5 | n/a | 0.0180 | 100% |
+| blackboard | langgraph | 71.35 | 78.42 | 799.1 | n/a | 0.0180 | 100% |
+| debate | native | 0.35 | 0.38 | 100.6 | n/a | 0.0090 | 100% |
+| debate | langgraph | 53.02 | 53.70 | 571.3 | n/a | 0.0090 | 100% |
+| fanout | native | 2.09 | 2.12 | 145.6 | n/a | 0.0450 | 100% |
+| fanout | langgraph | 10.52 | 10.96 | 746.4 | n/a | 0.0450 | 100% |
+| dag | native | 0.39 | 0.45 | 19.0 | n/a | 0.0000 | 100% |
+| dag | langgraph | 2.92 | 3.19 | 338.5 | n/a | 0.0000 | 100% |

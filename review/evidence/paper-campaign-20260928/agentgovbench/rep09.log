@@ -1,0 +1,9 @@
+rep09-agent_foundry: 48/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=5642d37afa388f7f
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             6/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6

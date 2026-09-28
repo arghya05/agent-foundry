@@ -1,0 +1,10 @@
+agent_foundry-ablate-anonymous_allowed: 47/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=eefa7c3d3508ab5a
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             6/6
+  identity_propagation             5/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               6/6
+  scope_inheritance                6/6
+  FAIL identity_propagation.05_anonymous_rejected ['some calls were allowed']

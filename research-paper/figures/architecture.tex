@@ -1,0 +1,22 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  layer/.style={draw,rounded corners=2pt,align=center,font=\footnotesize,minimum height=7.2mm,text width=6.9cm,fill=blue!5},
+  rail/.style={draw,rounded corners=2pt,align=center,font=\footnotesize,text width=2.35cm,minimum height=5.95cm,fill=orange!8},
+  edge/.style={-{Stealth[length=2mm]},semithick},
+  node distance=1.6mm]
+\node[layer] (l0) {\textbf{L0 Entry}: \code{Agent}, \code{AgentSpec} (YAML/JSON), CLI, HTTP/SSE, Slack, A2A};
+\node[layer,below=of l0,fill=green!6] (sc) {\textbf{Execution scope} (\gec{}): principal, tenant, roles, policy $\sqcap$, budget buckets, deadline, cancellation, delegation chain};
+\node[layer,below=of sc] (l1) {\textbf{L1 Orchestration}: think $\to$ act $\to$ self-verify $\to$ critique; 6 topologies};
+\node[layer,below=of l1] (l2) {\textbf{L2 Runtime seam} \code{WorkflowEngine}: native engine $\mid$ LangGraph engine; state stores};
+\node[layer,below=of l2,fill=green!6] (cp) {\textbf{L3a Control plane}: tenant policy, tiers, deny-overrides, limiter, fail mode, decision audit};
+\node[layer,below=of cp] (l3) {\textbf{L3b Tool gateway}: PDP (allowlist, scopes, classification, OPA/Cedar, egress), schemas, MCP};
+\node[layer,below=of l3] (l4) {\textbf{L4 LLM gateway}: routes, failover, request-complete cache, limiter, cost};
+\node[layer,below=of l4] (l5) {\textbf{L5 Context}: retrieve $\to$ rank $\to$ filter $\to$ compress $\to$ budget; memories, knowledge ACLs};
+\node[rail,right=3mm of $(l1.north east)!0.5!(l5.south east)$,anchor=west,yshift=0mm] (ev) {\textbf{Evaluation rail}\\[2pt]KPI board, LLM-judge, DB-match, grounding\\[2pt]eval gate: unmeasured $\neq$ pass\\[2pt]trajectory, baseline, pairwise};
+\node[rail,left=3mm of $(l1.north west)!0.5!(l5.south west)$,anchor=east] (gov) {\textbf{Governance rail}\\[2pt]identity, RBAC, L0--L5 autonomy\\[2pt]guardrails: marker + trained injection gate, PII\\[2pt]audit log, vault};
+\foreach \a/\b in {l0/sc,sc/l1,l1/l2,l2/cp,cp/l3,l3/l4,l4/l5}{\draw[edge] (\a)--(\b);}
+\end{tikzpicture}
+\caption{\method{} layers. Green boxes carry the \gec{}: the execution scope is established once at the entry point and consumed by every lower layer; the control plane is the single admission point for tool effects. Rails are cross-cutting services invoked from several layers.}
+\label{fig:architecture}
+\end{figure}

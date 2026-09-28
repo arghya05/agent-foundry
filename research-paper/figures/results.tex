@@ -1,0 +1,30 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=\linewidth,height=4.3cm,ybar,bar width=7pt,ymin=0,ymax=52,
+  xtick=data,xticklabels from table={evidence/fig_agb.dat}{label},
+  xticklabel style={rotate=35,anchor=east,font=\tiny},tick label style={font=\scriptsize},
+  ylabel={passed (of 48)},label style={font=\scriptsize},title={(a) AgentGovBench total},title style={font=\footnotesize},
+  nodes near coords,nodes near coords style={font=\tiny},enlarge x limits=0.04]
+\addplot[fill=blue!55,draw=blue!70!black] table[x=idx,y=total]{evidence/fig_agb.dat};
+\end{axis}
+\end{tikzpicture}\\[2pt]
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1,horizontal sep=1.6cm},width=0.46\linewidth,height=4.0cm,
+  tick label style={font=\scriptsize},label style={font=\scriptsize},title style={font=\footnotesize}]
+\nextgroupplot[title={(b) Fact retention, 2k-token budget},xmode=log,ymin=-12,ymax=112,
+  xlabel={history tokens},ylabel={retention (\%)},legend style={font=\tiny,at={(0.97,0.62)},anchor=east}]
+\addplot[mark=*,thick,green!50!black] table[x=tokens,y=foundry]{evidence/fig_longctx.dat};
+\addplot[mark=square*,thick,red!70!black] table[x=tokens,y=recency]{evidence/fig_longctx.dat};
+\addplot[mark=triangle*,thick,gray,dashed] table[x=tokens,y=paraphrase]{evidence/fig_longctx.dat};
+\legend{Foundry,Recency,Foundry (paraphrase)}
+\nextgroupplot[title={(c) Principal-affine shards},xtick={1,2,4,8},
+  xlabel={processes},ylabel={k governed calls/s},legend style={font=\tiny,at={(0.03,0.97)},anchor=north west}]
+\addplot[mark=*,thick,blue!70!black] table[x=k,y=throughput]{evidence/fig_shards.dat};
+\addplot[dashed,gray] table[x=k,y=ideal]{evidence/fig_shards.dat};
+\legend{measured,linear}
+\end{groupplot}
+\end{tikzpicture}
+\caption{(a) AgentGovBench totals for \method{}, the eight published governed runs, the seven identical framework-native runs, and trivial runners; the deny-everything probe scores above the audit-only reference. (b) Retention of a planted fact by assembled context within a fixed budget as history grows (Table~\ref{tab:longctx}). (c) Aggregate admission throughput with exact per-principal limits (Table~\ref{tab:scale}).}
+\label{fig:results}
+\end{figure}

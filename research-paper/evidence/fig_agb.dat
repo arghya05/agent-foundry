@@ -1,0 +1,14 @@
+idx label total
+0 {Foundry} 48
+1 {ACP~API} 46
+2 {Claude~Agent~SDK+ACP} 46
+3 {OpenAI~Agents~SDK+ACP} 45
+4 {Claude~Code+ACP} 43
+5 {Codex~CLI+ACP} 43
+6 {CrewAI+ACP} 40
+7 {LangGraph+ACP} 40
+8 {Cursor+ACP} 37
+9 {Native~(7)} 13
+10 {Audit-only} 29
+11 {Deny-all} 31
+12 {Allow+audit} 25

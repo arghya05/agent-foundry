@@ -1,0 +1,36 @@
+{
+ "principals": 256,
+ "calls_per_principal": 60,
+ "limit": 40,
+ "cpu_count": 14,
+ "results": [
+  {
+   "processes": 1,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 3691.862258459113,
+   "wall_incl_startup_s": 4.465351874998305,
+   "limit_exact": true
+  },
+  {
+   "processes": 2,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 6976.838200393779,
+   "wall_incl_startup_s": 2.479141667019576,
+   "limit_exact": true
+  },
+  {
+   "processes": 4,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 13689.258511261523,
+   "wall_incl_startup_s": 1.4374166670022532,
+   "limit_exact": true
+  },
+  {
+   "processes": 8,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 25374.32883855019,
+   "wall_incl_startup_s": 0.9506850829930045,
+   "limit_exact": true
+  }
+ ]
+}

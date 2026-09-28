@@ -1,0 +1,290 @@
+{
+ "ablations": [
+  {
+   "control": "Delegation attenuation",
+   "official": 48,
+   "official_failed": 0,
+   "supp": 6,
+   "supp_failed": 2
+  },
+  {
+   "control": "Delegation chain in audit",
+   "official": 44,
+   "official_failed": 4,
+   "supp": 7,
+   "supp_failed": 1
+  },
+  {
+   "control": "Principal rate limiter",
+   "official": 46,
+   "official_failed": 2,
+   "supp": 7,
+   "supp_failed": 1
+  },
+  {
+   "control": "Locally declared fail mode",
+   "official": 47,
+   "official_failed": 1,
+   "supp": 8,
+   "supp_failed": 0
+  },
+  {
+   "control": "Honor fail-closed",
+   "official": 46,
+   "official_failed": 2,
+   "supp": 8,
+   "supp_failed": 0
+  },
+  {
+   "control": "Tenant membership",
+   "official": 46,
+   "official_failed": 2,
+   "supp": 7,
+   "supp_failed": 1
+  },
+  {
+   "control": "Deny-overrides resolution",
+   "official": 48,
+   "official_failed": 0,
+   "supp": 7,
+   "supp_failed": 1
+  },
+  {
+   "control": "Per-call policy read",
+   "official": 47,
+   "official_failed": 1,
+   "supp": 7,
+   "supp_failed": 1
+  },
+  {
+   "control": "Decision audit",
+   "official": 30,
+   "official_failed": 18,
+   "supp": 3,
+   "supp_failed": 5
+  },
+  {
+   "control": "Plane scope check (PDP kept)",
+   "official": 47,
+   "official_failed": 1,
+   "supp": 8,
+   "supp_failed": 0
+  },
+  {
+   "control": "All scope checks",
+   "official": 41,
+   "official_failed": 7,
+   "supp": 5,
+   "supp_failed": 3
+  },
+  {
+   "control": "Tier rules",
+   "official": 43,
+   "official_failed": 5,
+   "supp": 4,
+   "supp_failed": 4
+  },
+  {
+   "control": "Reject anonymous principal",
+   "official": 47,
+   "official_failed": 1,
+   "supp": 8,
+   "supp_failed": 0
+  }
+ ],
+ "leaderboard": {
+  "foundry": 48,
+  "best_published": 46,
+  "governed": [
+   [
+    "acp_api",
+    46
+   ],
+   [
+    "anthropic_agent_sdk_acp",
+    46
+   ],
+   [
+    "openai_agents_acp",
+    45
+   ],
+   [
+    "claude_code_acp",
+    43
+   ],
+   [
+    "codex_acp",
+    43
+   ],
+   [
+    "crewai_acp",
+    40
+   ],
+   [
+    "langgraph_acp",
+    40
+   ],
+   [
+    "cursor_acp",
+    37
+   ]
+  ]
+ },
+ "shards": [
+  {
+   "processes": 1,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 3691.862258459113,
+   "wall_incl_startup_s": 4.465351874998305,
+   "limit_exact": true
+  },
+  {
+   "processes": 2,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 6976.838200393779,
+   "wall_incl_startup_s": 2.479141667019576,
+   "limit_exact": true
+  },
+  {
+   "processes": 4,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 13689.258511261523,
+   "wall_incl_startup_s": 1.4374166670022532,
+   "limit_exact": true
+  },
+  {
+   "processes": 8,
+   "calls": 15360,
+   "aggregate_throughput_per_s": 25374.32883855019,
+   "wall_incl_startup_s": 0.9506850829930045,
+   "limit_exact": true
+  }
+ ],
+ "macros": {
+  "AGBFoundry": "48",
+  "AGBTotal": "48",
+  "AGBRepeats": "10",
+  "AGBRepeatsPerfect": "10",
+  "AGBRepeatsIdentical": "identical",
+  "AGBVanilla": "13",
+  "AGBAuditOnly": "29",
+  "AGBDenyAll": "31",
+  "AGBAllowAll": "25",
+  "SuppFoundry": "8",
+  "SuppTotal": "8",
+  "SuppVanilla": "0",
+  "SuppAuditOnly": "0",
+  "SuppDenyAll": "0",
+  "SuppAllowAll": "0",
+  "AVCoverage": "48",
+  "AVFidelity": "48",
+  "AVLiveness": "19",
+  "AVLivenessApplicable": "19",
+  "AVAuditOnlyCoverage": "47",
+  "AVVanillaCoverage": "0",
+  "AVDenyAllLiveness": "0",
+  "VacuousAny": "44",
+  "VacuousNone": "4",
+  "AttributedOfficial": "35",
+  "UnattributedOfficial": "13",
+  "AblationCount": "13",
+  "OfficialBlindControls": "2",
+  "OfficialBlindList": "delegation attenuation, deny-overrides resolution",
+  "AGBBestPublished": "46",
+  "AGBNativeFrameworks": "7",
+  "AGBNativeScore": "13",
+  "ACPDeclaredNarrowing": "8",
+  "ACPDeclaredNarrowingPassed": "6",
+  "OvRegistry": "179",
+  "OvRegistryP": "186",
+  "OvGateway": "392",
+  "OvGatewayP": "406",
+  "OvPlane": "406",
+  "OvPlaneP": "420",
+  "OvDelegation": "411",
+  "OvDelegationP": "425",
+  "OvBare": "0.08",
+  "OvBareP": "0.08",
+  "OvPlaneDelta": "14",
+  "OvDelegationDelta": "5",
+  "RuntimeRuns": "5",
+  "CoordSpeedMin": "5.7",
+  "CoordSpeedMax": "157",
+  "NativeToolPNinetyFive": "18.66",
+  "LGToolPNinetyFive": "4.56",
+  "ScalePrincipals": "32",
+  "ScaleCalls": "4800",
+  "ScaleAllExact": "all",
+  "ScaleThroughputOne": "3,470",
+  "ShardMax": "8",
+  "ShardMaxThroughput": "25,374",
+  "ShardSpeedup": "6.9",
+  "ShardEfficiency": "86",
+  "ShardPerProc": "3,692",
+  "ShardsForMillionPerMin": "6",
+  "FirstScaleInexact": "1",
+  "FirstScaleConfigs": "6",
+  "FirstScaleReps": "3",
+  "ScaleReps": "10",
+  "LCBudget": "2,000",
+  "LCFullOverBudget": "732",
+  "LCMaxHistory": "1,426,941",
+  "LCRecencyRetention": "20\\%",
+  "LCFoundryRetention": "100\\%",
+  "LCFoundryParaphrase": "0\\%",
+  "LCEmbedParaphrase": "87\\%",
+  "LCFoundryMaxMs": "69",
+  "LCFoundryContextTokens": "231",
+  "LCInjectionsFoundry": "0",
+  "LCInjectionsRecency": "5",
+  "LCInjectionCases": "6",
+  "LCCells": "15",
+  "LCSizes": "100, 1,000, 10,000, 50,000",
+  "LCHistTokens": "2,865, 28,381, 285,415, 1,426,941",
+  "LCEmbedIndexS": "6.1",
+  "InjRegexRecall": "0.0\\%",
+  "InjRegexPrecision": "0.0\\%",
+  "InjRegexFone": "0.000",
+  "InjRegexFPR": "0.0\\%",
+  "InjRegexRecallCI": "[0.0, 6.0]",
+  "InjNBRecall": "80.0\\%",
+  "InjNBPrecision": "94.1\\%",
+  "InjNBFone": "0.865",
+  "InjNBFPR": "5.4\\%",
+  "InjNBRecallCI": "[68.2, 88.2]",
+  "InjTestN": "116",
+  "InjTestPos": "60",
+  "InjTrainN": "546",
+  "InjRegexTrainRecall": "1.5\\%",
+  "InjNBAUROC": "0.874",
+  "InjNBAUROCCI": "[0.809, 0.938]",
+  "InjRevision": "4f61ecb0",
+  "HaluPairs": "10,000",
+  "HaluRevision": "12a85611",
+  "HaluOverlap": "0.906",
+  "HaluOverlapCI": "[0.901, 0.910]",
+  "HaluLength": "0.971",
+  "HaluLengthCI": "[0.969, 0.974]",
+  "HaluMatchedOverlap": "0.917",
+  "HaluMatchedOverlapCI": "[0.896, 0.937]",
+  "HaluMatchedLength": "0.513",
+  "HaluMatchedLengthCI": "[0.472, 0.554]",
+  "HaluMatchedPairs": "384",
+  "HaluHeldoutAcc": "93.4\\%",
+  "HaluNumeric": "0.500",
+  "WBFreshB": "8",
+  "WBFreshC": "4",
+  "WBFreshP": "0.39",
+  "WBFrontierModel": "Fable 5",
+  "WBFrontierCorrect": "674",
+  "WBFrontierAcc": "97.68\\%",
+  "WBFrontierRuns": "24",
+  "WBFrontierPredictions": "16,560",
+  "TestsPassed": "693",
+  "TestsSkipped": "25",
+  "TestsFailed": "0",
+  "CampaignCommit": "4b86edd",
+  "CampaignFiles": "103",
+  "FigAGBBars": "12"
+ }
+}

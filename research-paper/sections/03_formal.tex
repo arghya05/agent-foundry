@@ -1,0 +1,120 @@
+\section{The Governed Execution Contract}
+\label{sec:formal}
+This section states the contract that the architecture implements. The definitions follow the code closely (module and symbol names are given), so that each theorem is a statement about the shipped system rather than an idealization; assumptions that the code does not discharge are stated explicitly.
+
+\subsection{Control scopes and attenuation}
+Let $\mathcal{T}$ be a finite set of tool names, $\mathcal{S}$ a finite set of scope names, and $\mathcal{A}=\{L_0<\dots<L_5\}$ the autonomy levels. A \emph{tool policy} is a tuple
+\begin{equation}
+ \pi=(T,\;R,\;c,\;k,\;a)\in 2^{\mathcal{T}}\times 2^{\mathcal{T}}\times\mathbb{R}_{\ge0}\times\mathbb{N}\times\mathcal{A},
+\end{equation}
+of allowed tools $T$, approval-required tools $R$, a cost ceiling $c$, a step ceiling $k$ and an autonomy level $a$ (\code{contracts.Policy}). Order policies by permissiveness:
+\begin{equation}
+ \pi\sqsubseteq\pi' \iff T\subseteq T' \wedge R\supseteq R' \wedge c\le c' \wedge k\le k' \wedge a\le a'.
+\end{equation}
+
+\begin{definition}[Attenuation]
+The meet of two policies, implemented by \code{execution\_scope.intersect\_policies}, is
+\[\pi\sqcap\pi'=\bigl(T\cap T',\;R\cup R',\;\min(c,c'),\;\min(k,k'),\;\min(a,a')\bigr).\]
+\end{definition}
+
+\begin{lemma}
+$(\Pi,\sqsubseteq)$ is a meet-semilattice with meet $\sqcap$: the operation is commutative, associative and idempotent, and $\pi\sqcap\pi'$ is the greatest lower bound of $\pi$ and $\pi'$.
+\end{lemma}
+\begin{proof}
+$\Pi$ is a product of five lattices: $(2^{\mathcal{T}},\subseteq)$ with meet $\cap$; $(2^{\mathcal{T}},\supseteq)$ with meet $\cup$; two chains $(\mathbb{R}_{\ge0},\le)$ and $(\mathbb{N},\le)$ with meet $\min$; and the chain $\mathcal{A}$ with meet $\min$. A product of meet-semilattices ordered componentwise is a meet-semilattice whose meet is the componentwise meet, and each componentwise meet is commutative, associative and idempotent.
+\end{proof}
+
+A request scope $C$ additionally carries a principal $(u,\tau)$ (user and tenant), a role set $\rho\subseteq\mathcal{S}$, a deadline $d$, a cancellation predicate $\kappa$, a model allowlist $M$, a budget bucket list $B$, a delegation chain $\chi\in\mathcal{G}^*$ over agent names $\mathcal{G}$, and optionally a delegated scope set $\delta\subseteq\mathcal{S}$. Nesting (\code{execution\_scope.request\_scope} and \code{control\_plane.delegation}) combines a parent $C_p$ with a requested child $C_r$ as
+\begin{equation}
+\label{eq:nest}
+ C_p\oplus C_r=\bigl(\pi_p\sqcap\pi_r,\;\rho_p\cap\rho_r,\;\min(d_p,d_r),\;\kappa_p\vee\kappa_r,\;M_p\cap M_r,\;B_p\mathbin{+\!\!+}B_r,\;\chi_p\,g,\;\delta_p\cap\delta_r\bigr),
+\end{equation}
+where components absent from $C_r$ are inherited from $C_p$. \code{request\_scope} \emph{rejects} the nesting if $(u,\tau)_p\neq(u,\tau)_r$: a nested execution may not replace its calling principal. \code{delegation} changes only $\chi$ and $\delta$, and the control plane receives $(u,\tau)$ explicitly on every call, so a delegated hop cannot name a different principal either. We write $\delta=\top$ for ``no delegated restriction'' with $\top\cap X=X$.
+
+\begin{theorem}[Attenuation along delegation chains]
+\label{thm:attenuation}
+For any chain $C_0,C_1,\dots,C_n$ with $C_{i+1}=C_i\oplus R_i$ and any $0\le i\le j\le n$: $\pi_j\sqsubseteq\pi_i$, $\rho_j\subseteq\rho_i$, $\delta_j\subseteq\delta_i$, $M_j\subseteq M_i$, $d_j\le d_i$, $\kappa_i\Rightarrow\kappa_j$, and $B_i$ is a prefix of $B_j$. Consequently the effective scope of a tool call made at depth $j$, $\mathrm{eff}_j=\sigma(u,\tau)\cap\delta_j$ where $\sigma$ is the principal's granted scope set, satisfies $\mathrm{eff}_j\subseteq\sigma(u,\tau)\cap\bigcap_{i\le j}\delta'_i$ for the declared sets $\delta'_i$, so no descendant can regain a scope dropped by any ancestor.
+\end{theorem}
+\begin{proof}
+By induction on $j-i$. The base case is reflexivity. For the step, each component of Eq.~\eqref{eq:nest} is a meet (or disjunction for $\kappa$, append for $B$) of the parent component with the request component, and a meet is below each argument. Transitivity of $\sqsubseteq$ and $\subseteq$ closes the induction. The bound on $\mathrm{eff}_j$ follows by unfolding $\delta_j=\delta'_1\cap\dots\cap\delta'_j$.
+\end{proof}
+The budget component is the one place where nesting does not take a meet: a child with a new thread identifier appends its bucket, and every charge is applied to \emph{all} buckets in $B$ (\code{\_ScopedBudget}). Hence no child can escape the root's ceiling by renaming its thread (invariant I4).
+
+\subsection{Policy resolution and deny precedence}
+A workspace policy (\code{control\_plane.WorkspacePolicy}) maps a tier $t\in\{\mathit{interactive},\mathit{subagent},\mathit{api},\mathit{background}\}$ to rules at four specificities: tenant default $D(t)$, user-wide $U_u(t)$, tool-wide $W_x(t)$, and user-and-tool $X_{u,x}(t)$. A rule is a pair $(p,\ell)$ of a permission $p\in\{\mathsf{allow}\prec\mathsf{flag}\prec\mathsf{deny}\}$ and an optional rate limit $\ell\in\mathbb{N}\cup\{\infty\}$. Specificity is a partial order: $X$ is above both $U$ and $W$, which are incomparable, and both are above $D$.
+
+\begin{definition}[Resolution]
+\[
+\mathrm{res}(u,x,t)=
+\begin{cases}
+X_{u,x}(t) & \text{if defined,}\\
+\max_{\prec}\{U_u(t),W_x(t)\} & \text{if either is defined (deny-overrides),}\\
+D(t) & \text{if defined,}\\
+\bot & \text{otherwise (no rule: deny),}
+\end{cases}
+\]
+with the resolved rate limit $\ell^\star=\min$ of the limits of all defined rules among $X,U,W,D$.
+\end{definition}
+
+\begin{theorem}[Deny monotonicity]
+\label{thm:deny}
+Let $P'$ be obtained from $P$ by setting any rule at the $U$, $W$ or $D$ level to $\mathsf{deny}$, or by adding a rule. If no $X$ rule applies, then $\mathrm{res}_{P'}(u,x,t)\succeq\mathrm{res}_P(u,x,t)$ whenever the change is a deny, and the resolved rate limit never increases when a rule with a limit is added.
+\end{theorem}
+\begin{proof}
+If the modified level is $U$ or $W$, the resolved permission is a maximum over a set that now contains $\mathsf{deny}$, which is the top of the chain. If the modified level is $D$ and some $U$ or $W$ rule is defined, the resolution is unchanged; otherwise it becomes $\mathsf{deny}$. Adding a limited rule adds an element to the set over which $\ell^\star$ is a minimum.
+\end{proof}
+The only way to loosen a resolution is an explicit $X_{u,x}$ rule, which names both the principal and the tool; this is the ``most specific wins'' exception that AgentGovBench's scenario \code{per\_user\_policy\_enforcement.03} requires. A user-wide allow therefore cannot override a tool-wide deny (our supplemental scenario 03 tests exactly this). Among the four resolution branches, the absence of any rule denies, so an unconfigured tier fails closed.
+
+\subsection{Deny-first admission}
+Admission (\code{ControlPlane.invoke}) evaluates, in order: (1) authentication ($u\neq\varepsilon$); (2) policy-source availability; (3) tenant existence and membership $u\in\mathrm{members}(\tau)$; (4) tool registration; (5) resolution $r=\mathrm{res}(u,x,t)\neq\bot$; (6) required scopes $\mathrm{req}(x)\subseteq\mathrm{eff}$; (7) $r.p\neq\mathsf{deny}$; (8) the rate limit; then execution through the governed gateway, which re-checks allowlist, scopes, budget and approval (\code{GovernedToolGateway}). The first failing check determines the reason.
+
+\begin{proposition}[Totality and one decision per call]
+\label{prop:total}
+Every invocation terminates with exactly one decision in $\{\mathsf{allow},\mathsf{flag},\mathsf{deny}\}$ and appends exactly one \code{governance\_decision} audit record, including when the policy source raises, when the gateway denies, and when the tool fails.
+\end{proposition}
+\begin{proof}
+Each branch of \code{invoke} and \code{\_execute} returns the value of \code{\_record}, which appends one record and constructs the decision. \code{PolicySourceUnavailable} is caught at step (2); in \code{\_execute}, \code{PermissionDenied} and every other exception raised by the gateway (budget exhaustion, cancellation, deadline, unexpected errors) are converted into a recorded denial; a tool that fails after admission yields an allowed decision with a failed result. No other path returns. The argument assumes that the audit sink itself does not raise.
+\end{proof}
+
+\begin{proposition}[The fail mode must be local]
+\label{prop:failmode}
+Let the decision under an unavailable policy source depend on a tenant-configured fail mode $f_\tau\in\{\mathsf{open},\mathsf{closed}\}$. If $f_\tau$ is stored only in the policy source, then for a tenant whose first request arrives during an outage, no admission procedure can honor $f_\tau=\mathsf{open}$.
+\end{proposition}
+\begin{proof}
+During the outage the procedure's inputs are the request and local state. If $f_\tau$ is stored only remotely and has never been read, local state is identical for $f_\tau=\mathsf{open}$ and $f_\tau=\mathsf{closed}$, so the procedure returns the same decision in both worlds; it must deny for $\mathsf{closed}$, hence cannot allow for $\mathsf{open}$.
+\end{proof}
+The first version of our control plane learned $f_\tau$ from successful reads and failed AgentGovBench scenario \code{fail\_mode\_discipline.02} for exactly this reason; the shipped version takes $f_\tau$ as deployment configuration and refreshes it on reads (ablation ``locally declared fail mode'' in Table~\ref{tab:ablation}).
+
+\subsection{Rate limits under concurrency}
+Let calls for key $\kappa=(\tau,u,t)$ be admitted by \code{SlidingWindowLimiter.try\_acquire}, which under a mutex drops timestamps older than $W$ and admits iff fewer than $\ell$ remain.
+
+\begin{theorem}[Exactness under arbitrary interleavings]
+\label{thm:rate}
+Assume a monotone clock and that each call's check-and-append executes under the mutex. For any finite set of concurrent calls on key $\kappa$ and any interleaving: (safety) every interval of length $W$ contains at most $\ell$ admissions; (liveness) if $n$ calls reach the limiter within one window and no earlier admission for $\kappa$ lies in that window, exactly $\min(n,\ell)$ are admitted. Calls denied at steps (1)--(7) do not consume capacity.
+\end{theorem}
+\begin{proof}
+Because each check-and-append is atomic, the execution is equivalent to a sequential history ordered by lock acquisition (linearizability of a critical section). In that history, the deque for $\kappa$ contains exactly the admissions within the trailing window at each step, and an admission occurs iff its size is below $\ell$; so the count in any window never exceeds $\ell$ (safety), and the first $\min(n,\ell)$ calls in lock order are admitted while the rest see a full deque (liveness). Steps (1)--(7) precede the limiter and return before \code{try\_acquire}.
+\end{proof}
+One consequence is worth stating: a call that passes the limiter but is then denied by the gateway (for example by a second-line scope check or an exhausted step budget) has consumed capacity. Checks that can deny should therefore precede the limiter, which is why the plane re-implements the scope check the gateway also performs.
+The assumption of a monotone clock matters. The first campaign used wall-clock time for windows and recorded one repetition, out of \FirstScaleConfigs{}$\times$\FirstScaleReps{}, in which a principal was not admitted exactly $\ell$ times; the anomaly did not reproduce in 30 reruns. A wall-clock adjustment can shift a window, so the shipped limiter uses \code{time.monotonic}; all \ScaleReps{} repetitions at every thread count in the later campaigns are exact (\S\ref{sec:scale}).
+
+\subsection{Partitioned admission}
+\begin{proposition}[Coordination-free sharding]
+\label{prop:shard}
+All mutable admission state (limiter deques, learned fail modes) is keyed by $(\tau,u,t)$ or $\tau$, and policy documents are read-only per call. If requests are routed by a function of $(\tau,u)$, then $K$ independent control planes, each holding the policy of its principals, produce the same decisions as one control plane, with no messages between shards; aggregate throughput is bounded above by $K$ times single-shard throughput.
+\end{proposition}
+\begin{proof}
+A decision for $(\tau,u,t,x)$ reads the policy of $\tau$, the membership and scopes of $u$, and the deque for $(\tau,u,t)$, and writes only that deque and one audit record. Routing by $(\tau,u)$ places all reads and writes for a key on one shard, so each shard's execution is a restriction of the single-plane execution to its keys, and the union of the restrictions equals the whole.
+\end{proof}
+Principal-affine routing is a deployment pattern, not a library component: \code{benchmarks/sharded\_scaling.py} implements the router used in \S\ref{sec:scale}. Budget buckets shared across principals (for example a tenant-wide cost ceiling) are the exception to the proposition: they need a shared counter, which the \code{RunBudgetLike} protocol permits but which we do not evaluate. Each bucket's charge is atomic under its own lock, but a charge applied to several ancestor buckets is not one transaction; MasuGate~\cite{peng2026statefulgov} addresses budget consistency under concurrent effects.
+
+\subsection{The seven invariants}
+Collecting the above, the \gec{} requires: \textbf{I1} attenuation (Thm.~\ref{thm:attenuation}); \textbf{I2} deny precedence---hard denials precede approval requests in the PDP, and resolution is deny-monotone (Thm.~\ref{thm:deny}); \textbf{I3} live/persisted separation---budget and cancellation handles are never serialized, and resume re-derives controls from the current request; \textbf{I4} shared accounting across children (Thm.~\ref{thm:attenuation}, budget clause; Thm.~\ref{thm:rate}); \textbf{I5} complete cache identity---a prompt-cache key digests the full effective request, including tools, call identifiers, sampling options and response format, and the calling tenant and user from the scope; \textbf{I6} a uniform content boundary---user input, retrieved passages and tool results pass the same injection detectors (retrieved passages flagged by them are dropped and PII-redacted; flagged tool results are labelled untrusted rather than dropped, because they are often the data the caller asked for); and \textbf{I7} measurement honesty---a missing oracle is unmeasured rather than passed, an empty gate fails, and failed or interrupted attempts remain in denominators with their costs. I3, I5, I6 and I7 are implementation obligations checked by regression suites (\S\ref{sec:conformance}) rather than theorems.
+
+\subsection{Measuring whether a benchmark measures}
+\label{sec:vacuity-def}
+Let $\mathcal{B}$ be a benchmark of scenarios $s$ with pass predicate $\mathrm{pass}(s,o)$ over observed outcomes $o$. Let $\mathcal{R}_0$ be a set of \emph{trivial runners}: constant or enforcement-free policies (no governance, audit-only, deny-everything, allow-and-audit).
+\begin{definition}
+Scenario $s$ is \emph{vacuous} if $\exists r\in\mathcal{R}_0$ with $\mathrm{pass}(s,o_r)$. Given a system $F$ and single-control ablations $F_{-c}$, $s$ is \emph{attributed} to $c$ if $\mathrm{pass}(s,o_F)\wedge\neg\mathrm{pass}(s,o_{F_{-c}})$. A control $c$ is \emph{unobservable} in $\mathcal{B}$ if no scenario is attributed to it.
+\end{definition}
+A benchmark score is informative about a mechanism only through scenarios attributed to it; an unobservable control can be deleted without changing the score. We complement pass predicates with three \emph{anti-vacuity} checks computed on outcomes: \emph{decision coverage} (one audited decision per attempted call), \emph{effect fidelity} (executed effects equal allowed outcomes) and \emph{liveness} (a scenario that expects any allowed or rate-limited call admits at least one call).

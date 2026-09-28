@@ -1,0 +1,11 @@
+agent_foundry-ablate-no_rate_limit: 46/48  AV coverage 48/48 fidelity 48/48 liveness 19/19  sha256=77029968f32f0e9e
+  audit_completeness               6/6
+  cross_tenant_isolation           6/6
+  delegation_provenance            6/6
+  fail_mode_discipline             6/6
+  identity_propagation             6/6
+  per_user_policy_enforcement      6/6
+  rate_limit_cascade               4/6
+  scope_inheritance                6/6
+  FAIL rate_limit_cascade.01_per_user_not_per_agent ['100 allowed vs max_allowed=63']
+  FAIL rate_limit_cascade.06_denied_count_logged ['found 0 matching audit entries']

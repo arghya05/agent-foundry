@@ -1,0 +1,178 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{Governance: AgentGovBench}
+\label{sec:governance}
+\input{figures/results.tex}
+Table~\ref{tab:leaderboard} and Figure~\ref{fig:results}a place \method{} among all published AgentGovBench runs. \method{} passes all \AGBTotal{} scenarios; the result is \AGBRepeatsIdentical{} across \AGBRepeats{} repetitions, including the concurrent fan-out scenarios. The strongest published configurations reach \AGBBestPublished{}/\AGBTotal{}; they lose the two cross-tenant scenarios that require a multi-tenant deployment, which their runners declare unsupported. Every framework evaluated without a governance layer scores \AGBNativeScore{}/\AGBTotal{}. Our harness reproduces the published vanilla (\AGBVanilla{}) and audit-only (\AGBAuditOnly{}) baselines exactly, which checks that its stricter error handling does not change scores.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{3.4pt}
+\caption{AgentGovBench v0.2 (48 scenarios, 6 per category, unmodified scorer). Published rows are recounted from the upstream result files at commit \code{e0ce93a}; \method{} and the probes are run by our harness. Column abbreviations: Aud audit completeness, Ten cross-tenant isolation, Del delegation provenance, Fail fail-mode discipline, Id identity propagation, Pol per-user policy, Rate rate-limit cascade, Sco scope inheritance. $^a$LangGraph, CrewAI, OpenAI Agents SDK, Claude Agent SDK, Claude Code, Codex CLI and Cursor; all seven native runs are identical.}
+\label{tab:leaderboard}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+System & Aud & Ten & Del & Fail & Id & Pol & Rate & Sco & Total \\
+\midrule
+\tablerows{evidence/leaderboard_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Mechanism attribution.} Table~\ref{tab:ablation} removes one control at a time. Removing the decision audit costs \emph{18} scenarios, the most of any control, because identity, provenance and audit categories all assert on audit records. All scope checks together account for 7 scenarios, tier rules for 5, and the delegation chain for 4. Two results expose defense in depth: removing only the control plane's scope check changes a single scenario, because the gateway's PDP re-checks scopes; and the one scenario it does change is the fail-open case, where the plane is the only layer that can supply the scope decision. In total \AttributedOfficial{} of \AGBTotal{} scenarios are attributed to at least one control; the other \UnattributedOfficial{} expect benign calls to succeed and are satisfied by any system that does not over-deny.
+
+\begin{table}[t]
+\centering\small
+\caption{Single-control ablations. Each row disables exactly one control after normal setup (\code{benchmarks/agentgovbench/ablations.py}). ``Lost'' counts scenarios that fail. $^\dagger$Controls unobservable in the official suite (no official scenario fails without them) but caught by the supplemental suite.}
+\label{tab:ablation}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{Official (48)} & \multicolumn{2}{c}{Supplemental (8)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Control removed & Score & Lost & Score & Lost \\
+\midrule
+\tablerows{evidence/ablation_rows.tex}
+\midrule
+None (full system) & \AGBFoundry{}/\AGBTotal{} & 0 & \SuppFoundry{}/\SuppTotal{} & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Do governance benchmarks measure enforcement?}
+\label{sec:vacuity}
+Three observations answer RQ3. \emph{First}, constant policies score well: a runner that denies every call and audits the denial scores \AGBDenyAll{}/\AGBTotal{}, above the audit-only reference (\AGBAuditOnly{}), and an allow-and-audit runner scores \AGBAllowAll{}. Individually, \VacuousAny{} of the \AGBTotal{} scenarios are passed by at least one trivial runner; only \VacuousNone{} require both an allowed and a denied outcome. Aggregate scores still separate systems, but most single scenarios cannot distinguish enforcement from a constant. \emph{Second}, two controls are unobservable: without attenuation, \method{} still scores 48/48, because the only narrowing scenario (\code{scope\_inheritance.04}) configures no subagent-tier rule, so a fail-closed default denies the call before narrowing matters; without deny-overrides it also scores 48/48, because no scenario contains conflicting incomparable rules. \emph{Third}, published results show the same gap independently: \ACPDeclaredNarrowingPassed{} of the \ACPDeclaredNarrowing{} published governed runs that declare ``does not currently enforce task-scoped narrowing'' nevertheless pass \code{scope\_inheritance.04}.
+
+\paragraph{Remedy.} We wrote eight supplemental scenarios in the upstream format, each designed so that a specific control is necessary: narrowing with an allowed subagent tier; multi-hop narrowing where a grandchild re-requests a dropped scope; a user-wide allow against a tool-wide deny; one user ID in two tenants with different scopes; revocation affecting only its tier; concurrent rate limiting that must admit as well as deny; background-tier denial; and flagging. They are listed in Appendix~\ref{app:supp}. \method{} passes \SuppFoundry{}/\SuppTotal{}; vanilla, audit-only, deny-everything and allow-and-audit pass \SuppVanilla{}, \SuppAuditOnly{}, \SuppDenyAll{} and \SuppAllowAll{}. Both previously unobservable controls now fail scenarios when removed (Table~\ref{tab:ablation}). On the official suite, \method{} also satisfies all three anti-vacuity checks: decision coverage \AVCoverage{}/48 (audit-only \AVAuditOnlyCoverage{}, vanilla \AVVanillaCoverage{}), effect fidelity \AVFidelity{}/48, and liveness \AVLiveness{}/\AVLivenessApplicable{} (deny-everything \AVDenyAllLiveness{}/\AVLivenessApplicable{}). The supplemental scenarios are authored by us and are reported separately from, never merged into, the official score.
+
+\subsection{Boundary conformance across engines}
+\label{sec:conformance}
+Before the control plane existed, a review of the platform ran deterministic probes against both engines (\evpath{review/evidence/reproduced-findings.json}). Table~\ref{tab:conformance} summarizes the defects and their repair; each repair was preceded by a regression suite that failed on the old code. Three findings came from the differential design: the native supervisor lost the caller's identity where LangGraph denied (F03), and the request controls of F01 were dropped identically by both engines, which a single-engine test could not have distinguished from intended behavior without a specification.
+
+\begin{table}[t]
+\centering\small
+\caption{Boundary defects found by probes and their regression suites (before $\to$ after, from the archived iteration logs). Tests run on both engines where applicable.}
+\label{tab:conformance}
+\begin{tabularx}{\textwidth}{P{0.6cm}YP{2.3cm}P{2.5cm}}
+\toprule
+ID & Defect observed before repair & Invariant & Regression \\
+\midrule
+F01 & Expired deadline, cancelled token or deny-all policy ignored: 2 model calls and 1 tool execution per engine & I1, I3 & 40 failing $\to$ 67 passing \\
+F02 & Approval resumed and executed; external policy engine consulted 0 times & I2 & 13 failing $\to$ 178 passing \\
+F03 & Viewer via native supervisor executed an admin-only tool; LangGraph denied & I1 & (part of F01 suite) \\
+F05 & Two native workers on one store persisted \code{[one, three]} of three writes & I3 & 4 failing $\to$ 52 passing \\
+F07 & Knowledge passage with an injection marker and an e-mail reached the prompt & I6 & 2 failing $\to$ 333 passing \\
+F08 & Prompt cache ignored tool schemas: 2 requests, 1 provider call & I5 & (part of F02 suite) \\
+F09 & Missing evaluation oracle counted as success; failures cost \$0 & I7 & 17 failing $\to$ 70 passing \\
+\bottomrule
+\end{tabularx}
+\end{table}
+The full suite at the campaign commit records \TestsPassed{} passing and \TestsSkipped{} skipped tests (skips require unavailable services), including 28 new tests for the control plane, the injection gate and the algebraic laws; the property tests check the semilattice laws on 400 random policy triples, attenuation along 300 random chains of up to six hops, and deny-monotonicity and limit tightening on 700 random rule sets. One run during development showed a single failing test that did not recur in 13 subsequent full runs; we could not identify it and report it rather than omit it.
+
+\subsection{Breadth: the remaining layers}
+\label{sec:breadth}
+\paragraph{Orchestration and multi-agent coordination overhead.} Table~\ref{tab:runtime} runs eight topologies with a scripted model, so it measures the engines themselves; both make identical model calls and incur identical synthetic cost. The native engine is \CoordSpeedMin{}--\CoordSpeedMax{}$\times$ faster than the LangGraph engine at the median on the six multi-agent topologies, with the largest gaps on sequential multi-round topologies (blackboard, debate), where per-node graph overhead compounds. One contrary result is kept: with tool calls, the native p95 (\NativeToolPNinetyFive{}\,ms) is worse than LangGraph's (\LGToolPNinetyFive{}\,ms), plausibly because of thread-pool start-up in concurrent tool dispatch; we did not isolate the cause. Against model latency of several seconds per call, these differences matter for dense coordination and for cost of infrastructure, not for single-agent response time.
+
+\begin{table}[t]
+\centering\small
+\caption{Engine overhead with a scripted model (medians of \RuntimeRuns{} runs; ms). Ratio is LangGraph p50 / native p50.}
+\label{tab:runtime}
+\begin{tabular}{lrrrrr}
+\toprule
+& \multicolumn{2}{c}{Native} & \multicolumn{2}{c}{LangGraph} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Topology & p50 & p95 & p50 & p95 & Ratio \\
+\midrule
+\tablerows{evidence/runtime_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Cost of governance.}
+\label{sec:scale}
+With a no-op tool, the median per-call cost is \OvRegistry{}\,$\mu$s for the tool registry (allowlist and JSON-Schema validation dominate), \OvGateway{}\,$\mu$s for the governed gateway, \OvPlane{}\,$\mu$s for the control plane, and \OvDelegation{}\,$\mu$s behind a three-hop delegation: the control plane adds \OvPlaneDelta{}\,$\mu$s to the gateway and each delegation chain adds \OvDelegationDelta{}\,$\mu$s. At the WorkBench median of roughly 5.7\,s per task, governance is below $10^{-4}$ of end-to-end latency. Table~\ref{tab:scale} shows that one process sustains about \ScaleThroughputOne{} governed calls/s from 1 to 32 threads---CPython's interpreter lock bounds parallel speedup---and that the limit and audit invariants hold exactly in all \ScaleReps{} repetitions at every level, as Theorem~\ref{thm:rate} predicts. Sharding by principal (Proposition~\ref{prop:shard}) scales to \ShardMaxThroughput{} calls/s on \ShardMax{} processes (\ShardSpeedup{}$\times$, \ShardEfficiency{}\% efficiency) with exact limits. At roughly \ShardPerProc{} calls/s per process, one million governed tool calls per minute needs about \ShardsForMillionPerMin{} shards; we did not measure network serving, distributed stores, or tenant-wide shared budgets.
+
+\begin{table}[t]
+\centering\small
+\caption{Scalability of admission. Left: one process, \ScalePrincipals{} principals in 4 tenants, \ScaleCalls{} calls, limit 100 of 150 attempts per principal. Right: principal-affine processes, 256 principals, limit 40 of 60.}
+\label{tab:scale}
+\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{minipage}{0.56\textwidth}\centering
+\begin{tabular}{rrrrrcc}
+\toprule
+Thr. & Calls/s & p50 & p95 & p99 & Limit & Audit \\
+\midrule
+\tablerows{evidence/scaling_rows.tex}
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}{0.42\textwidth}\centering
+\begin{tabular}{rrrrc}
+\toprule
+Proc. & Calls/s & Speedup & Eff. & Exact \\
+\midrule
+\tablerows{evidence/shard_rows.tex}
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{table}
+
+\paragraph{Long context.} We plant one fact at five depths in threads of 100 to 50{,}000 turns (\LCHistTokens{} tokens) with three seeds, and require each strategy to produce context within a \LCBudget{}-token budget (Table~\ref{tab:longctx}). A recency window, the common default, keeps the fact only when it is recent (\LCRecencyRetention{} at the largest size); passing the full history keeps it but exceeds the budget by up to \LCFullOverBudget{}$\times$. Foundry's budgeted pipeline retains the fact in \LCFoundryRetention{} of cells at every size with about \LCFoundryContextTokens{} tokens of context, assembling \LCMaxHistory{} tokens of history in \LCFoundryMaxMs{}\,ms. The default lexical retriever fails when the query is paraphrased (\LCFoundryParaphrase{}); swapping in the embedding store behind the same protocol restores retention to at least \LCEmbedParaphrase{} at the sizes we could index (\LCEmbedIndexS{}\,s to index 1{,}000 turns). With 20 planted injection passages that share the query's keywords, the recency window admitted \LCInjectionsRecency{} into context across \LCInjectionCases{} runs and the Foundry pipeline admitted \LCInjectionsFoundry{}, while still returning the fact. This benchmark measures context \emph{assembly}; whether a model then uses the fact is a separate question.
+
+\begin{table}[t]
+\centering\small
+\caption{Long-context assembly: retention (\% of \LCCells{} depth$\times$seed cells) / within budget (Y/N) by history length in turns. \na: not run (embedding index cost).}
+\label{tab:longctx}
+\begin{tabular}{lrrrr}
+\toprule
+Strategy & 100 & 1{,}000 & 10{,}000 & 50{,}000 \\
+\midrule
+\tablerows{evidence/longctx_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Security filter.}
+\label{sec:security}
+On the public deepset/prompt-injections~\cite{deepset2023promptinjections} test split (\InjTestN{} prompts, \InjTestPos{} attacks, revision \code{\InjRevision{}}), the default marker filter detects \InjRegexRecall{} of attacks (Wilson 95\% \InjRegexRecallCI{}) with no false positives; on the training split it detects \InjRegexTrainRecall{}. Marker lists do not generalize to paraphrased or non-English attacks. We therefore added a dependency-free trained gate (\code{injection\_classifier}, multinomial naive Bayes over word and character n-grams), fitted only on the \InjTrainN{}-prompt training split with a fixed threshold. On the held-out test split it reaches recall \InjNBRecall{} (\InjNBRecallCI{}), precision \InjNBPrecision{}, F1 \InjNBFone{}, false-positive rate \InjNBFPR{}, and AUROC \InjNBAUROC{} (\InjNBAUROCCI{}). It is now an optional detector on both the input guardrail and the context filter. Fine-tuned transformer classifiers can be expected to do better; the point is that the platform's default statistical filter is no longer ineffective, and that filters remain a mitigation layered in front of least-authority tool access, not a boundary.
+
+\paragraph{Hallucination scorer.} On HaluEval-QA~\cite{li2023halueval} (\HaluPairs{} pairs of a correct and a hallucinated answer with supporting knowledge, revision \code{\HaluRevision{}}), the grounding overlap behind \code{reference\_check\_kpi} separates correct from hallucinated answers with AUROC \HaluOverlap{} (\HaluOverlapCI{}). Answer length alone does better, \HaluLength{}, because hallucinated answers are systematically longer. On the \HaluMatchedPairs{} pairs whose answer lengths differ by at most 20\%, length falls to chance (\HaluMatchedLength{}, \HaluMatchedLengthCI{}) while grounding overlap keeps \HaluMatchedOverlap{} (\HaluMatchedOverlapCI{}). The grounding signal is therefore real, and length-controlled evaluation is necessary to show it. The numeric fact-check scorer is uninformative here (AUROC \HaluNumeric{}), since few answers contain numeric claims.
+
+\paragraph{Task execution: WorkBench.} Table~\ref{tab:workbench} reports the matched three-arm study. Differences from the reference loop are small and non-significant in every campaign; on the only untouched set the native engine solves \WBFreshB{} tasks the reference fails and fails \WBFreshC{} it solves (exact $p=\WBFreshP{}$). We rescored all \WBFrontierRuns{} published WorkBench model runs (\WBFrontierPredictions{} predictions) and matched every published count; the best, \WBFrontierModel{}, reaches \WBFrontierCorrect{}/690 (\WBFrontierAcc{}) with its own harness. Our subsets use a smaller model and cannot be compared with it. The conclusion we draw is limited but useful: running tasks through \method{}'s governed engines, with its default guards active, did not measurably cost task accuracy.
+
+\begin{table}[t]
+\centering\small
+\caption{WorkBench, matched arms (R reference loop, N native engine, LG LangGraph engine), one repetition each, \code{gpt-5.4-mini}. Discordant pairs are Foundry-only/reference-only successes with exact McNemar $p$.}
+\label{tab:workbench}
+\begin{tabular}{lrrrcc}
+\toprule
+Campaign & R & N & LG & N vs R & LG vs R \\
+\midrule
+\tablerows{evidence/workbench_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Summary scorecard}
+Table~\ref{tab:scorecard} collects the verdicts.
+
+\begin{table}[t]
+\centering\small
+\caption{360-degree scorecard. ``SOTA'' is used only where a published comparator was run under the same scorer.}
+\label{tab:scorecard}
+\begin{tabularx}{\textwidth}{P{2.6cm}YP{2.4cm}}
+\toprule
+Dimension & Evidence & Verdict \\
+\midrule
+Governance & \AGBFoundry{}/\AGBTotal{} vs.\ best published \AGBBestPublished{}/\AGBTotal{}; 10/10 repetitions & SOTA on AgentGovBench \\
+Measurement validity & \OfficialBlindControls{} unobservable controls found and made observable; anti-vacuity checks & New analysis \\
+Coordination overhead & \CoordSpeedMin{}--\CoordSpeedMax{}$\times$ lower median than LangGraph on 6 topologies & Better than LangGraph \\
+Governance cost, scale & +\OvPlaneDelta{}\,$\mu$s/call; exact limits to 32 threads; \ShardSpeedup{}$\times$ on \ShardMax{} shards & Adequate; network scale untested \\
+Long-context assembly & \LCFoundryRetention{} vs.\ \LCRecencyRetention{} (recency) within budget & Better than recency default \\
+Injection filter & recall \InjRegexRecall{} $\to$ \InjNBRecall{} (held out) & Repaired; below model-based detectors \\
+Hallucination scorer & length-matched AUROC \HaluMatchedOverlap{} & Informative, lexical \\
+Task execution & no significant difference from reference; best published \WBFrontierAcc{} & Not SOTA \\
+Multi-agent quality, planning & not measured (requires model-driven benchmarks) & Unmeasured \\
+\bottomrule
+\end{tabularx}
+\end{table}

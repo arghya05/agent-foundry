@@ -1,0 +1,59 @@
+% Public preprint. NeurIPS 2026 style in preprint mode (not a submission).
+\documentclass{article}
+\usepackage[preprint,nonatbib]{neurips_2026}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{xcolor}
+\usepackage{graphicx,booktabs,tabularx,array,multirow}
+\usepackage{tikz,pgfplots}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+\usepgfplotslibrary{groupplots}
+\pgfplotsset{compat=1.18}
+\usepackage{placeins}
+\usepackage[hyphens]{url}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!45!black,citecolor=blue!45!black,urlcolor=blue!45!black,
+ pdftitle={Agent Foundry: A Boundary-Preserving Architecture for Governed Agentic Platforms},
+ pdfauthor={Arghya Mukherjee}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\method}{Agent Foundry}
+\newcommand{\gec}{GEC}
+\newcommand{\na}{\textemdash}
+\newcommand{\evpath}[1]{\path{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\makeatletter
+\newcommand{\tablerows}[1]{\@@input #1 }
+\makeatother
+\input{evidence/numbers.tex}
+\title{Agent Foundry: A Boundary-Preserving Architecture\\for Governed Agentic Platforms}
+\author{Arghya Mukherjee\\Independent Researcher\\\texttt{arghya05@gmail.com}\\
+\href{https://orcid.org/0009-0008-3423-8574}{ORCID: 0009-0008-3423-8574}}
+\begin{document}
+\raggedbottom
+\maketitle
+\begin{abstract}
+Agent frameworks expose tools, delegation, memory and human approval, yet the controls attached to a request (identity, tenant, scopes, budgets, deadlines, rate limits, fail behavior) are routinely lost at execution boundaries: delegation, threads, streaming, resume, caching, retrieval and adapter exports. We present \method{}, an open-source Python platform whose architecture is organized around one principle: \emph{every control is a property of the request's execution scope, not an argument that each layer must remember to pass}. We formalize this as the Governed Execution Contract (\gec{}), a meet-semilattice of control scopes with seven invariants, and prove that delegation can only attenuate authority, that deny rules can only tighten resolution, that per-principal rate limits are exact under arbitrary thread interleavings, that every call yields exactly one audited decision even when the policy source is unreachable, and that admission partitions by principal without cross-shard coordination. On AgentGovBench, a public 48-scenario governance benchmark, \method{} passes \AGBFoundry{}/\AGBTotal{} in \AGBRepeatsPerfect{} of \AGBRepeats{} repetitions, against \AGBBestPublished{}/\AGBTotal{} for the best published governed configuration and \AGBNativeScore{}/\AGBTotal{} for each of \AGBNativeFrameworks{} published framework-native runners. A set of \AblationCount{} single-control ablations attributes \AttributedOfficial{} of the \AGBTotal{} scenarios to specific mechanisms and exposes a measurement problem: a runner that denies every call scores \AGBDenyAll{}/\AGBTotal{}, above the audit-only reference, and two controls can be removed without losing an official point. Eight supplemental discriminating scenarios and three anti-vacuity checks close that gap. A 360-degree evaluation covers the remaining layers: multi-agent coordination overhead is \CoordSpeedMin{}--\CoordSpeedMax{}$\times$ lower than LangGraph's on identical topologies; the control plane adds \OvPlaneDelta{}\,$\mu$s per call over the tool gateway and scales to \ShardMaxThroughput{} governed calls/s across \ShardMax{} principal-affine shards with exact limits; budgeted context assembly retains a planted fact in \LCFoundryRetention{} of cases up to \LCMaxHistory{} history tokens where a recency window retains \LCRecencyRetention{}; a trained input gate raises held-out prompt-injection recall from \InjRegexRecall{} to \InjNBRecall{}. On WorkBench, matched Foundry runtimes are statistically indistinguishable from the benchmark's reference loop with one model; we do not claim task-level state of the art. All results regenerate from committed raw evidence.
+\end{abstract}
+
+\input{sections/01_introduction.tex}
+\input{sections/02_related.tex}
+\input{sections/03_formal.tex}
+\input{sections/04_architecture.tex}
+\input{sections/05_protocol.tex}
+\input{sections/06_results.tex}
+\input{sections/07_discussion.tex}
+\FloatBarrier
+\bibliographystyle{plainurl}
+\bibliography{references}
+\clearpage
+\appendix
+\input{sections/appendix.tex}
+\end{document}

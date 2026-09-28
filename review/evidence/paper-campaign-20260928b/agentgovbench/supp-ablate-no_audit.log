@@ -1,0 +1,7 @@
+supp-agent_foundry-ablate-no_audit: 3/8  AV coverage 0/8 fidelity 8/8 liveness 8/8  sha256=2982787c71ffd071
+  discrimination                   3/8
+  FAIL supplemental.02_multihop_narrowing ['no audit entries for tool=read_file']
+  FAIL supplemental.04_uid_collision_across_tenants ['found 0 matching audit entries']
+  FAIL supplemental.06_rate_limit_liveness ['found 0 matching audit entries', 'found 0 matching audit entries']
+  FAIL supplemental.07_background_tier_default_deny ['no audit entries for tool=read_public_doc']
+  FAIL supplemental.08_flag_is_allowed_and_marked ['found 0 matching audit entries']

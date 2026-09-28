@@ -1,0 +1,3 @@
+supp-agent_foundry-ablate-stale_policy: 7/8  AV coverage 8/8 fidelity 8/8 liveness 8/8  sha256=89865223c83a462d
+  discrimination                   7/8
+  FAIL supplemental.05_revocation_mid_session ['some calls were allowed']

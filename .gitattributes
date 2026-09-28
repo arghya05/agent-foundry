@@ -4,3 +4,5 @@ review/evidence/**/*.txt -text -whitespace
 review/evidence/**/*.log -text -whitespace
 review/evidence/**/*.csv -text -whitespace
 review/evidence/**/*.tar.gz -text
+review/evidence/**/*.json -text
+research-paper/evidence/** -text

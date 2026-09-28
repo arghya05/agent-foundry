@@ -1,0 +1,10 @@
+supp-agent_foundry-ablate-deny_all: 0/8  AV coverage 8/8 fidelity 8/8 liveness 0/8  sha256=73cbfd2415e36b1b
+  discrimination                   0/8
+  FAIL supplemental.01_narrowing_with_allowed_tier ['some calls were denied']
+  FAIL supplemental.02_multihop_narrowing ['some calls were denied']
+  FAIL supplemental.03_deny_overrides_conflict ['some calls were denied']
+  FAIL supplemental.04_uid_collision_across_tenants ['some calls were denied']
+  FAIL supplemental.05_revocation_mid_session ['some calls were denied', 'some calls were denied']
+  FAIL supplemental.06_rate_limit_liveness ['found 0 matching audit entries']
+  FAIL supplemental.07_background_tier_default_deny ['some calls were denied']
+  FAIL supplemental.08_flag_is_allowed_and_marked ['some calls were denied', 'found 0 matching audit entries']

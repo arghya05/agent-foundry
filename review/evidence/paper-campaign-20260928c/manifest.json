@@ -1,0 +1,523 @@
+{
+ "foundry_commit": "4b86edd6d215adc9e8bdc1af0f315556bbc766a6",
+ "python": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]",
+ "platform": "macOS-26.6.2-arm64-arm-64bit",
+ "agentgovbench_commit": "e0ce93ae175376d7847c69a64d0c36bdfa6ca717",
+ "files": [
+  {
+   "path": "agentgovbench/ablate-allow_all.log",
+   "bytes": 2354,
+   "sha256": "7f069d6701a9b6bbda8717c43e28d24866af4364f0f087d5c186af47033b59d9"
+  },
+  {
+   "path": "agentgovbench/ablate-anonymous_allowed.log",
+   "bytes": 510,
+   "sha256": "ea746e68cb813bb3d0bd0aece4d5a8be5a77bc6cc388d43e76e1c9fb91be8702"
+  },
+  {
+   "path": "agentgovbench/ablate-deny_all.log",
+   "bytes": 1863,
+   "sha256": "e61cbd411b73a96f321c387c4b57c9c923f0cafc63211b4cc09f63e83fbe87f5"
+  },
+  {
+   "path": "agentgovbench/ablate-fail_mode_learned_only.log",
+   "bytes": 513,
+   "sha256": "21ff9bffcc72d0bb189e7d50e7ccea2fd9a4633c9e1aa3385473eed7720fd527"
+  },
+  {
+   "path": "agentgovbench/ablate-fail_open_always.log",
+   "bytes": 590,
+   "sha256": "a8b500ff097d747f380d057608a4931681525356390aca7540b8227f5c1b2360"
+  },
+  {
+   "path": "agentgovbench/ablate-no_attenuation.log",
+   "bytes": 429,
+   "sha256": "d78540ec2421309bfdb08f70642dad79dc7644a6e2ea804beca5fa6a5dd44d29"
+  },
+  {
+   "path": "agentgovbench/ablate-no_audit.log",
+   "bytes": 2356,
+   "sha256": "a0f98c7c5a8b15cc7633a98a1b538cef71c83dd5d00ca92c664c865a2ae2f79d"
+  },
+  {
+   "path": "agentgovbench/ablate-no_chain.log",
+   "bytes": 750,
+   "sha256": "35307d0fe8fc3aa592f81d321bd3a096fb8e1d1745a5fdb74cca7b558796b4db"
+  },
+  {
+   "path": "agentgovbench/ablate-no_deny_overrides.log",
+   "bytes": 432,
+   "sha256": "5e87dda96bb0f99a2c908cd42c48b2c089c2eea6cf8f6b6a05a94877cdb15fa7"
+  },
+  {
+   "path": "agentgovbench/ablate-no_rate_limit.log",
+   "bytes": 598,
+   "sha256": "8a0ca4bb706e7a2c96472417b1fd67c8e129d342af59ca2541c39663a4445495"
+  },
+  {
+   "path": "agentgovbench/ablate-no_scope_check_both.log",
+   "bytes": 1031,
+   "sha256": "32e3acc7f0801d32e2184e152f9e537271e89557aa3686d6c8eba844b9539569"
+  },
+  {
+   "path": "agentgovbench/ablate-no_scope_check_plane.log",
+   "bytes": 511,
+   "sha256": "58fb214b626fde022a358468cc1925e7b9e52ba1b6cc955acd788192adba8e4b"
+  },
+  {
+   "path": "agentgovbench/ablate-no_tenant_membership.log",
+   "bytes": 601,
+   "sha256": "14c68d8b22ebe774ef679e76eed87b6b9ed5391d4fa5e1af33cf5829ebd6cfd2"
+  },
+  {
+   "path": "agentgovbench/ablate-no_tier_rules.log",
+   "bytes": 872,
+   "sha256": "c6956340f5b7b57bebdf021c8632eb62867e626933dd47dc1e92929a517aaa93"
+  },
+  {
+   "path": "agentgovbench/ablate-stale_policy.log",
+   "bytes": 517,
+   "sha256": "2ea0938865c16d0c6acec4f4b01f92fe74c9e64ffe13bf5f5d5aa54f8f6ce1cc"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-allow_all.json",
+   "bytes": 365242,
+   "sha256": "aa014add7c8d43a9cd6a88d83e3219e938716ae7a9b097dbaad65c25443e9dfa"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-anonymous_allowed.json",
+   "bytes": 370457,
+   "sha256": "69010cc1242988fa79ec3c4eff36f518311a8f14135721281f4cca41683da668"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-deny_all.json",
+   "bytes": 365151,
+   "sha256": "2bd1d5e55a694218693aa750872d5176f8dd1c84a3ce31ae363c3fdc80c28bb8"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-fail_mode_learned_only.json",
+   "bytes": 370500,
+   "sha256": "8fe156280c29b9bdf76238c3bd47d8317bd5a0f67cc510a3c4a7e01d6ed8e002"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-fail_open_always.json",
+   "bytes": 370459,
+   "sha256": "e883cda777fd03e5b1c8c07ab08002f231ad3a38f7d8945e642d8cefb9cad846"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_attenuation.json",
+   "bytes": 370436,
+   "sha256": "daec734b1ce61583c372f870c7a063823600a3c8a66d36a0a66492049ec7e485"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_audit.json",
+   "bytes": 226078,
+   "sha256": "3fdaf72acfd825422363f72bb6a382ec4c8831ee89cfdeb19021788b96980dca"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_chain.json",
+   "bytes": 369558,
+   "sha256": "c32ffbad43778f13249909979738a876769faf95989fe670d091e173a939cffd"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_deny_overrides.json",
+   "bytes": 370475,
+   "sha256": "14d713c1e83bfcb96445b08c7f71774e208764924407fab1e2f9eee8b0d75f55"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_rate_limit.json",
+   "bytes": 368930,
+   "sha256": "107f64b60f39c26f13bd93f02fc686fd4364e8b24e4ba5302cb92b0d91c0c7cb"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_scope_check_both.json",
+   "bytes": 370012,
+   "sha256": "86412d2657b99880e5da97eb51bf6461d4871512a717af4f2e17cb7c6731d178"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_scope_check_plane.json",
+   "bytes": 372474,
+   "sha256": "0153a2bf0c1348dd58df5439c9d3f3cce9f42c84052a86c9676c0d0a831b53ec"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_tenant_membership.json",
+   "bytes": 370288,
+   "sha256": "3c55905a77a5d3bd3c4586f87e32af7766e26e01f4e7f5e46bd6eb2a5b7e536b"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-no_tier_rules.json",
+   "bytes": 367500,
+   "sha256": "8a4f06a00c037b016ba1032883c2bddeafe505278558fd54e8af0eb71a38c139"
+  },
+  {
+   "path": "agentgovbench/agent_foundry-ablate-stale_policy.json",
+   "bytes": 370384,
+   "sha256": "9d1d6816656948edc420a8ada6360716ba94798efc880b1157d9ba2eef137a4c"
+  },
+  {
+   "path": "agentgovbench/agent_foundry.json",
+   "bytes": 370458,
+   "sha256": "46056bd98ba24eb3811af69927ffdc2344f608c8496ca5f3edaf46f680e5c7a0"
+  },
+  {
+   "path": "agentgovbench/agent_foundry.log",
+   "bytes": 407,
+   "sha256": "379ae1218ac6d2e98c1be540869ab140246fc41f1d8c600b09b82d4fa5884303"
+  },
+  {
+   "path": "agentgovbench/audit_only.json",
+   "bytes": 372382,
+   "sha256": "5ada26c283d9b5445982da5b4a1a2d21fb748d4e0c2a9cccca90245f6c5f7329"
+  },
+  {
+   "path": "agentgovbench/audit_only.log",
+   "bytes": 2009,
+   "sha256": "a699c99d736adcff8cee32a46082947e9001f5e4fd0a49770859aa0c8adfd0fa"
+  },
+  {
+   "path": "agentgovbench/rep01-agent_foundry.json",
+   "bytes": 370463,
+   "sha256": "0c611a8a0e8a1c38507fd429cb8d65011725d4df3a8d5fc02a84a70e675e3a19"
+  },
+  {
+   "path": "agentgovbench/rep01.log",
+   "bytes": 413,
+   "sha256": "709a037ff9b186139409542c58bd4fba9102aab9818889c1b5c0c65bb6badd61"
+  },
+  {
+   "path": "agentgovbench/rep02-agent_foundry.json",
+   "bytes": 370467,
+   "sha256": "1767d331865b2124001267eb1dbf1ceaa7f5bd59f78c5345a8da608adfe867b6"
+  },
+  {
+   "path": "agentgovbench/rep02.log",
+   "bytes": 413,
+   "sha256": "b4f3ad90f2248de4897cd0de92aadfe71242255e22348a7ec65ca0e9b80a6a61"
+  },
+  {
+   "path": "agentgovbench/rep03-agent_foundry.json",
+   "bytes": 370463,
+   "sha256": "cddd3ea46c6c9978abc252c69175eb80695a2af352c54a56fc4c1c272a33b61c"
+  },
+  {
+   "path": "agentgovbench/rep03.log",
+   "bytes": 413,
+   "sha256": "9c202ee9ca314a1e0fa8787e64a636ee5cc794dc32d9357884207a696714bd84"
+  },
+  {
+   "path": "agentgovbench/rep04-agent_foundry.json",
+   "bytes": 370455,
+   "sha256": "94e5cf37edafce9bc897e0d047df382b46c3fdc5b163c8e3ac0bc69010fc995d"
+  },
+  {
+   "path": "agentgovbench/rep04.log",
+   "bytes": 413,
+   "sha256": "f6331cf8b916a7a8d3bf2db82fb8c96c69853ae74986489e410299980231c7f2"
+  },
+  {
+   "path": "agentgovbench/rep05-agent_foundry.json",
+   "bytes": 370467,
+   "sha256": "42cf7e95f860055cfac3d3b3c8a0f0d8f746f118f506ac772571df3292c121d7"
+  },
+  {
+   "path": "agentgovbench/rep05.log",
+   "bytes": 413,
+   "sha256": "3de03fc59564a1bf6f5acb166ec719c582b2c3e83f5e9dadba6cc5a431ed5a66"
+  },
+  {
+   "path": "agentgovbench/rep06-agent_foundry.json",
+   "bytes": 370463,
+   "sha256": "bb2981fc986710fbfd4a6ce3a4572a03d54614e5419bffc666531cea7fc875d5"
+  },
+  {
+   "path": "agentgovbench/rep06.log",
+   "bytes": 413,
+   "sha256": "1c023ec1e61cf9fc46aeed767bbf6712a347193dfbce91d03cc0202b098b95b7"
+  },
+  {
+   "path": "agentgovbench/rep07-agent_foundry.json",
+   "bytes": 370456,
+   "sha256": "74bf7dbf9202972b2434198ddaa5d1ab404caa36aec9a49e398e149f040b699a"
+  },
+  {
+   "path": "agentgovbench/rep07.log",
+   "bytes": 413,
+   "sha256": "9137d378d449ff7b18a845b05148323706fbb071b900e0097655f08405386843"
+  },
+  {
+   "path": "agentgovbench/rep08-agent_foundry.json",
+   "bytes": 370458,
+   "sha256": "1240f90dfc195bcb6f5a08d4a76c38c39904f0b1b2e4aa9bcf524b1604d34519"
+  },
+  {
+   "path": "agentgovbench/rep08.log",
+   "bytes": 413,
+   "sha256": "9036ec48afed5ba1cbabe6e0f82af8c2f1a07ea756cef10e9eab020c36640934"
+  },
+  {
+   "path": "agentgovbench/rep09-agent_foundry.json",
+   "bytes": 370451,
+   "sha256": "ce076edcedf1a78949a3956945219ba02f3450ace9eafe75ef1388ac04fd07fd"
+  },
+  {
+   "path": "agentgovbench/rep09.log",
+   "bytes": 413,
+   "sha256": "741ca32afe7ba8e4bd5a8795e543ce72640b77c4bb36beceb34fa35029190f86"
+  },
+  {
+   "path": "agentgovbench/rep10-agent_foundry.json",
+   "bytes": 370463,
+   "sha256": "0d648758db26171d4bcb560393421db17b043f47fe6ca745fb41436b400a2f5d"
+  },
+  {
+   "path": "agentgovbench/rep10.log",
+   "bytes": 413,
+   "sha256": "bdf72a1ccbffcc853e90af00ffa94c8f711c59733518407b33554bdd9eb76e78"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-allow_all.log",
+   "bytes": 836,
+   "sha256": "a38c3b3f9eaac65bc0f730a4ca086378faecea118b78b4bc4a3b6135c0d18249"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-anonymous_allowed.log",
+   "bytes": 156,
+   "sha256": "e1ae36ca3c949e9146782cb258a3b7a53f2456a51092564a06c13597dad77a30"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-deny_all.log",
+   "bytes": 814,
+   "sha256": "7aaa1d0b4626b92f8cfa88b9891a9ebd619e5a5b338ea91cf9ee101b7942ba92"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-fail_mode_learned_only.log",
+   "bytes": 161,
+   "sha256": "19f7f9e7d430a722ac41c9b7c4555a8cc0f7e230796e8f78c3412db2724ffe17"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-fail_open_always.log",
+   "bytes": 155,
+   "sha256": "7ac501f1d8473260ec00cb6dbf1e53cf175545cb2248bb09d714cc9fa6d7e942"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_attenuation.log",
+   "bytes": 302,
+   "sha256": "f70462b9dc0fa0706ddcb06ef549eeab79f9630b04746fd7bb9e013f815a70fa"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_audit.log",
+   "bytes": 611,
+   "sha256": "59e2b890c8c3244725ef39e1aa4093bc8cebb43312a1ff87db9642263d6a1ab8"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_chain.log",
+   "bytes": 213,
+   "sha256": "a6caaf344729ee2e90c09b7b3cd77836356c7bd30a075b78877c2e6c14bb80ed"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_deny_overrides.log",
+   "bytes": 231,
+   "sha256": "b82a886de1592479a090c5337c843d6fb78759d8691f852c5fb5572adebfdec1"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_rate_limit.log",
+   "bytes": 263,
+   "sha256": "2049a61696a99b4b2ab6a7676bf31369a4f7313a788bd2a59bdd5ac6386b2170"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_scope_check_both.log",
+   "bytes": 421,
+   "sha256": "2d27af520fb5c7600b4f0648c56cb3871da79b5ec61c031598fd9df26fc2d99f"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_scope_check_plane.log",
+   "bytes": 159,
+   "sha256": "243726b5c58e5707e4a4a3e0c1edca170285a011b247d73aa3f1bb79f85603b0"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_tenant_membership.log",
+   "bytes": 273,
+   "sha256": "444ca30ef85d47f904521e1c377beb9553f115748ccd6937858ae03932b3ce19"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-no_tier_rules.log",
+   "bytes": 466,
+   "sha256": "3e964ea4b158dd24458f6c8142fd194f071093ffe07d9aba062fefe78df6b1fe"
+  },
+  {
+   "path": "agentgovbench/supp-ablate-stale_policy.log",
+   "bytes": 225,
+   "sha256": "0db81f4b51c042b9ad45c9fab1a8ee2143ef98b3254021bf322a72e14490fae2"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-allow_all.json",
+   "bytes": 142086,
+   "sha256": "cbbc136a1ec104dd9b5dbbc05b96511e783f246f21764472d05cca0502174ca0"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-anonymous_allowed.json",
+   "bytes": 146118,
+   "sha256": "90706c1855c34a5b7531f35096028cb59c8998cafd3812cd7a4a27193f6e39f8"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-deny_all.json",
+   "bytes": 142065,
+   "sha256": "73cbfd2415e36b1b0d63bc61ce891d41f30b9badb02db4b976fd125be18a0232"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-fail_mode_learned_only.json",
+   "bytes": 146123,
+   "sha256": "e75cd02b2272b34785f336b687b82ad4557fcbd9a4755d0c7dc95d8ff5aa1c2a"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-fail_open_always.json",
+   "bytes": 146120,
+   "sha256": "29dd90bce01965759b0a699d61279a2c92b4df44cc42a4392abf8936055e1abd"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_attenuation.json",
+   "bytes": 146019,
+   "sha256": "910c9bc5379a52399a63d6d6260be2ae72c6e19b3b20dcbc23b7536565fc9fd8"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_audit.json",
+   "bytes": 79720,
+   "sha256": "7fca2cc8c0f8a559708d27c3b30058bd52d1e19578f6388414cd8a8d24b10670"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_chain.json",
+   "bytes": 145695,
+   "sha256": "ed273367f74a23de61a60068a8f5408aff8878ee83f5ae59aba3c0fe43440187"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_deny_overrides.json",
+   "bytes": 146042,
+   "sha256": "17f871bbd54502b7a741bfca7e103beff3db63eadb5a721bcf67e08221264615"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_rate_limit.json",
+   "bytes": 142482,
+   "sha256": "1346c6a25544a8ddb84ec6284ab41fcf4aaa37f8063d7ad9a0d4ba56b409fe59"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_scope_check_both.json",
+   "bytes": 145963,
+   "sha256": "a77d1069b3f7e45e4f42ebce24a9a6ecdce885885cf730b6a00da42e0f454f42"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_scope_check_plane.json",
+   "bytes": 146586,
+   "sha256": "3f9e3d9e6f1382d07290d0218545f102381f58c81d5099bacac3e0a340e2962a"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_tenant_membership.json",
+   "bytes": 146064,
+   "sha256": "ff8ba389827edf6d352b814956d090d22a088963b6cbd3a2ae55e272f7c77af7"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-no_tier_rules.json",
+   "bytes": 145875,
+   "sha256": "a1142ef8c2c8a2670f64e7d3e81d9033370ce75addcf744692adceb2774e6935"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry-ablate-stale_policy.json",
+   "bytes": 146038,
+   "sha256": "5d1634121472679b79344b1fdfa0ae5660cc94350d387da176b42d0969782297"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry.json",
+   "bytes": 146104,
+   "sha256": "6462808c27ef8e1649b0bfd12fcf8dd075a0b704e01b064e64993fc4642d5108"
+  },
+  {
+   "path": "agentgovbench/supp-agent_foundry.log",
+   "bytes": 131,
+   "sha256": "df8500ac33427f818c9aec229ad3c3d58e7d64fc9a8e9f4ae5d02c2bdb91b9c5"
+  },
+  {
+   "path": "agentgovbench/supp-audit_only.json",
+   "bytes": 145600,
+   "sha256": "3523a2e93a3601d087c5618e0d2b95e3be75b9c7d15d5e1e819c477cb95f267b"
+  },
+  {
+   "path": "agentgovbench/supp-audit_only.log",
+   "bytes": 816,
+   "sha256": "805644d12ac270e251c9c6e8bcd036596d539b69edbef7a8dc1dc9c78ad0ffc5"
+  },
+  {
+   "path": "agentgovbench/supp-vanilla.json",
+   "bytes": 73776,
+   "sha256": "f275ef2ff88c1486decf96c4a707a0aa8e181630070ec8a4bd14f2d6c3b4bf52"
+  },
+  {
+   "path": "agentgovbench/supp-vanilla.log",
+   "bytes": 931,
+   "sha256": "28e841b3282e0f3bcb54f1977dffd6339695cbc86d7527ef187e2c960965d995"
+  },
+  {
+   "path": "agentgovbench/vanilla.json",
+   "bytes": 215321,
+   "sha256": "4559c83b4bce5f2a979b2292a538cbc3e8bf6cc5ba4e6c4349b3f9965fe955a1"
+  },
+  {
+   "path": "agentgovbench/vanilla.log",
+   "bytes": 3798,
+   "sha256": "9105460f3b9bbce8c2bb1e803022b0f0b81dcc91b6cf070a47d2996ccfcef9e0"
+  },
+  {
+   "path": "control_plane_scaling.json",
+   "bytes": 1870,
+   "sha256": "60ccb08569e9c5757b9590df29e137f70454e543d02a0ada2d83ef0d7e382944"
+  },
+  {
+   "path": "governance_overhead.json",
+   "bytes": 1308,
+   "sha256": "6fa306f05dfac711a01240b3a2037236a670b41f1b8e8bc03436f7866c66fed8"
+  },
+  {
+   "path": "long_context.json",
+   "bytes": 77044,
+   "sha256": "42507e46771e3c84d85fe7345612b7d8338c1acbddf065f604a212cb10d826a4"
+  },
+  {
+   "path": "pytest.txt",
+   "bytes": 833,
+   "sha256": "081dc9ed57930d43a7623bd7f16f6bbe7812c1ecb3092090c9ecc752b7d89f45"
+  },
+  {
+   "path": "runtime/run1.txt",
+   "bytes": 1239,
+   "sha256": "574bdbe62af07a83c30703ff737195f1654ad6ed8e2cb38bc34ace1cd91904ac"
+  },
+  {
+   "path": "runtime/run2.txt",
+   "bytes": 1239,
+   "sha256": "80cd5579e86f3d00a71038a68df705edbaab0b5d58190b50151486978da105c0"
+  },
+  {
+   "path": "runtime/run3.txt",
+   "bytes": 1239,
+   "sha256": "e5e160e8c6fbe51dd7588b4e43e967886e10ad41041dfa810722318ea288c23a"
+  },
+  {
+   "path": "runtime/run4.txt",
+   "bytes": 1239,
+   "sha256": "6bca2a68013e1c3091dffe5cdd5473b7cd8c60ebeff2bdbcfe6f1ba8e1b05d7a"
+  },
+  {
+   "path": "runtime/run5.txt",
+   "bytes": 1239,
+   "sha256": "42947cb4949eeca4bac4cd808236c17dc78676b0c74fce8b567cd614589aa38a"
+  },
+  {
+   "path": "security_hallucination.json",
+   "bytes": 3710,
+   "sha256": "62296c868487524711f3dd1e7deecc9be69f54867a4faab0252dcec85f06fbf4"
+  },
+  {
+   "path": "sharded_scaling.json",
+   "bytes": 771,
+   "sha256": "5bfedf9001a5dc0ef6a7c684d8c4ceea2eb89e96c26f3f72f06a8bdacc586d03"
+  }
+ ]
+}

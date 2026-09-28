@@ -1,0 +1,81 @@
+{
+ "tenants": 4,
+ "principals": 32,
+ "calls_per_principal": 150,
+ "limit_per_minute": 100,
+ "python": "3.11.15",
+ "results": [
+  {
+   "threads": 1,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3388.0965370938293,
+   "p50_ms": 0.41966649587266147,
+   "p95_ms": 0.4489994898904115,
+   "p99_ms": 0.5369379941839725,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  },
+  {
+   "threads": 2,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3380.6576825088828,
+   "p50_ms": 0.4199789837002754,
+   "p95_ms": 0.44570796308107674,
+   "p99_ms": 0.5756664904765785,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  },
+  {
+   "threads": 4,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3391.657605816896,
+   "p50_ms": 0.419333518948406,
+   "p95_ms": 0.4493749584071338,
+   "p99_ms": 0.5041665281169116,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  },
+  {
+   "threads": 8,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3369.7304758621276,
+   "p50_ms": 0.42077101534232497,
+   "p95_ms": 0.45087499893270433,
+   "p99_ms": 0.839041022118181,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  },
+  {
+   "threads": 16,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3361.0038342819116,
+   "p50_ms": 0.4203959833830595,
+   "p95_ms": 0.455000001238659,
+   "p99_ms": 5.213958502281457,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  },
+  {
+   "threads": 32,
+   "reps": 10,
+   "calls": 4800,
+   "throughput_per_s": 3391.4016556784354,
+   "p50_ms": 0.41945799603126943,
+   "p95_ms": 0.4413750139065087,
+   "p99_ms": 0.594333017943427,
+   "limit_exact_all_reps": true,
+   "audit_exact_all_reps": true,
+   "inexact_reps": []
+  }
+ ]
+}
