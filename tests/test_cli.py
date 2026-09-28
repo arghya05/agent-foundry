@@ -12,7 +12,6 @@ import pytest
 
 from agent_foundry import cli
 from agent_foundry.contracts import LLMResponse
-from agent_foundry.llm_gateway import LLMGateway
 
 
 class _StaticProvider:
@@ -163,6 +162,16 @@ def test_cli_eval_compares_against_a_saved_baseline(capsys):
         out = capsys.readouterr().out
         assert "Delta vs baseline:" in out
         assert "task_success_rate: +0.0000" in out
+        assert "tool_accuracy_rate: not measured" in out
+
+
+def test_cli_eval_default_gate_rejects_a_dataset_without_oracles(tmp_path):
+    script = _write_eval_script(str(tmp_path))
+    dataset = tmp_path / "unmeasured.json"
+    dataset.write_text(json.dumps([{"input": "please refund order A100"}]))
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["eval", script, str(dataset)])
+    assert exc.value.code == 1
 
 
 def test_cli_run_spec_builds_and_runs_an_agent(tmp_path, monkeypatch, capsys):

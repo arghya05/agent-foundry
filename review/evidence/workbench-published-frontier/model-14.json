@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 59,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 59,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "729a170231e844c6bfde784ebe717a864e43a6029a2accdc7cb85d34bafc788e",
+      "source": "data/results/analytics/gpt-5.4-nano_all_2026-06-03_18-05-01.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 71,
+        "side_effects": 28,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 71,
+        "side_effects": 28,
+        "total": 110
+      },
+      "sha256": "329d06bfb27a25f2b67701826bf8bacf58a7095345571a9fc0ad63316ad86373",
+      "source": "data/results/calendar/gpt-5.4-nano_all_2026-06-03_18-04-33.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 45,
+        "side_effects": 15,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 45,
+        "side_effects": 15,
+        "total": 80
+      },
+      "sha256": "1cfd452e84df6233ed897406d3d17dd3fa2d22f211dc94394d0522b307362ab8",
+      "source": "data/results/customer_relationship_manager/gpt-5.4-nano_all_2026-06-03_18-06-18.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 48,
+        "side_effects": 24,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 48,
+        "side_effects": 24,
+        "total": 90
+      },
+      "sha256": "5a23c421a1f50e1d1cfa3faf0dbb00c998f1a7ecfc2cd8272988722b3c074bcf",
+      "source": "data/results/email/gpt-5.4-nano_all_2026-06-03_18-04-06.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 63,
+        "side_effects": 117,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 63,
+        "side_effects": 117,
+        "total": 210
+      },
+      "sha256": "5021567cb19aa8fdbf761cdda28cc6a55a57d20c8c8f7d5221a0f20b1c125aca",
+      "source": "data/results/multi_domain/gpt-5.4-nano_all_2026-06-03_18-06-42.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 49,
+        "side_effects": 13,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 49,
+        "side_effects": 13,
+        "total": 80
+      },
+      "sha256": "536e70438856ecbe5677a98de9d98c42f7bbac2d81d52c50934430c5e3b2e385",
+      "source": "data/results/project_management/gpt-5.4-nano_all_2026-06-03_18-05-43.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "GPT-5.4-nano",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 335,
+    "side_effects": 197,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

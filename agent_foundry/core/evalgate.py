@@ -3,8 +3,8 @@ Agent and get back a Scorecard with a pass/fail regression gate — the
 Python API `foundry eval` (agent_foundry/cli.py) calls.
 
 Built entirely on what already exists: KPI/KPIResult (kpi.py, unchanged) for
-groundedness-style scoring, AgentConfig.budget.cost_usd_for() for real
-per-case cost, orchestration._get_all_tool_calls for real tool-call
+groundedness-style scoring and sequential per-case budget deltas for known
+cost. Missing oracles remain unmeasured and incomplete costs are marked. Uses orchestration._get_all_tool_calls for real tool-call
 detection (same reused-not-reimplemented reasoning as native_engine.py).
 Nothing here is a mock scorer — every metric is measured from a real
 Agent.run() call, including the trajectory checks (expected_tool_sequence/
@@ -36,19 +36,19 @@ class ScorecardLike(Protocol):
     needing to fake up a Scorecard it isn't."""
 
     @property
-    def task_success_rate(self) -> float: ...
+    def task_success_rate(self) -> float | None: ...
     @property
-    def tool_accuracy_rate(self) -> float: ...
+    def tool_accuracy_rate(self) -> float | None: ...
     @property
-    def trajectory_accuracy_rate(self) -> float: ...
+    def trajectory_accuracy_rate(self) -> float | None: ...
     @property
     def groundedness_avg(self) -> float | None: ...
     @property
-    def p95_latency_ms(self) -> float: ...
+    def p95_latency_ms(self) -> float | None: ...
     @property
-    def avg_cost_usd(self) -> float: ...
+    def avg_cost_usd(self) -> float | None: ...
     @property
-    def error_rate(self) -> float: ...
+    def error_rate(self) -> float | None: ...
 
 
 _THRESHOLD_KINDS = {
@@ -162,43 +162,53 @@ class EvalCase:
     max_tool_calls: int | None = None
     must_request_approval: bool | None = None  # True: must have paused for approval; False: must NOT have; None: don't care
 
+    def __post_init__(self) -> None:
+        for name in ("expected_substring", "expected_tool"):
+            value = getattr(self, name)
+            if value is not None and not value.strip():
+                raise ValueError(f"{name} must not be empty; use None for an unmeasured oracle")
+
 
 @dataclass
 class CaseResult:
     case: EvalCase
     ok: bool
-    task_success: bool
-    tool_accuracy: bool
+    task_success: bool | None
+    tool_accuracy: bool | None
     kpi_result: KPIResult | None
     latency_ms: float
-    cost_usd: float
+    cost_usd: float | None
     error: str | None = None
     run_result: RunResult | None = None
     trajectory_errors: list[str] = field(default_factory=list)
+    cost_complete: bool = True
 
 
 def attribute_failure(result: CaseResult) -> str | None:
-    """Classifies WHY a failed CaseResult failed — nothing in this module
-    does that today, only THAT a case failed (`.ok`). Checked in the same
-    order `run_eval` itself computes `ok` (task_success and tool_accuracy
-    and not trajectory_errors and kpi passed — see run_eval below), with
-    `error` checked first since an exception makes every other field
-    meaningless by construction (run_eval's except branch sets them all to
-    False/None). Returns None for a case that actually passed — call this
-    only on cases you already know failed (`not result.ok`), or check the
-    return value; a None means there's nothing to attribute."""
+    """Return the first failed criterion, execution error, or missing-oracle reason.
+
+    Unspecified criteria stay unmeasured. A known partial result or cost may
+    survive an error, but the case still fails. Passing cases return None.
+    """
     if not result.ok:
         if result.error is not None:
             return "error"
-        if not result.task_success:
+        if result.task_success is False:
             return "task_success"
-        if not result.tool_accuracy:
+        if result.tool_accuracy is False:
             return "tool_accuracy"
         if result.trajectory_errors:
             return "trajectory"
         if result.kpi_result is not None and not result.kpi_result.passed:
             return "kpi"
+        if not _has_oracle(result.case):
+            return "missing_oracle"
     return None
+
+
+def _has_oracle(case: EvalCase) -> bool:
+    return (case.expected_substring is not None or case.expected_tool is not None
+            or _has_trajectory_expectations(case) or case.kpi is not None)
 
 
 @dataclass
@@ -208,24 +218,20 @@ class Scorecard:
     cases: list[CaseResult] = field(default_factory=list)
 
     @property
-    def task_success_rate(self) -> float:
-        return sum(1 for c in self.cases if c.task_success) / len(self.cases) if self.cases else 0.0
+    def task_success_rate(self) -> float | None:
+        checked = [c for c in self.cases if c.task_success is not None]
+        return sum(c.task_success is True for c in checked) / len(checked) if checked else None
 
     @property
-    def tool_accuracy_rate(self) -> float:
-        checked = [c for c in self.cases if c.case.expected_tool is not None]
-        return sum(1 for c in checked if c.tool_accuracy) / len(checked) if checked else 1.0
+    def tool_accuracy_rate(self) -> float | None:
+        checked = [c for c in self.cases if c.tool_accuracy is not None]
+        return sum(c.tool_accuracy is True for c in checked) / len(checked) if checked else None
 
     @property
-    def trajectory_accuracy_rate(self) -> float:
-        """Fraction of cases that declared at least one trajectory
-        expectation (expected_tool_sequence/expected_args/forbidden_tools/
-        max_tool_calls/must_request_approval) whose ACTUAL trajectory
-        matched all of them — "was this the correct trajectory," not just
-        "did the final answer/tool end up right." 1.0 (not skipped) when no
-        case declared one, matching tool_accuracy_rate's own convention."""
+    def trajectory_accuracy_rate(self) -> float | None:
+        """Declared trajectory checks; exceptions fail, missing oracles are None."""
         checked = [c for c in self.cases if _has_trajectory_expectations(c.case)]
-        return sum(1 for c in checked if not c.trajectory_errors) / len(checked) if checked else 1.0
+        return sum(c.error is None and not c.trajectory_errors for c in checked) / len(checked) if checked else None
 
     @property
     def groundedness_avg(self) -> float | None:
@@ -233,99 +239,155 @@ class Scorecard:
         return sum(scored) / len(scored) if scored else None
 
     @property
-    def p95_latency_ms(self) -> float:
-        return _percentile([c.latency_ms for c in self.cases], 0.95)
+    def p95_latency_ms(self) -> float | None:
+        return _percentile([c.latency_ms for c in self.cases], 0.95) if self.cases else None
 
     @property
-    def avg_cost_usd(self) -> float:
-        return sum(c.cost_usd for c in self.cases) / len(self.cases) if self.cases else 0.0
+    def avg_cost_usd(self) -> float | None:
+        if not self.cases or any(not c.cost_complete or c.cost_usd is None for c in self.cases):
+            return None
+        return self.known_cost_usd / len(self.cases)
 
     @property
-    def error_rate(self) -> float:
-        return sum(1 for c in self.cases if c.error is not None) / len(self.cases) if self.cases else 0.0
+    def known_cost_usd(self) -> float:
+        """Observed cost retained even when total failure billing is unknown."""
+        return sum(c.cost_usd for c in self.cases if c.cost_usd is not None)
 
-    def passes(self, thresholds: dict[str, float] | None = None) -> tuple[bool, list[str]]:
-        """thresholds keys: task_success_rate_min, tool_accuracy_rate_min,
-        trajectory_accuracy_rate_min, groundedness_avg_min, p95_latency_ms_max,
-        avg_cost_usd_max, error_rate_max. A threshold whose metric has no
-        data (e.g. groundedness_avg_min when no case used a KPI) is skipped,
-        not failed."""
-        thresholds = thresholds or {}
-        reasons: list[str] = []
-        metrics = {
-            "task_success_rate_min": self.task_success_rate,
-            "tool_accuracy_rate_min": self.tool_accuracy_rate,
-            "trajectory_accuracy_rate_min": self.trajectory_accuracy_rate,
-            "groundedness_avg_min": self.groundedness_avg,
-            "p95_latency_ms_max": self.p95_latency_ms,
-            "avg_cost_usd_max": self.avg_cost_usd,
-            "error_rate_max": self.error_rate,
+    @property
+    def error_rate(self) -> float | None:
+        return sum(c.error is not None for c in self.cases) / len(self.cases) if self.cases else None
+
+    @property
+    def metric_coverage(self) -> dict[str, float]:
+        count = len(self.cases)
+        measured = {
+            "task_success_rate": sum(c.task_success is not None for c in self.cases),
+            "tool_accuracy_rate": sum(c.tool_accuracy is not None for c in self.cases),
+            "trajectory_accuracy_rate": sum(_has_trajectory_expectations(c.case) for c in self.cases),
+            "groundedness_avg": sum(c.kpi_result is not None for c in self.cases),
+            "avg_cost_usd": sum(c.cost_complete and c.cost_usd is not None for c in self.cases),
+            "p95_latency_ms": count, "error_rate": count,
         }
+        return {name: n / count if count else 0.0 for name, n in measured.items()}
+
+    def passes(self, thresholds: dict[str, float] | None = None, *, required_coverage: float = 1.0) -> tuple[bool, list[str]]:
+        """Fail on absent/nonfinite metrics or insufficient oracle coverage.
+
+        Requested metrics cover every case by default. Partial coverage must
+        be explicitly permitted. Without thresholds, every case needs an
+        oracle and must pass it. An empty scorecard never passes.
+        """
+        if not math.isfinite(required_coverage) or not 0 <= required_coverage <= 1:
+            raise ValueError("required_coverage must be finite and between 0 and 1")
+        thresholds = thresholds or {}
         for key, limit in thresholds.items():
             if key not in _THRESHOLD_KINDS:
                 raise ValueError(f"unknown threshold {key!r} — one of {sorted(_THRESHOLD_KINDS)}")
-            actual = metrics[key]
-            if actual is None:
+            if not math.isfinite(limit):
+                raise ValueError(f"threshold {key!r} must be finite")
+        if not self.cases:
+            return False, ["No evaluation cases; metrics are not measured"]
+        if not thresholds:
+            failed = sum(not c.ok for c in self.cases)
+            return (False, [f"{failed} cases failed or have no oracle"]) if failed else (True, [])
+        reasons = []
+        for key, limit in thresholds.items():
+            metric = key.rsplit("_", 1)[0]
+            actual = getattr(self, metric)
+            if actual is None or not math.isfinite(actual):
+                reasons.append(f"{key}: not measured or nonfinite")
+                continue
+            coverage = self.metric_coverage[metric]
+            if coverage < required_coverage:
+                reasons.append(f"{key}: coverage {coverage:.3f} < required {required_coverage}")
                 continue
             if _THRESHOLD_KINDS[key] == "min" and actual < limit:
                 reasons.append(f"{key}: {actual:.3f} < required {limit}")
             elif _THRESHOLD_KINDS[key] == "max" and actual > limit:
                 reasons.append(f"{key}: {actual:.3f} > allowed {limit}")
-        return (len(reasons) == 0, reasons)
+        return not reasons, reasons
 
-    def compare_to(self, baseline: ScorecardLike) -> dict[str, float]:
-        """This scorecard's metric minus baseline's, per metric — positive is
-        better for task_success/tool_accuracy/groundedness, negative is
-        better for latency/cost/error_rate."""
+    def compare_to(self, baseline: ScorecardLike) -> dict[str, float | None]:
+        """Metric differences; None if either side is unmeasured."""
         deltas = {}
-        for attr in ("task_success_rate", "tool_accuracy_rate", "trajectory_accuracy_rate", "p95_latency_ms", "avg_cost_usd", "error_rate"):
-            deltas[attr] = getattr(self, attr) - getattr(baseline, attr)
-        if self.groundedness_avg is not None and baseline.groundedness_avg is not None:
-            deltas["groundedness_avg"] = self.groundedness_avg - baseline.groundedness_avg
+        for attr in ("task_success_rate", "tool_accuracy_rate", "trajectory_accuracy_rate", "groundedness_avg", "p95_latency_ms", "avg_cost_usd", "error_rate"):
+            current, previous = getattr(self, attr), getattr(baseline, attr)
+            deltas[attr] = current - previous if current is not None and previous is not None else None
         return deltas
 
     def render(self) -> str:
-        lines = [
-            f"Task success        {self.task_success_rate * 100:.1f}%",
-            f"Tool accuracy       {self.tool_accuracy_rate * 100:.1f}%",
-        ]
-        if any(_has_trajectory_expectations(c.case) for c in self.cases):
-            lines.append(f"Trajectory accuracy {self.trajectory_accuracy_rate * 100:.1f}%")
-        if self.groundedness_avg is not None:
-            lines.append(f"Groundedness        {self.groundedness_avg * 100:.1f}%")
-        lines.append(f"P95 latency         {self.p95_latency_ms / 1000:.2f}s")
-        lines.append(f"Average cost        ${self.avg_cost_usd:.4f}")
+        lines = []
+        for label, metric in (("Task success", "task_success_rate"), ("Tool accuracy", "tool_accuracy_rate"),
+                              ("Trajectory accuracy", "trajectory_accuracy_rate"), ("Groundedness", "groundedness_avg")):
+            value = getattr(self, metric)
+            rendered = "not measured" if value is None else f"{value * 100:.1f}%"
+            lines.append(f"{label:20}{rendered} (coverage {self.metric_coverage[metric]:.0%})")
+        latency = self.p95_latency_ms
+        lines.append("P95 latency         " + ("not measured" if latency is None else f"{latency / 1000:.2f}s"))
+        cost = self.avg_cost_usd
+        lines.append("Average cost        " + (f"not measured (known total ${self.known_cost_usd:.4f})" if cost is None else f"${cost:.4f}"))
         if self.error_rate:
             lines.append(f"Error rate          {self.error_rate * 100:.1f}%")
         return "\n".join(lines)
 
 
+def _read_cost(budget: Any, thread_id: str) -> float | None:
+    try:
+        cost = float(budget.cost_usd_for(thread_id))
+        return cost if math.isfinite(cost) and cost >= 0 else None
+    except Exception:
+        return None
+
+
+def _cost_delta(budget: Any, thread_id: str, before: float | None) -> float | None:
+    after = _read_cost(budget, thread_id)
+    return after - before if before is not None and after is not None and after >= before else None
+
+
 def run_eval(agent: Agent, cases: list[EvalCase], *, dataset_name: str = "") -> Scorecard:
+    """Sequential case evaluation with explicit oracle and cost coverage.
+
+    Costs are deltas of the configured request/agent budget. External billing
+    is not inferred from an exception; known charges survive, total cost is
+    marked incomplete. Concurrent external work sharing that same bucket can
+    contaminate deltas, so use isolated evaluation contexts/budgets.
+    """
     results: list[CaseResult] = []
     for case in cases:
         context = case.context or ExecutionContext(thread_id=f"eval-{uuid.uuid4().hex[:8]}")
+        thread_id = context.resolved_thread_id()
+        budget = context.budget if context.budget is not None else agent.config.budget
+        before = _read_cost(budget, thread_id)
         start = time.perf_counter()
+        result = None
         try:
             result = agent.run(case.input, context=context)
-            latency_ms = (time.perf_counter() - start) * 1000
-            cost_usd = agent.config.budget.cost_usd_for(context.resolved_thread_id())
-            task_success = case.expected_substring is None or case.expected_substring.lower() in result.content.lower()
-            tool_accuracy = case.expected_tool is None or case.expected_tool in _called_tool_names(result.messages)
+            task_success = (case.expected_substring.lower() in result.content.lower()
+                            if case.expected_substring is not None else None)
+            tool_accuracy = (case.expected_tool in _called_tool_names(result.messages)
+                             if case.expected_tool is not None else None)
             trajectory_errors = _check_trajectory(case, result)
             kpi_result = None
             if case.kpi is not None:
                 ctx = case.kpi_context(result) if case.kpi_context is not None else {}
                 kpi_result = case.kpi.evaluate(ctx)
-            ok = task_success and tool_accuracy and not trajectory_errors and (kpi_result is None or kpi_result.passed)
+                if not math.isfinite(kpi_result.value):
+                    raise ValueError("KPI returned a nonfinite value")
+            ok = (_has_oracle(case) and task_success is not False and tool_accuracy is not False
+                  and not trajectory_errors and (kpi_result is None or kpi_result.passed))
+            cost = _cost_delta(budget, thread_id, before)
             results.append(CaseResult(
                 case=case, ok=ok, task_success=task_success, tool_accuracy=tool_accuracy,
-                kpi_result=kpi_result, latency_ms=latency_ms, cost_usd=cost_usd, run_result=result,
+                kpi_result=kpi_result, latency_ms=(time.perf_counter() - start) * 1000,
+                cost_usd=cost, cost_complete=cost is not None, run_result=result,
                 trajectory_errors=trajectory_errors,
             ))
         except Exception as e:
-            latency_ms = (time.perf_counter() - start) * 1000
+            cost = _cost_delta(budget, thread_id, before)
             results.append(CaseResult(
-                case=case, ok=False, task_success=False, tool_accuracy=False,
-                kpi_result=None, latency_ms=latency_ms, cost_usd=0.0, error=str(e),
+                case=case, ok=False, task_success=False if case.expected_substring is not None else None,
+                tool_accuracy=False if case.expected_tool is not None else None, kpi_result=None,
+                latency_ms=(time.perf_counter() - start) * 1000, cost_usd=cost,
+                cost_complete=result is not None and cost is not None, error=str(e), run_result=result,
             ))
     return Scorecard(agent_name=agent.name, dataset_name=dataset_name, cases=results)

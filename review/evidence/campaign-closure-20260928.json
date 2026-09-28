@@ -1,0 +1,19 @@
+{
+  "baseline_finished": 179,
+  "baseline_planned": 180,
+  "failed_tasks_retried": false,
+  "fresh_guidance": "not_run_after_repeated_transport_stalls",
+  "invoice_reconciled": false,
+  "ledger_sha256": "e15f525cd348d52c55ab869551fcc075b13442f156f4f606bf172dd15daf7b53",
+  "recorded_utc": "2026-09-28T07:37:18.803752+00:00",
+  "request_status_counts": {
+    "settled": 1842,
+    "unknown_or_pending": 13
+  },
+  "research_objective": "unachieved; continued method investigation separate from closed inference campaign",
+  "shared_cap_usd": "25",
+  "status": "closed_at_preset_continuation_limit",
+  "unknown_reserved_usd": "7.442336",
+  "usage_upper_usd": "9.27733950",
+  "used_or_reserved_usd": "16.71967550"
+}

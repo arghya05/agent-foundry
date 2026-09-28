@@ -7,6 +7,7 @@ Provider protocol in contracts.py, never on a specific vendor SDK.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import time
 from dataclasses import dataclass, field
@@ -294,22 +295,22 @@ class MultiProvider:
 
 @dataclass
 class PromptCache:
-    """In-memory, exact-match prompt cache keyed by (model, message sequence). Swap
+    """In-memory cache keyed by model, complete messages, and request options. Swap
     the dict for Redis/Memcached behind the same get()/set() interface for a cache
     shared across processes — nothing in LLMGateway changes."""
 
     ttl_s: float = 300.0
-    _store: dict[tuple, tuple[float, LLMResponse]] = field(default_factory=dict)
+    _store: dict[str, tuple[float, LLMResponse]] = field(default_factory=dict)
 
-    def _key(self, model: str, messages: list[dict]) -> tuple:
-        # content may be a list of multimodal blocks (unhashable) — serialize
-        # anything that isn't already a plain string before using it as a key.
-        def content_key(content: Any) -> Any:
-            return content if isinstance(content, str) else json.dumps(content, sort_keys=True)
-        return (model, tuple((m["role"], content_key(m["content"])) for m in messages))
+    def _key(self, model: str, messages: list[dict], options: dict[str, Any] | None = None) -> str:
+        # Tool definitions, native call IDs/arguments, response schemas, and
+        # sampling settings all affect the effective request. Omitting any of
+        # these can reuse a decision made under different tool capabilities.
+        payload = json.dumps([model, messages, options or {}], sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode()).hexdigest()
 
-    def get(self, model: str, messages: list[dict]) -> LLMResponse | None:
-        hit = self._store.get(self._key(model, messages))
+    def get(self, model: str, messages: list[dict], *, options: dict[str, Any] | None = None) -> LLMResponse | None:
+        hit = self._store.get(self._key(model, messages, options))
         if hit is None:
             return None
         ts, resp = hit
@@ -317,8 +318,8 @@ class PromptCache:
             return None
         return resp
 
-    def set(self, model: str, messages: list[dict], response: LLMResponse) -> None:
-        self._store[self._key(model, messages)] = (time.time(), response)
+    def set(self, model: str, messages: list[dict], response: LLMResponse, *, options: dict[str, Any] | None = None) -> None:
+        self._store[self._key(model, messages, options)] = (time.time(), response)
 
 
 @dataclass
@@ -362,7 +363,7 @@ class LLMGateway:
         last_err: Exception | None = None
         for model in models or self.routes.get(task, self.routes["default"]):
             if self.cache is not None:
-                cached = self.cache.get(model, messages)
+                cached = self.cache.get(model, messages, options=kw)
                 if cached is not None:
                     return cached
             if self.rate_limiter is not None and not self.rate_limiter.allow(model):
@@ -374,7 +375,7 @@ class LLMGateway:
                 last_err = e
                 continue
             if self.cache is not None:
-                self.cache.set(model, messages, resp)
+                self.cache.set(model, messages, resp, options=kw)
             return resp
         raise RuntimeError(f"all models for task={task!r} failed") from last_err
 

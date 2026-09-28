@@ -1,0 +1,5 @@
+{
+  "stop_reason": "RemoteProtocolError",
+  "finished_attempts": 135,
+  "action": "Resume unfinished attempts; both connection-error tasks and reservations remain scored. No model settings or source changed."
+}

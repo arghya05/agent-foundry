@@ -1,0 +1,8 @@
+Using Python 3.11.15 environment at: /private/tmp/agent-foundry-review-env
+Resolved 8 packages in 774ms
+Downloading ruff (10.0MiB)
+ Downloaded ruff
+Prepared 2 packages in 1.35s
+Installed 2 packages in 5ms
+ + pytest-asyncio==1.4.0
+ + ruff==0.11.13

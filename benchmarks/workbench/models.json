@@ -1,0 +1,19 @@
+{
+  "checked_on": "2026-09-27",
+  "openai": {
+    "model": "gpt-5.4-mini-2026-03-17",
+    "input_usd_per_million": 0.75,
+    "output_usd_per_million": 4.5,
+    "context_tokens": 400000,
+    "options": {"reasoning": {"effort": "low"}},
+    "source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini"
+  },
+  "anthropic": {
+    "model": "claude-sonnet-5",
+    "input_usd_per_million": 2.0,
+    "output_usd_per_million": 10.0,
+    "context_tokens": 1000000,
+    "options": {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}},
+    "source": "https://platform.claude.com/docs/en/models/sonnet-5/overview"
+  }
+}

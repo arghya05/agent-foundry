@@ -89,15 +89,13 @@ class ExecutionContext:
         keyed request_<field> — read back by orchestration.py's
         _resolve_identity/_resolve_budget/_resolve_tool_policy/
         _resolve_model_names/_memory_key/_check_deadline/_check_cancellation.
-        LangGraph-engine only for now: native_engine._NativeGraph.invoke
-        forwards request_identity alone (see NativeEngine.run's
-        request_identity param) — budget/deadline/cancellation_token/
-        tool_policy/model_policy/memory_scope are silently no-ops on the
-        native runtime until that engine grows matching _resolve_* support.
-        Only includes fields the caller actually set, so a continuing
-        thread's earlier turn isn't reset to "no override" just because a
-        later turn's caller passed a plain ExecutionContext() with
-        defaults."""
+        Public entry points carry these through a process-local execution
+        scope in BOTH runtimes. Live budget/cancellation handles are not
+        serialized into checkpoints. Supply the controls on every run or
+        resume; durable revocation and cross-process budget services remain
+        the application's responsibility. Nested calls inherit controls
+        and may narrow them. Direct graph-state callers retain the older
+        request_<field> resolver interface."""
         out: dict[str, Any] = {}
         if self.user_id is not None or self.tenant_id is not None or self.permissions:
             out["request_identity"] = {"id": self.user_id or "unknown", "tenant_id": self.tenant_id or "", "roles": tuple(self.permissions)}

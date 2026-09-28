@@ -1,0 +1,315 @@
+......................................................F................. [ 12%]
+....F................................................................... [ 24%]
+........................................................................ [ 36%]
+........................................................................ [ 48%]
+EEEE...........F........................................................ [ 60%]
+........................................................................ [ 72%]
+........................................................................ [ 84%]
+.....................ss................................................. [ 96%]
+........................                                                 [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_http_tool_get_with_path_placeholder_and_query_params __
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x116652b90>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+____________ ERROR at setup of test_http_tool_post_sends_json_body _____________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x116652b90>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_______ ERROR at setup of test_http_tool_composes_through_registry_rbac ________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x116652b90>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_ ERROR at setup of test_http_tool_declares_its_own_egress_host_from_the_url_template _
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x116652b90>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+=================================== FAILURES ===================================
+__________ test_cli_serve_builds_an_app_from_a_script_top_level_graph __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x116582050>
+
+    def test_cli_serve_builds_an_app_from_a_script_top_level_graph(monkeypatch):
+        """cmd_serve falls back to build_http_app(graph) when the script has no
+        top-level `app` — proven without actually starting a server by
+        monkeypatching uvicorn.run to capture what it was handed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            script = os.path.join(tmp, "serve_demo.py")
+            with open(script, "w") as f:
+                f.write(
+                    "from agent_foundry.contracts import Identity, LLMResponse, Policy\n"
+                    "from agent_foundry.eval import EvalHarness\n"
+                    "from agent_foundry.guardrails import GuardrailEngine\n"
+                    "from agent_foundry.llm_gateway import LLMGateway\n"
+                    "from agent_foundry.observability import Tracer\n"
+                    "from agent_foundry.orchestration import build_agent_graph\n"
+                    "from agent_foundry.runtime import RunBudget\n"
+                    "from agent_foundry.tools_gateway import ToolRegistry\n\n"
+                    "class StaticProvider:\n"
+                    "    def complete(self, messages, *, model, tools=None, **kw):\n"
+                    "        return LLMResponse(text='ok', model=model, input_tokens=1, output_tokens=1, cost_usd=0.0)\n\n"
+                    "identity = Identity(id='a', tenant_id='acme')\n"
+                    "policy = Policy(allowed_tools=frozenset())\n"
+                    "graph = build_agent_graph(system_prompt='sys', llm=LLMGateway(provider=StaticProvider()), tools=ToolRegistry(),\n"
+                    "    guardrails=GuardrailEngine(policy), eval_harness=EvalHarness(), identity=identity, policy=policy,\n"
+                    "    budget=RunBudget(policy), tracer=Tracer('serve-test'))\n"
+                )
+    
+            captured = {}
+    
+            def fake_run(app, *, host, port):
+                captured["app"] = app
+    
+>           monkeypatch.setattr("uvicorn.run", fake_run)
+
+tests/test_cli.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/_pytest/monkeypatch.py:107: in derive_importpath
+    target = resolve(module)
+             ^^^^^^^^^^^^^^^
+/private/tmp/agent-foundry-review-env/lib/python3.11/site-packages/_pytest/monkeypatch.py:70: in resolve
+    found: object = importlib.import_module(used)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'uvicorn', import_ = <function _gcd_import at 0x104c07d80>
+
+>   ???
+E   ModuleNotFoundError: No module named 'uvicorn'
+
+<frozen importlib._bootstrap>:1140: ModuleNotFoundError
+____ test_chroma_vector_store_ids_never_collide_across_a_simulated_restart _____
+
+    def test_chroma_vector_store_ids_never_collide_across_a_simulated_restart():
+        """Regression: the previous self._next_id counter started at 0 in every
+        NEW instance — a fresh process re-attaching to the same persistent
+        collection would re-issue id "1", colliding with whatever a prior
+        process already stored under that id. A uuid-based id has no such
+        restart state to collide on."""
+        import tempfile
+    
+        with tempfile.TemporaryDirectory() as tmp:
+>           store_a = ChromaVectorStore(path=tmp, collection_name="restart-test")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_context.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.context.ChromaVectorStore object at 0x11655fb50>
+path = '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmp9ehnqcfz'
+embedding_function = None, collection_name = 'restart-test'
+
+    def __init__(self, *, path: str | None = None, embedding_function: Any = None, collection_name: str = "agent_foundry") -> None:
+>       import chromadb
+E       ModuleNotFoundError: No module named 'chromadb'
+
+agent_foundry/context.py:55: ModuleNotFoundError
+_______ test_import_and_native_runtime_work_without_langgraph_installed ________
+
+    @pytest.mark.skipif(not _uv_available(), reason="uv not installed — can't build an isolated venv to verify against")
+    def test_import_and_native_runtime_work_without_langgraph_installed():
+        with tempfile.TemporaryDirectory() as tmp:
+            venv_dir = Path(tmp) / "venv"
+>           subprocess.run(["uv", "venv", str(venv_dir)], check=True, capture_output=True, text=True)
+
+tests/test_langgraph_optional.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['uv', 'venv', '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmp60ixbz43/venv'],)
+kwargs = {'text': True, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout is given, and the process takes too long, a TimeoutExpired
+        exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['uv', 'venv', '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmp60ixbz43/venv']' returned non-zero exit status 2.
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py:571: CalledProcessError
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::test_cli_serve_builds_an_app_from_a_script_top_level_graph
+FAILED tests/test_context.py::test_chroma_vector_store_ids_never_collide_across_a_simulated_restart
+FAILED tests/test_langgraph_optional.py::test_import_and_native_runtime_work_without_langgraph_installed
+ERROR tests/test_http_tools.py::test_http_tool_get_with_path_placeholder_and_query_params
+ERROR tests/test_http_tools.py::test_http_tool_post_sends_json_body - Permiss...
+ERROR tests/test_http_tools.py::test_http_tool_composes_through_registry_rbac
+ERROR tests/test_http_tools.py::test_http_tool_declares_its_own_egress_host_from_the_url_template
+3 failed, 591 passed, 11 skipped, 4 errors in 9.64s

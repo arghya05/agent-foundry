@@ -1,0 +1,23 @@
+{
+  "recorded_utc": "2026-09-27T21:47:23.854037+00:00",
+  "hypothesis": "Explicit prerequisite, grounding, subset and conditional-action instructions improve useful completion without increasing unwanted effects.",
+  "novelty_claim": false,
+  "profile_sha256": "21b9d7e36ed8fffd33bc319fa2a877387625109f0e39ae00f4f2073ea499eab0",
+  "profile_scope": "Exactly the same instructions for reference, native and LangGraph; no answer data or tool-specific heuristics.",
+  "diagnostic_tasks": "The first 60 originally held-out tasks are now consumed for diagnosis. Candidate results on these IDs are development evidence.",
+  "fresh_confirmation_tasks": "Next 10 tasks per domain after the 2 development and 10 diagnostic IDs; exact IDs recorded before inference.",
+  "stopping_rule": "One guidance candidate at this version. Retain all failures. Do not revise this prompt from confirmation results.",
+  "comparison_controls": [
+    "same model snapshot",
+    "same low reasoning effort",
+    "same output/call limits",
+    "same scorer",
+    "same prompt across arms",
+    "all three arms retained"
+  ],
+  "limitations": [
+    "Prompt recipe, not a new research algorithm",
+    "Initial baseline and candidate also differ by documented correctness repairs",
+    "No guarantee of SOTA or conference acceptance"
+  ]
+}

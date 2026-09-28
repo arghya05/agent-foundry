@@ -72,6 +72,8 @@ from .native_orchestration import (
 )
 from .engines import RUNTIMES
 from .execution_context import ExecutionContext
+from ..execution_scope import scoped_execution, request_value
+from contextvars import copy_context
 from .protocols import Memory, StateStore, Tool
 from .result import RunResult, result_from_graph_output
 
@@ -132,6 +134,9 @@ def _request_identity_dict(context: ExecutionContext) -> dict[str, Any] | None:
     (the default for every existing caller, unchanged behavior). A plain
     dict, not an Identity object, so it survives any checkpointer that
     needs JSON-serializable state, not just the default in-memory one."""
+    effective = request_value({}, "request_identity")
+    if effective is not None:
+        return dict(effective)
     if context.user_id is None and context.tenant_id is None and not context.permissions:
         return None
     return {"id": context.user_id or "unknown", "tenant_id": context.tenant_id or "", "roles": tuple(context.permissions)}
@@ -188,6 +193,7 @@ class _CompiledWorkflow:
             state["request_identity"] = identity
         return state
 
+    @scoped_execution
     def run(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
         context = context or ExecutionContext()
         thread_id = context.resolved_thread_id()
@@ -197,6 +203,7 @@ class _CompiledWorkflow:
 
     invoke = run  # alias for API parity — run/invoke are the same call, not a distinct one
 
+    @scoped_execution
     async def arun(self, message: str, *, context: ExecutionContext | None = None) -> RunResult:
         """Non-blocking run() for an async caller. `self._graph` is either a
         compiled LangGraph graph (has a real `.ainvoke()` — verified
@@ -214,6 +221,7 @@ class _CompiledWorkflow:
             return result_from_graph_output(raw, thread_id=thread_id)
         return await asyncio.to_thread(self.run, message, context=context)
 
+    @scoped_execution
     def stream(self, message: str, *, context: ExecutionContext | None = None) -> Iterator[Any]:
         # stream_mode="values": LangGraph's own default ("updates") yields
         # per-node partial dicts keyed by node name (e.g. {"think": {...}}),
@@ -228,6 +236,7 @@ class _CompiledWorkflow:
         state = self._initial_state(message, thread_id, identity=_request_identity_dict(context))
         yield from self._graph.stream(state, {"configurable": {"thread_id": thread_id}}, stream_mode="values")
 
+    @scoped_execution
     async def astream(self, message: str, *, context: ExecutionContext | None = None) -> Any:
         """Non-blocking stream() — see arun()'s docstring for the same
         LangGraph-native-vs-to_thread split. An async generator (`async
@@ -263,7 +272,7 @@ class _CompiledWorkflow:
             finally:
                 loop.call_soon_threadsafe(queue.put_nowait, _DONE)
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=copy_context().run, args=(worker,), daemon=True).start()
         while True:
             item = await queue.get()
             if item is _DONE:
@@ -284,6 +293,7 @@ class _CompiledWorkflow:
             return Command(resume=payload)
         return _ResumePayload(resume=payload)
 
+    @scoped_execution
     def resume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         # `decision` layers richer resume payloads (an event's data, a
         # clarification answer, a payment confirmation id) on top of the
@@ -294,6 +304,7 @@ class _CompiledWorkflow:
         raw = self._graph.invoke(self._resume_command(payload), {"configurable": {"thread_id": thread_id}})
         return result_from_graph_output(raw, thread_id=thread_id)
 
+    @scoped_execution
     async def aresume(self, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
         """Non-blocking resume() — same LangGraph-native-vs-to_thread split
         as arun()/astream()."""
@@ -304,12 +315,14 @@ class _CompiledWorkflow:
             return result_from_graph_output(raw, thread_id=thread_id)
         return await asyncio.to_thread(self.resume, approved=approved, decision=decision, context=context)
 
-    def batch(self, items: list[dict[str, Any]], **kw: Any) -> BatchReport:
+    @scoped_execution
+    def batch(self, items: list[dict[str, Any]], *, context: ExecutionContext | None = None, **kw: Any) -> BatchReport:
         return run_batch(self._graph, items, **kw)
 
     def schedule(self, message: str, *, every_seconds: float, context: ExecutionContext | None = None) -> str:
+        inherited = copy_context()
         def job() -> None:
-            self.run(message, context=context)
+            inherited.copy().run(self.run, message, context=context)
 
         return self._scheduler.schedule(job, every_seconds=every_seconds)
 
@@ -338,6 +351,7 @@ class _FanoutWorkflow:
     def graph(self) -> Any:
         return self._graph
 
+    @scoped_execution
     def run(self, items: list[str], *, context: ExecutionContext | None = None) -> list[str]:
         context = context or ExecutionContext()
         thread_id = context.resolved_thread_id()
@@ -357,6 +371,7 @@ class _DagWorkflow:
     def graph(self) -> Any:
         return self._graph
 
+    @scoped_execution
     def run(self, inputs: dict[str, Any] | None = None, *, context: ExecutionContext | None = None) -> dict[str, Any]:
         context = context or ExecutionContext()
         thread_id = context.resolved_thread_id()

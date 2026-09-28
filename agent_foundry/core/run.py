@@ -31,7 +31,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable
 
 from ..events import EventBus
-from .execution_context import ExecutionContext
+from .execution_context import ExecutionContext, CancellationToken
+from ..runtime import RunCancelled
 from .result import RunResult
 
 if TYPE_CHECKING:
@@ -62,6 +63,8 @@ class Run:
         self.run_id = context.run_id
         self.agent = agent
         self.context = context
+        if self.context.cancellation_token is None:
+            self.context.cancellation_token = CancellationToken()
         self.status = RunStatus.STARTED
         self.result: RunResult | None = None
         self.error: str | None = None
@@ -72,7 +75,8 @@ class Run:
 
     def _apply(self, result: RunResult) -> RunResult:
         self.result = result
-        self.status = RunStatus.WAITING_HUMAN if result.awaiting_approval else RunStatus.COMPLETED
+        if self.status != RunStatus.CANCELLED:
+            self.status = RunStatus.WAITING_HUMAN if result.awaiting_approval else RunStatus.COMPLETED
         return result
 
     # ---- driving the run ---------------------------------------------------------
@@ -88,7 +92,7 @@ class Run:
         try:
             return self._apply(self.agent.run(message, context=self.context))
         except Exception as e:
-            self.status = RunStatus.FAILED
+            self.status = RunStatus.CANCELLED if isinstance(e, RunCancelled) else RunStatus.FAILED
             self.error = str(e)
             raise
 
@@ -99,7 +103,7 @@ class Run:
         try:
             return self._apply(self.agent.resume(approved=approved, decision=decision, context=self.context))
         except Exception as e:
-            self.status = RunStatus.FAILED
+            self.status = RunStatus.CANCELLED if isinstance(e, RunCancelled) else RunStatus.FAILED
             self.error = str(e)
             raise
 
@@ -124,6 +128,8 @@ class Run:
         self._paused_from = None
 
     def cancel(self) -> None:
+        assert self.context.cancellation_token is not None
+        self.context.cancellation_token.cancel()
         if self._event_subscription is not None:
             self._event_subscription = None  # InMemoryEventBus/EventBus has no unsubscribe; drop our own reference so the closure becomes a no-op below
         self.status = RunStatus.CANCELLED

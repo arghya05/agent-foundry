@@ -11,3 +11,6 @@ dist/
 build/
 .gstack/
 .codegraph/
+
+# Local test-created file, not an experiment artifact.
+:memory:.ses

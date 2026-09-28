@@ -1,0 +1,37 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_prompt_matches_published_frontier_confirmation_setting __________
+
+    def test_prompt_matches_published_frontier_confirmation_setting():
+        from adapter import benchmark_tools
+        from src.evals import agent as official
+        from src.evals.metrics import meta_path_for_results
+    
+        published = json.loads(Path("retro/data/model_results.json").read_text())
+        leader = max(published["models"].values(), key=lambda row: row["correct"])
+        metadata = json.loads(Path(meta_path_for_results(leader["sources"]["calendar"])).read_text())
+        expected = Scripted([response()])
+    
+        def call(route, system, turns, schemas, temperature):
+            return expected.call(system, turns, schemas)
+    
+        with patch.object(official, "resolve_route", return_value=None), \
+                patch.object(official, "_call_llm_structured_with_retry", call):
+            official.run_agent_structured(
+                expected.model, benchmark_tools(), "Complete the synthetic task.",
+                metadata["datetime_prefix"], act_without_confirmation=metadata["act_without_confirmation"],
+            )
+        for arm in ARMS:
+            transport = Scripted([response()])
+            assert run_task(arm, "Complete the synthetic task.", transport)["error"] == ""
+>           assert transport.requests == expected.requests
+E           assert [("Today's da...tion'}, ...])] == [("Today's da...tion'}, ...])]
+E             
+E             At index 0 diff: ("Today's date is Thursday, 2023-11-30 and the current time is 00:00:00. Remember the current date and time when completing tasks. Meetings must not start before 9am or end after 6pm.", [{'role': 'user', 'content': 'Complete the synthetic task.'}], [{'type': 'function', 'function': {'name': 'email_send_email', 'description': '\n    Sends an email to the specified recipient.\n\n    Parameters\n    ----------\n    recipient : str, optional\n        Email address of the recipient.\n    subject : str, optional\n        Subject line of the email.\n    body :...
+E             
+E             ...Full output truncated (2 lines hidden), use '-vv' to show
+
+/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/test_workbench.py:100: AssertionError
+=========================== short test summary info ============================
+FAILED benchmarks/workbench/test_workbench.py::test_prompt_matches_published_frontier_confirmation_setting
+1 failed, 19 deselected in 0.59s

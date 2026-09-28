@@ -1,0 +1,284 @@
+{
+  "framework_base_commit": "2623ea1b2fe2d93beb1976c0d4e2449891b6900a",
+  "framework_working_tree_modified": true,
+  "machine": "arm64",
+  "open_gates": [
+    "Distinct original mechanism beyond expanded prior art",
+    "Strong external framework and nearest-method comparisons",
+    "Repeated public-task confirmation and transfer evidence",
+    "Enterprise distributed isolation/durability and adapter gaps",
+    "Independent reproduction and venue-specific author review"
+  ],
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.12.13",
+  "recorded_utc": "2026-09-27T18:47:58.236149+00:00",
+  "runs": [
+    {
+      "artifact": "workbench-official-tests.txt",
+      "command": ".venv/bin/python -m pytest tests -q",
+      "cwd": "WORKBENCH_ROOT",
+      "id": "W001",
+      "kind": "upstream_offline_tests",
+      "passed": 257,
+      "status": "passed"
+    },
+    {
+      "artifact": "workbench-baseline-reproduction.json",
+      "correct": 476,
+      "id": "W002",
+      "kind": "saved_upstream_predictions_reproduction",
+      "not_foundry_result": true,
+      "reproduction_command": "python benchmarks/workbench/run.py reproduce",
+      "side_effects": 104,
+      "status": "matched",
+      "total": 690
+    },
+    {
+      "artifact": "workbench-adapter-integration-first.txt",
+      "failed": 1,
+      "id": "W003a",
+      "kind": "offline_adapter_integration_initial",
+      "passed": 15,
+      "reason": "Environment snapshot tried unavailable default uv cache",
+      "status": "retained_failure"
+    },
+    {
+      "artifact": "workbench-adapter-tests.txt",
+      "command": "python -m pytest benchmarks/workbench/test_workbench.py -q",
+      "id": "W003",
+      "kind": "offline_adapter_contract_and_campaign_tests",
+      "passed": 16,
+      "status": "passed"
+    },
+    {
+      "artifact": "iteration-001-before.txt",
+      "failed": 13,
+      "id": "I001a",
+      "kind": "pre_fix_regression",
+      "status": "expected_failures_reproduced"
+    },
+    {
+      "artifact": "iteration-001-after.txt",
+      "failed": 8,
+      "id": "I001b",
+      "kind": "intermediate_post_fix_validation",
+      "passed": 170,
+      "skipped": 2,
+      "status": "retained_test_assertion_failures"
+    },
+    {
+      "artifact": "iteration-001-validation.txt",
+      "id": "I001c",
+      "kind": "corrected_post_fix_validation",
+      "passed": 178,
+      "skipped": 2,
+      "status": "passed",
+      "test_files": [
+        "tests/test_review_regressions.py",
+        "tests/test_security_and_policy_engine.py",
+        "tests/test_contracts_and_guardrails.py",
+        "tests/test_tools_and_llm_gateway.py",
+        "tests/test_orchestration.py",
+        "tests/test_native_engine.py",
+        "tests/test_core_agent.py",
+        "tests/test_agent_stream.py",
+        "tests/test_native_orchestration_hitl.py",
+        "tests/test_native_orchestration_durability.py"
+      ]
+    },
+    {
+      "executed_attempts": 0,
+      "id": "W004",
+      "kind": "live_development_pilot",
+      "manifest": "workbench-preparation/planned-manifest.json",
+      "models": [
+        "gpt-5.4-mini-2026-03-17",
+        "claude-sonnet-5"
+      ],
+      "note": "Retained original two-provider plan; actual rejected setups and OpenAI Responses campaigns listed below",
+      "original_plan_executed_as_written": false,
+      "planned_attempts": 72,
+      "score": null,
+      "status": "superseded_by_archived_live_campaigns",
+      "tasks": 12
+    },
+    {
+      "artifact": "closest-source-manifest.json",
+      "competitor_performance_ranking": false,
+      "id": "R001",
+      "kind": "closest_source_and_selected_methods_review",
+      "repositories": 7,
+      "selected_files": 27,
+      "status": "recorded"
+    },
+    {
+      "artifact": "agentgovbench-baseline/vanilla-cli.txt",
+      "id": "G001a",
+      "kind": "upstream_vanilla_baseline_setup",
+      "reason": "Click not installed in initial interpreter",
+      "status": "retained_failure"
+    },
+    {
+      "artifact": "agentgovbench-baseline-complete/manifest.json",
+      "exact_scenario_id_coverage": true,
+      "id": "G001",
+      "kind": "upstream_vanilla_baseline_reproduction",
+      "not_foundry_result": true,
+      "passed": 13,
+      "reproduction_script": "reproduce_agentgovbench.py",
+      "status": "completed",
+      "total": 48
+    },
+    {
+      "artifact": "agentgovbench-baseline-complete/scorer-audit.json",
+      "empty_outcome_scenarios_passing": 5,
+      "id": "G002",
+      "isolated_counterexamples": 3,
+      "kind": "upstream_scorer_evidence_sufficiency_probe",
+      "not_foundry_result": true,
+      "status": "counterexamples_reproduced"
+    },
+    {
+      "artifact": "workbench-unknown-tool-before.txt",
+      "deselected": 16,
+      "failed": 3,
+      "id": "W005a",
+      "kind": "unknown_tool_scoring_regression_before",
+      "status": "expected_failures_reproduced"
+    },
+    {
+      "artifact": "workbench-adapter-validation-002.txt",
+      "command": "python -m pytest benchmarks/workbench/test_workbench.py -q -p no:cacheprovider",
+      "id": "W005",
+      "kind": "offline_adapter_contract_and_campaign_tests_after_scoring_fix",
+      "passed": 19,
+      "status": "passed"
+    },
+    {
+      "artifact": "workbench-published-frontier/summary.json",
+      "best_saved_run": {
+        "correct": 674,
+        "model": "Fable 5",
+        "side_effects": 13,
+        "total": 690
+      },
+      "command": "python benchmarks/workbench/reproduce_frontier.py --output review/evidence/workbench-published-frontier",
+      "execution_log": "workbench-published-frontier-run.txt",
+      "fresh_inference": false,
+      "id": "W006",
+      "kind": "all_saved_published_workbench_model_runs_reproduction",
+      "models": 24,
+      "not_foundry_result": true,
+      "paid_model_requests": 0,
+      "scored_predictions": 16560,
+      "status": "matched"
+    },
+    {
+      "artifact": "workbench-prompt-parity-before.txt",
+      "failed": 1,
+      "id": "W007a",
+      "kind": "published_prompt_parity_before",
+      "status": "expected_failure_reproduced"
+    },
+    {
+      "artifact": "workbench-adapter-validation-003.txt",
+      "id": "W007",
+      "kind": "adapter_suite_after_published_prompt_alignment",
+      "paid_model_requests": 0,
+      "passed": 20,
+      "protocol": "workbench-foundry-v2",
+      "status": "passed"
+    },
+    {
+      "artifact": "iteration-002-control-matrix.txt",
+      "id": "I002",
+      "kind": "execution_scope_repairs",
+      "passed": 67,
+      "status": "recorded"
+    },
+    {
+      "artifact": "iteration-003-before.txt",
+      "id": "I003",
+      "kind": "retrieval_filter_repairs",
+      "pre_fix_failed": 2,
+      "status": "recorded"
+    },
+    {
+      "artifact": "full-suite-20260928-final.txt",
+      "id": "I004",
+      "kind": "evaluation_integrity_repairs",
+      "passed": 620,
+      "pre_fix_failed": 17,
+      "skipped": 25,
+      "status": "recorded"
+    },
+    {
+      "artifact": "mnemosyne-reproduction-20260928.txt",
+      "id": "R002",
+      "kind": "mnemosyne_selected_artifact_reproduction",
+      "not_foundry_result": true,
+      "passed": 10,
+      "status": "recorded",
+      "warnings": 1
+    },
+    {
+      "artifact": "live-workbench-20260928/confirmation-20260928-baseline/archive-index.json",
+      "executed_attempts": 179,
+      "id": "LIVE:confirmation-20260928-baseline",
+      "kind": "live_workbench",
+      "status": "partial_retained",
+      "stop_reason": "RemoteProtocolError"
+    },
+    {
+      "artifact": "live-workbench-20260928/diagnostic-20260928-grounded/archive-index.json",
+      "executed_attempts": 180,
+      "id": "LIVE:diagnostic-20260928-grounded",
+      "kind": "live_workbench",
+      "status": "complete",
+      "stop_reason": null
+    },
+    {
+      "artifact": "live-workbench-20260928/heldout-20260928-baseline/archive-index.json",
+      "executed_attempts": 180,
+      "id": "LIVE:heldout-20260928-baseline",
+      "kind": "live_workbench",
+      "status": "complete",
+      "stop_reason": null
+    },
+    {
+      "artifact": "live-workbench-20260928/pilot-20260928/archive-index.json",
+      "executed_attempts": 1,
+      "id": "LIVE:pilot-20260928",
+      "kind": "live_workbench",
+      "status": "partial_retained",
+      "stop_reason": "HTTPStatusError"
+    },
+    {
+      "artifact": "live-workbench-20260928/pilot-20260928-anthropic-diagnostic/archive-index.json",
+      "executed_attempts": 1,
+      "id": "LIVE:pilot-20260928-anthropic-diagnostic",
+      "kind": "live_workbench",
+      "status": "partial_retained",
+      "stop_reason": "HTTPStatusError"
+    },
+    {
+      "artifact": "live-workbench-20260928/pilot-20260928-openai/archive-index.json",
+      "executed_attempts": 1,
+      "id": "LIVE:pilot-20260928-openai",
+      "kind": "live_workbench",
+      "status": "partial_retained",
+      "stop_reason": "HTTPStatusError"
+    },
+    {
+      "artifact": "live-workbench-20260928/pilot-20260928-openai-responses/archive-index.json",
+      "executed_attempts": 36,
+      "id": "LIVE:pilot-20260928-openai-responses",
+      "kind": "live_workbench",
+      "status": "complete",
+      "stop_reason": null
+    }
+  ],
+  "scope": "Dated review, four engineering repair iterations, source comparisons and bounded live WorkBench measurements; no superiority or novelty claim",
+  "updated_utc": "2026-09-28T07:37:18.803752+00:00",
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

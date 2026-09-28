@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8181818181818182,
+      "api_latency_s": 288.5601321691647,
+      "attempted": 33,
+      "correct": 27,
+      "cost_per_success_usd_upper": 0.042699611111111105,
+      "cost_usd_upper": 1.1528895,
+      "errors": 2,
+      "model_requests": 109,
+      "p50_latency_s": 5.907531582983211,
+      "p95_latency_s": 15.490315542032477,
+      "planned": 60,
+      "unwanted_side_effects": 5
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8484848484848485,
+      "api_latency_s": 214.20337403699523,
+      "attempted": 33,
+      "correct": 28,
+      "cost_per_success_usd_upper": 0.018583607142857145,
+      "cost_usd_upper": 0.520341,
+      "errors": 0,
+      "model_requests": 104,
+      "p50_latency_s": 6.0307151669985615,
+      "p95_latency_s": 13.063952124968637,
+      "planned": 60,
+      "unwanted_side_effects": 5
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.7575757575757576,
+      "api_latency_s": 277.01931020698976,
+      "attempted": 33,
+      "correct": 25,
+      "cost_per_success_usd_upper": 0.03332952,
+      "cost_usd_upper": 0.833238,
+      "errors": 1,
+      "model_requests": 105,
+      "p50_latency_s": 5.582167082990054,
+      "p95_latency_s": 12.916418125038035,
+      "planned": 60,
+      "unwanted_side_effects": 6
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 14.278685,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0.06060606060606061,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0.15151515151515152
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 33
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.09090909090909091,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.030303030303030304,
+        0.24242424242424243
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 33
+    }
+  },
+  "rows_finished": 99,
+  "scope": "heldout",
+  "stop_reason": "ReadTimeout"
+}

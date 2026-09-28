@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 117,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 117,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "76d452e2af259332798ac242209c2276fcc6c028e57f62d26760fcda7e6ef87f",
+      "source": "data/results/analytics/claude-opus-4.8_all_2026-06-03_14-13-15.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 107,
+        "side_effects": 1,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 107,
+        "side_effects": 1,
+        "total": 110
+      },
+      "sha256": "7b41d9435e36cda31f3a35113b88ca72ebfddc5e933982c1bbc27d942640fc74",
+      "source": "data/results/calendar/claude-opus-4.8_all_2026-06-03_14-12-16.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 79,
+        "side_effects": 0,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 79,
+        "side_effects": 0,
+        "total": 80
+      },
+      "sha256": "2385870978b7b35484433adadf2547ddf91533c310cbf0723f32b0c2e05cf4be",
+      "source": "data/results/customer_relationship_manager/claude-opus-4.8_all_2026-06-03_16-43-51.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "sha256": "e9bd89d593b98a2cf7479eda0319ec85a72afd30568e220c01611b422e6bdabb",
+      "source": "data/results/email/claude-opus-4.8_all_2026-06-03_14-11-30.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 198,
+        "side_effects": 9,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 198,
+        "side_effects": 9,
+        "total": 210
+      },
+      "sha256": "e5e3a33348470018deb8b78c7c448d3b141aa8e3a1ee30f26b34a3cc6772476e",
+      "source": "data/results/multi_domain/claude-opus-4.8_all_2026-06-03_14-16-21.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 74,
+        "side_effects": 6,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 74,
+        "side_effects": 6,
+        "total": 80
+      },
+      "sha256": "e4db04d085690a4f1492eadb2f91fca10b4ae83715f79ebf3d921b56627be899",
+      "source": "data/results/project_management/claude-opus-4.8_all_2026-06-03_14-14-24.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Opus 4.8",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 664,
+    "side_effects": 17,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

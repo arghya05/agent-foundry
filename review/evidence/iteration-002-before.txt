@@ -1,0 +1,895 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.F                                [100%]
+=================================== FAILURES ===================================
+________ test_controls_deny_before_any_model_or_tool[cancel-run-native] ________
+
+runtime = 'native', entry = 'run', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "dec0a113a381", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "55918e39c209", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 29.95}
+{"trace_id": "controls-agent", "span_id": "2d0228bebf32", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+______ test_controls_deny_before_any_model_or_tool[cancel-run-langgraph] _______
+
+runtime = 'langgraph', entry = 'run', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "ab092096da15", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "92ea983e89b3", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.21}
+{"trace_id": "controls-agent", "span_id": "9e6e4e7af9cd", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+______ test_controls_deny_before_any_model_or_tool[cancel-stream-native] _______
+
+runtime = 'native', entry = 'stream', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "ab15b4fb26a5", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "03a32393b46a", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.2}
+{"trace_id": "controls-agent", "span_id": "93092d506614", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[cancel-stream-langgraph] _____
+
+runtime = 'langgraph', entry = 'stream', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "b5856196b481", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "be03f88aff56", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.2}
+{"trace_id": "controls-agent", "span_id": "eab4c67db5a7", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_______ test_controls_deny_before_any_model_or_tool[cancel-arun-native] ________
+
+runtime = 'native', entry = 'arun', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "af34e0c2275b", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "d4ab03314610", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.2}
+{"trace_id": "controls-agent", "span_id": "a7567ba51648", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[cancel-arun-langgraph] ______
+
+runtime = 'langgraph', entry = 'arun', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "790f538e03cd", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "10ee253c54c9", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.21}
+{"trace_id": "controls-agent", "span_id": "51cac1e7702b", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+______ test_controls_deny_before_any_model_or_tool[cancel-astream-native] ______
+
+runtime = 'native', entry = 'astream', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "d002b02d51a7", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "96ffdf60a88c", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.19}
+{"trace_id": "controls-agent", "span_id": "2565a3a2ecef", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+____ test_controls_deny_before_any_model_or_tool[cancel-astream-langgraph] _____
+
+runtime = 'langgraph', entry = 'astream', control = 'cancel'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "15f66ca7179e", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "841feedb71b9", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00286102294921875}, "duration_ms": 0.25}
+{"trace_id": "controls-agent", "span_id": "c8ccc51e9102", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_______ test_controls_deny_before_any_model_or_tool[deadline-run-native] _______
+
+runtime = 'native', entry = 'run', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "3ace5bc80538", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "516cd66d71b9", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0007152557373046875}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "fda31949cf0a", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[deadline-run-langgraph] ______
+
+runtime = 'langgraph', entry = 'run', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "0c3a52436d3f", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "56ec47debd54", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "e14dee37edfa", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[deadline-stream-native] ______
+
+runtime = 'native', entry = 'stream', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "0015a561da3f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "da9d29195ce4", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.16}
+{"trace_id": "controls-agent", "span_id": "0e37f7732414", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+____ test_controls_deny_before_any_model_or_tool[deadline-stream-langgraph] ____
+
+runtime = 'langgraph', entry = 'stream', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "918c195cc8f3", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "87b28ec3b691", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.14}
+{"trace_id": "controls-agent", "span_id": "e368eebbc030", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[deadline-arun-native] _______
+
+runtime = 'native', entry = 'arun', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "2a5bc31c92a5", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "850794bc2cd9", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.18}
+{"trace_id": "controls-agent", "span_id": "726afbd438f6", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[deadline-arun-langgraph] _____
+
+runtime = 'langgraph', entry = 'arun', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "c3d8b88a33b4", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "fc765ea37ac6", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.13}
+{"trace_id": "controls-agent", "span_id": "7fb6c43e3f60", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[deadline-astream-native] _____
+
+runtime = 'native', entry = 'astream', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "7d2dcb931d0f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "49b3a0ad6517", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0007152557373046875}, "duration_ms": 0.16}
+{"trace_id": "controls-agent", "span_id": "16330f71c198", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+___ test_controls_deny_before_any_model_or_tool[deadline-astream-langgraph] ____
+
+runtime = 'langgraph', entry = 'astream', control = 'deadline'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "aff03b38f8f7", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "45f3694f2999", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.14}
+{"trace_id": "controls-agent", "span_id": "58405e50eff0", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+________ test_controls_deny_before_any_model_or_tool[budget-run-native] ________
+
+runtime = 'native', entry = 'run', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "0b2bba528ccc", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "caad9d964fa4", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.15}
+{"trace_id": "controls-agent", "span_id": "f8fe99449522", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[budget-run-langgraph] _______
+
+runtime = 'langgraph', entry = 'run', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "059937e4de24", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "71389d84b11d", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.12}
+{"trace_id": "controls-agent", "span_id": "19c3a43e2739", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[budget-stream-native] _______
+
+runtime = 'native', entry = 'stream', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "24b220895edc", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "c014519d82b5", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.13}
+{"trace_id": "controls-agent", "span_id": "fe1968f4c135", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[budget-stream-langgraph] _____
+
+runtime = 'langgraph', entry = 'stream', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "8f5ed5d0fd5c", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "07428e574538", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.15}
+{"trace_id": "controls-agent", "span_id": "264f271449f3", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_______ test_controls_deny_before_any_model_or_tool[budget-arun-native] ________
+
+runtime = 'native', entry = 'arun', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "644f5ee483a0", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "f5b121b92b0a", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.13}
+{"trace_id": "controls-agent", "span_id": "3b5eaeab4877", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[budget-arun-langgraph] ______
+
+runtime = 'langgraph', entry = 'arun', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "b5d19b8dc15a", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "ed082f573328", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "0ab1465d53c9", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[budget-astream-native] ______
+
+runtime = 'native', entry = 'astream', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "c451eb59f488", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "e66fd5b3213f", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "82807387b946", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+____ test_controls_deny_before_any_model_or_tool[budget-astream-langgraph] _____
+
+runtime = 'langgraph', entry = 'astream', control = 'budget'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "d28f7c3f389a", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "0fef0f27dd20", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.15}
+{"trace_id": "controls-agent", "span_id": "0f96f8fcbcd3", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+________ test_controls_deny_before_any_model_or_tool[models-run-native] ________
+
+runtime = 'native', entry = 'run', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "20c8811d0b76", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "6dd5a0ad8583", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.18}
+{"trace_id": "controls-agent", "span_id": "b924e8b1e050", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[models-run-langgraph] _______
+
+runtime = 'langgraph', entry = 'run', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "382a912c4d47", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "dcc622d7b26e", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.16}
+{"trace_id": "controls-agent", "span_id": "1e5120ce8c6b", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[models-stream-native] _______
+
+runtime = 'native', entry = 'stream', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "5c86542fa735", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "7cb432d02d50", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.15}
+{"trace_id": "controls-agent", "span_id": "252078a4df5f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_controls_deny_before_any_model_or_tool[models-stream-langgraph] _____
+
+runtime = 'langgraph', entry = 'stream', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "3f776c75d235", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "7ed982fc8134", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.16}
+{"trace_id": "controls-agent", "span_id": "6ddcbed2a17d", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_______ test_controls_deny_before_any_model_or_tool[models-arun-native] ________
+
+runtime = 'native', entry = 'arun', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "2eaf483dbd2b", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "7d131ea4bef3", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.18}
+{"trace_id": "controls-agent", "span_id": "a328a5f00a1e", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+______ test_controls_deny_before_any_model_or_tool[models-arun-langgraph] ______
+
+runtime = 'langgraph', entry = 'arun', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "beaf3968102d", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "6413ca7adaa8", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.24}
+{"trace_id": "controls-agent", "span_id": "be1ddb67c603", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+______ test_controls_deny_before_any_model_or_tool[models-astream-native] ______
+
+runtime = 'native', entry = 'astream', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "ac136a654f33", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "b132069f8bde", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.21}
+{"trace_id": "controls-agent", "span_id": "db398df89e3a", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+____ test_controls_deny_before_any_model_or_tool[models-astream-langgraph] _____
+
+runtime = 'langgraph', entry = 'astream', control = 'models'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    @pytest.mark.parametrize('entry', ['run', 'stream', 'arun', 'astream'])
+    @pytest.mark.parametrize('control', ['cancel', 'deadline', 'budget', 'models'])
+    def test_controls_deny_before_any_model_or_tool(runtime, entry, control):
+        agent, provider, effects = action_agent(runtime)
+        token = CancellationToken()
+        token.cancel()
+        kwargs = {'cancel': {'cancellation_token': token}, 'deadline': {'deadline': time.time()-10},
+                  'budget': {'budget': RunBudget(Policy(max_steps_per_thread=0))},
+                  'models': {'model_policy': {'allowed_models': []}}}[control]
+>       with pytest.raises((RunCancelled, BudgetExceeded, PermissionError)):
+E       Failed: DID NOT RAISE any of (RunCancelled, BudgetExceeded, PermissionError)
+
+tests/test_execution_controls.py:48: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "70e5472ba2e3", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "95fd2c791094", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.008821487426757812}, "duration_ms": 0.2}
+{"trace_id": "controls-agent", "span_id": "f701207b6973", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+___ test_request_tool_policy_blocks_effects_and_cannot_widen_config[native] ____
+
+runtime = 'native'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_request_tool_policy_blocks_effects_and_cannot_widen_config(runtime):
+        agent, provider, effects = action_agent(runtime)
+        result = agent.run('Do the action.', context=ExecutionContext(tool_policy=Policy(allowed_tools=frozenset())))
+>       assert not effects
+E       AssertionError: assert not ['effect']
+
+tests/test_execution_controls.py:58: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "d2389448c9a2", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "492643f655e0", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.15}
+{"trace_id": "controls-agent", "span_id": "e7ea50243cfb", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+__ test_request_tool_policy_blocks_effects_and_cannot_widen_config[langgraph] __
+
+runtime = 'langgraph'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_request_tool_policy_blocks_effects_and_cannot_widen_config(runtime):
+        agent, provider, effects = action_agent(runtime)
+        result = agent.run('Do the action.', context=ExecutionContext(tool_policy=Policy(allowed_tools=frozenset())))
+>       assert not effects
+E       AssertionError: assert not ['effect']
+
+tests/test_execution_controls.py:58: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "f257561c1645", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "6b5c9d0e831e", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.18}
+{"trace_id": "controls-agent", "span_id": "23548735795b", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+____ test_cancellation_after_model_response_prevents_tool_execution[native] ____
+
+runtime = 'native'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_cancellation_after_model_response_prevents_tool_execution(runtime):
+        token = CancellationToken()
+        def respond(messages, model):
+            token.cancel()
+            return 'CALL action {}'
+        agent, provider, effects = action_agent(runtime, responses=[respond, 'Done.'])
+>       with pytest.raises(RunCancelled):
+E       Failed: DID NOT RAISE RunCancelled
+
+tests/test_execution_controls.py:70: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "49f98302cd0e", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "61ca2ce76a7d", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.16}
+{"trace_id": "controls-agent", "span_id": "b41d92ca02f8", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+__ test_cancellation_after_model_response_prevents_tool_execution[langgraph] ___
+
+runtime = 'langgraph'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_cancellation_after_model_response_prevents_tool_execution(runtime):
+        token = CancellationToken()
+        def respond(messages, model):
+            token.cancel()
+            return 'CALL action {}'
+        agent, provider, effects = action_agent(runtime, responses=[respond, 'Done.'])
+>       with pytest.raises(RunCancelled):
+E       Failed: DID NOT RAISE RunCancelled
+
+tests/test_execution_controls.py:70: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "4519e32f18c9", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "3aa8a87e5e38", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "9eabd8a23723", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+________ test_resume_rechecks_current_caller_and_cancel_signal[native] _________
+
+runtime = 'native'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_resume_rechecks_current_caller_and_cancel_signal(runtime):
+        agent, provider, effects = action_agent(runtime, confirmation=True)
+        assert agent.run('Do the action.', context=ExecutionContext(thread_id='approval')).awaiting_approval
+        token = CancellationToken()
+        token.cancel()
+>       with pytest.raises(RunCancelled):
+E       Failed: DID NOT RAISE RunCancelled
+
+tests/test_execution_controls.py:82: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "0d99a701f6c9", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "b6702765b4c4", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.17}
+{"trace_id": "controls-agent", "span_id": "6dab4e0651db", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_______ test_resume_rechecks_current_caller_and_cancel_signal[langgraph] _______
+
+runtime = 'langgraph'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_resume_rechecks_current_caller_and_cancel_signal(runtime):
+        agent, provider, effects = action_agent(runtime, confirmation=True)
+        assert agent.run('Do the action.', context=ExecutionContext(thread_id='approval')).awaiting_approval
+        token = CancellationToken()
+        token.cancel()
+>       with pytest.raises(RunCancelled):
+E       Failed: DID NOT RAISE RunCancelled
+
+tests/test_execution_controls.py:82: Failed
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "395cdf870be6", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "controls-agent", "span_id": "726639455a64", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.19}
+{"trace_id": "controls-agent", "span_id": "87bf7d7d2f97", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_________ test_supervisor_cannot_borrow_worker_admin_identity[native] __________
+
+runtime = 'native'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_supervisor_cannot_borrow_worker_admin_identity(runtime):
+        effects = []
+        worker = Agent('worker', 'Do the task.', runtime=runtime,
+                       identity=Identity('service', 'tenant', roles=('admin',)),
+                       tools=[ToolSpec('admin_action', 'Admin only', {}, lambda: effects.append('effect'), scopes=frozenset({'admin'}))],
+                       llm=LLMGateway(ScriptedProvider(['CALL admin_action {}', 'Done.'])))
+        router = ScriptedProvider(['ROUTE worker'])
+        workflow = Workflow.supervisor(prompt='Route.', agents={'worker': worker}, runtime=runtime, llm=LLMGateway(router))
+        workflow.run('Do the action.', context=ExecutionContext(user_id='viewer', tenant_id='tenant', permissions=frozenset({'viewer'})))
+>       assert not effects
+E       AssertionError: assert not ['effect']
+
+tests/test_execution_controls.py:98: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "worker-agent", "span_id": "360826bd94d4", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "worker-agent", "span_id": "3ef178929966", "name": "orchestration.act", "attributes": {"tool": "admin_action", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.19}
+{"trace_id": "worker-agent", "span_id": "508439451287", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_________ test_live_control_handles_are_not_persisted_in_native_state __________
+
+    def test_live_control_handles_are_not_persisted_in_native_state():
+        store = MemoryStateStore()
+        agent, provider, effects = action_agent('native', state_store=store)
+        budget = RunBudget(Policy(max_steps_per_thread=5))
+        context = ExecutionContext(thread_id='persisted', budget=budget, cancellation_token=CancellationToken())
+        agent.run('Do the action.', context=context)
+        assert effects == ['effect']
+>       assert budget.steps_for('persisted') == 2
+E       AssertionError: assert 0 == 2
+E        +  where 0 = steps_for('persisted')
+E        +    where steps_for = RunBudget(policy=Policy(allowed_tools=frozenset(), max_cost_usd_per_thread=1.0, max_steps_per_thread=5, requires_appro...), autonomy=<AutonomyLevel.L3_APPROVAL: 3>), _spent={}, _steps={}, _lock=<unlocked _thread.lock object at 0x10b7b5740>).steps_for
+
+tests/test_execution_controls.py:108: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "controls-agent", "span_id": "ecf90777808e", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "controls-agent", "span_id": "e582632480ad", "name": "orchestration.act", "attributes": {"tool": "action", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.19}
+{"trace_id": "controls-agent", "span_id": "986c04bb1fa6", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "test", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+=========================== short test summary info ============================
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-run-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-run-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-stream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-stream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-arun-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-arun-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-astream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[cancel-astream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-run-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-run-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-stream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-stream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-arun-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-arun-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-astream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[deadline-astream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-run-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-run-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-stream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-stream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-arun-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-arun-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-astream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[budget-astream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-run-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-run-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-stream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-stream-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-arun-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-arun-langgraph]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-astream-native]
+FAILED tests/test_execution_controls.py::test_controls_deny_before_any_model_or_tool[models-astream-langgraph]
+FAILED tests/test_execution_controls.py::test_request_tool_policy_blocks_effects_and_cannot_widen_config[native]
+FAILED tests/test_execution_controls.py::test_request_tool_policy_blocks_effects_and_cannot_widen_config[langgraph]
+FAILED tests/test_execution_controls.py::test_cancellation_after_model_response_prevents_tool_execution[native]
+FAILED tests/test_execution_controls.py::test_cancellation_after_model_response_prevents_tool_execution[langgraph]
+FAILED tests/test_execution_controls.py::test_resume_rechecks_current_caller_and_cancel_signal[native]
+FAILED tests/test_execution_controls.py::test_resume_rechecks_current_caller_and_cancel_signal[langgraph]
+FAILED tests/test_execution_controls.py::test_supervisor_cannot_borrow_worker_admin_identity[native]
+FAILED tests/test_execution_controls.py::test_live_control_handles_are_not_persisted_in_native_state
+40 failed, 1 passed in 0.33s

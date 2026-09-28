@@ -1,0 +1,196 @@
+{
+  "followup": {
+    "adapter_tests": {
+      "artifact": "workbench-adapter-validation-008.txt",
+      "passed": 24
+    },
+    "campaign_status": "closed_at_continuation_limit",
+    "date": "2026-09-28",
+    "full_suite": {
+      "artifact": "full-suite-20260928-final.txt",
+      "passed": 620,
+      "skipped": 25
+    },
+    "github_push": "pending_final_artifact_checks",
+    "iterations": [
+      "I001",
+      "I002",
+      "I003",
+      "I004"
+    ],
+    "live_archived_attempts": 578,
+    "live_provider_requests": 1855,
+    "research_novelty": "not_established; additional prior-art overlap found",
+    "typecheck": {
+      "artifact": "typecheck-20260928-final.txt",
+      "errors": 0,
+      "source_files": 58
+    }
+  },
+  "framework_commit": "2623ea1b2fe2d93beb1976c0d4e2449891b6900a",
+  "historical_followup": {
+    "adapter_tests": {
+      "artifact": "workbench-adapter-validation-003.txt",
+      "passed": 20,
+      "prior_runs_retained": true
+    },
+    "benchmark_protocol": "workbench-foundry-v2",
+    "benchmark_scoring_repair": "Unknown tool proposals retain an error penalty in all WorkBench arms",
+    "closest_source_comparison": "closest-source-manifest.json",
+    "date": "2026-09-28",
+    "framework_changes": [
+      "F02 approval precedence and explicit approval signal",
+      "F08 full request prompt-cache identity"
+    ],
+    "github_push": "pending_validation_and_live_budget",
+    "historical_snapshot": true,
+    "iteration": "I001",
+    "live_foundry_score": null,
+    "live_provider_requests": 0,
+    "targeted_validation": {
+      "passed": 178,
+      "skipped": 2
+    }
+  },
+  "local_measurements": [
+    {
+      "environment_limited_failures": 5,
+      "name": "selected_pytest",
+      "passed": 432,
+      "skipped": 2,
+      "status": "measured"
+    },
+    {
+      "artifact": "reproduced-findings.json",
+      "name": "deterministic_probes",
+      "observations": 16,
+      "status": "measured"
+    },
+    {
+      "artifact": "runtime-microbenchmark.txt",
+      "name": "runtime_microbenchmark",
+      "provider": "scripted",
+      "status": "measured_single_local_run"
+    }
+  ],
+  "public_benchmarks": [
+    {
+      "benchmark_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613",
+      "full_suite_score": null,
+      "ground_truth_version": "v2",
+      "model": "gpt-5.4-mini-2026-03-17",
+      "name": "workbench",
+      "planned_models": [
+        "gpt-5.4-mini-2026-03-17",
+        "claude-sonnet-5"
+      ],
+      "raw_results": "live-workbench-20260928",
+      "result_report": "../LIVE_BENCHMARK_RESULTS.md",
+      "score": null,
+      "source": "https://github.com/olly-styles/WorkBench",
+      "status": "live_subsets_measured_fresh_comparison_incomplete",
+      "upstream_saved_baseline_artifact": "workbench-baseline-reproduction.json",
+      "upstream_saved_frontier": {
+        "all_counts_match": true,
+        "artifact": "workbench-published-frontier/summary.json",
+        "best_model": "Fable 5",
+        "correct": 674,
+        "models": 24,
+        "not_foundry_result": true,
+        "predictions_rescored": 16560,
+        "side_effects": 13,
+        "total": 690
+      }
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "tau_bench_family",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/sierra-research/tau2-bench",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "agentdojo",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/ethz-spylab/agentdojo",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": "e0ce93ae175376d7847c69a64d0c36bdfa6ca717",
+      "model": null,
+      "name": "agentgovbench",
+      "raw_results": null,
+      "score": null,
+      "scorer_audit": "agentgovbench-baseline-complete/scorer-audit.json",
+      "source": "https://github.com/agentic-control-plane/agentgovbench",
+      "status": "upstream_vanilla_reproduced_foundry_not_run",
+      "upstream_baseline": {
+        "manifest": "agentgovbench-baseline-complete/manifest.json",
+        "not_foundry_result": true,
+        "passed": 13,
+        "total": 48
+      }
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "agentbench",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/THUDM/AgentBench",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "toolsandbox",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/apple/ToolSandbox",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "workarena",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/ServiceNow/WorkArena",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "theagentcompany",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/TheAgentCompany/TheAgentCompany",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "longmemeval",
+      "raw_results": null,
+      "score": null,
+      "source": "https://arxiv.org/abs/2410.10813",
+      "status": "planned_not_run"
+    },
+    {
+      "benchmark_commit": null,
+      "model": null,
+      "name": "multiagentbench_marble",
+      "raw_results": null,
+      "score": null,
+      "source": "https://github.com/ulab-uiuc/MARBLE",
+      "status": "planned_not_run"
+    }
+  ],
+  "review_date": "2026-09-27",
+  "updated_on": "2026-09-28"
+}

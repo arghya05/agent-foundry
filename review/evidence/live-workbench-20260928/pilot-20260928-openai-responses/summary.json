@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8333333333333334,
+      "api_latency_s": 73.53017462498974,
+      "attempted": 12,
+      "correct": 10,
+      "cost_per_success_usd_upper": 0.01959855,
+      "cost_usd_upper": 0.1959855,
+      "errors": 0,
+      "model_requests": 41,
+      "p50_latency_s": 5.629717916541267,
+      "p95_latency_s": 15.05182212498039,
+      "planned": 12,
+      "unwanted_side_effects": 1
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 1.0,
+      "api_latency_s": 59.1993608729681,
+      "attempted": 12,
+      "correct": 12,
+      "cost_per_success_usd_upper": 0.014466,
+      "cost_usd_upper": 0.173592,
+      "errors": 0,
+      "model_requests": 36,
+      "p50_latency_s": 4.754023187502753,
+      "p95_latency_s": 8.619956667011138,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.8333333333333334,
+      "api_latency_s": 63.814441085094586,
+      "attempted": 12,
+      "correct": 10,
+      "cost_per_success_usd_upper": 0.0187458,
+      "cost_usd_upper": 0.18745799999999999,
+      "errors": 0,
+      "model_requests": 39,
+      "p50_latency_s": 4.989115000003949,
+      "p95_latency_s": 10.050414957979228,
+      "planned": 12,
+      "unwanted_side_effects": 2
+    }
+  },
+  "complete": true,
+  "ledger_used_or_reserved_usd_upper": 4.9072115,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.3333333333333333,
+        0.3333333333333333
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 12
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.16666666666666666,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0.4166666666666667
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 12
+    }
+  },
+  "rows_finished": 36,
+  "scope": "development",
+  "stop_reason": null
+}

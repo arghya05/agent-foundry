@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8,
+      "api_latency_s": 402.750632236246,
+      "attempted": 60,
+      "correct": 48,
+      "cost_per_success_usd_upper": 0.020825515625,
+      "cost_usd_upper": 0.99962475,
+      "errors": 0,
+      "model_requests": 200,
+      "p50_latency_s": 5.688893125014147,
+      "p95_latency_s": 10.538301207998302,
+      "planned": 60,
+      "unwanted_side_effects": 8
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8166666666666667,
+      "api_latency_s": 379.5657519546803,
+      "attempted": 60,
+      "correct": 49,
+      "cost_per_success_usd_upper": 0.020540280612244898,
+      "cost_usd_upper": 1.00647375,
+      "errors": 0,
+      "model_requests": 201,
+      "p50_latency_s": 5.6601289579994045,
+      "p95_latency_s": 10.24280595802702,
+      "planned": 60,
+      "unwanted_side_effects": 7
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.8333333333333334,
+      "api_latency_s": 369.3345978675061,
+      "attempted": 60,
+      "correct": 50,
+      "cost_per_success_usd_upper": 0.01958781,
+      "cost_usd_upper": 0.9793905,
+      "errors": 0,
+      "model_requests": 196,
+      "p50_latency_s": 5.753726084018126,
+      "p95_latency_s": 9.669953749980778,
+      "planned": 60,
+      "unwanted_side_effects": 6
+    }
+  },
+  "complete": true,
+  "ledger_used_or_reserved_usd_upper": 7.8927005,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": -0.03333333333333333,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.13333333333333333,
+        0.06666666666666667
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 60
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": -0.016666666666666666,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.1,
+        0.06666666666666667
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 60
+    }
+  },
+  "rows_finished": 180,
+  "scope": "heldout",
+  "stop_reason": null
+}

@@ -23,13 +23,17 @@ class BaselineScorecard:
     itself, so a real CaseResult list (not cheaply serializable — it holds
     a RunResult per case) never needs to round-trip through disk."""
 
-    task_success_rate: float
-    tool_accuracy_rate: float
-    trajectory_accuracy_rate: float
+    task_success_rate: float | None
+    tool_accuracy_rate: float | None
+    trajectory_accuracy_rate: float | None
     groundedness_avg: float | None
-    p95_latency_ms: float
-    avg_cost_usd: float
-    error_rate: float
+    p95_latency_ms: float | None
+    avg_cost_usd: float | None
+    error_rate: float | None
+    # Legacy files lack oracle coverage; None preserves that uncertainty.
+    measurement_schema_version: int = 1
+    metric_coverage: dict[str, float] | None = None
+    known_cost_usd: float | None = None
 
 
 @dataclass
@@ -72,6 +76,9 @@ class EvalDataset:
             "p95_latency_ms": scorecard.p95_latency_ms,
             "avg_cost_usd": scorecard.avg_cost_usd,
             "error_rate": scorecard.error_rate,
+            "measurement_schema_version": 2,
+            "metric_coverage": scorecard.metric_coverage,
+            "known_cost_usd": scorecard.known_cost_usd,
         }, indent=2))
         return path
 

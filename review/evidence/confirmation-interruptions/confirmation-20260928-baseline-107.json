@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8055555555555556,
+      "api_latency_s": 308.39456162718125,
+      "attempted": 36,
+      "correct": 29,
+      "cost_per_success_usd_upper": 0.0413040775862069,
+      "cost_usd_upper": 1.19781825,
+      "errors": 2,
+      "model_requests": 118,
+      "p50_latency_s": 5.9126547494961414,
+      "p95_latency_s": 15.490315542032477,
+      "planned": 60,
+      "unwanted_side_effects": 5
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8285714285714286,
+      "api_latency_s": 229.0229309540009,
+      "attempted": 35,
+      "correct": 29,
+      "cost_per_success_usd_upper": 0.018994706896551725,
+      "cost_usd_upper": 0.5508465,
+      "errors": 0,
+      "model_requests": 110,
+      "p50_latency_s": 6.067378207982983,
+      "p95_latency_s": 13.063952124968637,
+      "planned": 60,
+      "unwanted_side_effects": 5
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.6944444444444444,
+      "api_latency_s": 311.1098700829898,
+      "attempted": 36,
+      "correct": 25,
+      "cost_per_success_usd_upper": 0.058666499999999996,
+      "cost_usd_upper": 1.4666625,
+      "errors": 3,
+      "model_requests": 110,
+      "p50_latency_s": 5.755449791497085,
+      "p95_latency_s": 20.02114037499996,
+      "planned": 60,
+      "unwanted_side_effects": 6
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 14.98754375,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0.1111111111111111,
+      "exploratory_paired_bootstrap_95_interval": [
+        0.027777777777777776,
+        0.2222222222222222
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 36
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.11428571428571428,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0.2571428571428571
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 35
+    }
+  },
+  "rows_finished": 107,
+  "scope": "heldout",
+  "stop_reason": "RemoteProtocolError"
+}

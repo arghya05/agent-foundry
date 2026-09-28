@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8,
+      "api_latency_s": 241.75569812825415,
+      "attempted": 25,
+      "correct": 20,
+      "cost_per_success_usd_upper": 0.0513639375,
+      "cost_usd_upper": 1.02727875,
+      "errors": 2,
+      "model_requests": 85,
+      "p50_latency_s": 6.3487602500244975,
+      "p95_latency_s": 15.490315542032477,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.84,
+      "api_latency_s": 164.33043583098333,
+      "attempted": 25,
+      "correct": 21,
+      "cost_per_success_usd_upper": 0.018484,
+      "cost_usd_upper": 0.388164,
+      "errors": 0,
+      "model_requests": 79,
+      "p50_latency_s": 6.1197249999968335,
+      "p95_latency_s": 11.228378708008677,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.8,
+      "api_latency_s": 156.89881728898035,
+      "attempted": 25,
+      "correct": 20,
+      "cost_per_success_usd_upper": 0.0198033375,
+      "cost_usd_upper": 0.39606675,
+      "errors": 0,
+      "model_requests": 80,
+      "p50_latency_s": 5.9287325000041164,
+      "p95_latency_s": 10.368551708001178,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 13.583726,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 25
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.04,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.08,
+        0.16
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 25
+    }
+  },
+  "rows_finished": 75,
+  "scope": "heldout",
+  "stop_reason": "ReadTimeout"
+}

@@ -156,6 +156,7 @@ class GuardrailResult:
     reason: str | None = None
     stage: str = ""  # input | output | action | runtime
     escalate: bool = False  # True: hand off to a human/other agent (escalation.py) instead of a flat deny
+    requires_approval: bool = False  # Explicit approval request; a denial's wording never grants override authority.
 
 
 # ---- Eval --------------------------------------------------------------------------

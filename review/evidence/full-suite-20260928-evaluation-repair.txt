@@ -1,0 +1,273 @@
+sss........................................................F............ [ 11%]
+.......................................................................s [ 22%]
+ssssssssssss............................................................ [ 33%]
+...........................F............................................ [ 45%]
+.....................................EEEE...........F................... [ 56%]
+........................................................................ [ 67%]
+........................................................................ [ 79%]
+..........................................................ss............ [ 90%]
+.............................................................            [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_http_tool_get_with_path_placeholder_and_query_params __
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x11b1bf710>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+____________ ERROR at setup of test_http_tool_post_sends_json_body _____________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x11b1bf710>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_______ ERROR at setup of test_http_tool_composes_through_registry_rbac ________
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x11b1bf710>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+_ ERROR at setup of test_http_tool_declares_its_own_egress_host_from_the_url_template _
+
+    @pytest.fixture(scope="module")
+    def echo_server():
+>       server = HTTPServer(("127.0.0.1", 0), _EchoHandler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_http_tools.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:456: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py:140: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x11b1bf710>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py:472: PermissionError
+=================================== FAILURES ===================================
+_______________ test_cli_eval_compares_against_a_saved_baseline ________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x116a58990>
+
+    def test_cli_eval_compares_against_a_saved_baseline(capsys):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = _write_eval_script(tmp)
+            dataset = os.path.join(tmp, "dataset.json")
+            with open(dataset, "w") as f:
+                json.dump({"name": "refunds", "version": "v1",
+                           "cases": [{"input": "please refund order A100", "expected_substring": "processed"}]}, f)
+            baseline_dir = os.path.join(tmp, "baselines")
+            cli.main(["eval", script, dataset, "--save-baseline", baseline_dir])
+            capsys.readouterr()
+    
+>           cli.main(["eval", script, dataset, "--baseline", baseline_dir])
+
+tests/test_cli.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/cli.py:194: in main
+    args.func(args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = Namespace(command='eval', script='/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmp_qc9onys/eval_demo.py', dataset=...line='/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmp_qc9onys/baselines', func=<function cmd_eval at 0x10d3df060>)
+
+    def cmd_eval(args: argparse.Namespace) -> None:
+        from .core.evalgate import EvalCase, run_eval
+        from .eval_dataset import EvalDataset
+    
+        module = _load_module(args.script)
+        agent = getattr(module, args.agent_attr, None)
+        if agent is None:
+            raise SystemExit(f"{args.script!r} has no top-level `{args.agent_attr}` — pass --agent-attr to name it")
+    
+        raw = json.loads(Path(args.dataset).read_text())
+        if EvalDataset.looks_versioned(raw):
+            dataset = EvalDataset(name=raw["name"], version=raw["version"], cases=raw["cases"])
+            cases = dataset.to_cases()
+            dataset_name = dataset.name
+        else:
+            dataset = None
+            cases = [EvalCase(**case) for case in raw]
+            dataset_name = Path(args.dataset).stem
+    
+        scorecard = run_eval(agent, cases, dataset_name=dataset_name)
+        print(scorecard.render())
+    
+        if args.baseline:
+            if dataset is None:
+                raise SystemExit("--baseline needs a versioned dataset ({\"name\", \"version\", \"cases\"}), not a flat list")
+            baseline = EvalDataset.load_baseline(args.baseline, dataset.name, dataset.version)
+            if baseline is None:
+                print(f"\nno baseline found for {dataset.name}-{dataset.version} in {args.baseline}")
+            else:
+                print("\nDelta vs baseline:")
+                for metric, delta in scorecard.compare_to(baseline).items():
+>                   print(f"  {metric}: {delta:+.4f}")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   TypeError: unsupported format string passed to NoneType.__format__
+
+agent_foundry/cli.py:85: TypeError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "refunds-agent", "span_id": "3a9832b8b548", "name": "native.think", "attributes": {"cost_usd": 0.001, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+Task success        100.0% (coverage 100%)
+Tool accuracy       not measured (coverage 0%)
+Trajectory accuracy not measured (coverage 0%)
+Groundedness        not measured (coverage 0%)
+P95 latency         0.00s
+Average cost        $0.0010
+
+Delta vs baseline:
+  task_success_rate: +0.0000
+_______________ test_commerce_agent_passes_its_own_eval_dataset ________________
+
+    def test_commerce_agent_passes_its_own_eval_dataset():
+        dataset = EvalDataset.load(_DATASET_PATH)
+        responses = [
+            _call("search_products", {"query": "trail running shoes"}), "Found sku:1: Trail running shoes.",
+            _call("recommend", {"product_id": "sku:1"}), "Goes well with sku:2: Moisture-wicking socks.",
+            _call("place_order", {"product_id": "sku:1", "quantity": 2}),  # never gets a second response — pauses first
+        ]
+        provider = ScriptedProvider(responses)
+        from agent_foundry import run_eval
+        agent = build_agent(llm=LLMGateway(provider=provider))
+    
+        scorecard = run_eval(agent, dataset.to_cases(), dataset_name=dataset.name)
+    
+        ok, reasons = scorecard.passes({"task_success_rate_min": 1.0, "trajectory_accuracy_rate_min": 1.0})
+>       assert ok, reasons
+E       AssertionError: ['task_success_rate_min: coverage 0.667 < required 1.0']
+E       assert False
+
+tests/test_examples_commerce_agent.py:48: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "commerce-agent", "span_id": "d5c87053dd50", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "commerce-agent", "span_id": "382194582c57", "name": "orchestration.act", "attributes": {"tool": "search_products", "ok": true, "latency_ms": 0.007867813110351562}, "duration_ms": 0.26}
+{"trace_id": "commerce-agent", "span_id": "66bceb234fda", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "commerce-agent", "span_id": "7650981de03f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "commerce-agent", "span_id": "6f0ee398d688", "name": "orchestration.act", "attributes": {"tool": "recommend", "ok": true, "latency_ms": 0.0030994415283203125}, "duration_ms": 0.24}
+{"trace_id": "commerce-agent", "span_id": "10976329c4ae", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "commerce-agent", "span_id": "3d5da7646da7", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.0}
+_______ test_import_and_native_runtime_work_without_langgraph_installed ________
+
+    @pytest.mark.skipif(not _uv_available(), reason="uv not installed — can't build an isolated venv to verify against")
+    def test_import_and_native_runtime_work_without_langgraph_installed():
+        with tempfile.TemporaryDirectory() as tmp:
+            venv_dir = Path(tmp) / "venv"
+            subprocess.run(["uv", "venv", str(venv_dir)], check=True, capture_output=True, text=True)
+            python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    
+            install = subprocess.run(
+                ["uv", "pip", "install", "--python", str(python), "-e", str(REPO_ROOT)],
+                capture_output=True, text=True,
+            )
+>           assert install.returncode == 0, f"install failed:\n{install.stdout}\n{install.stderr}"
+E           AssertionError: install failed:
+E             
+E             Using Python 3.13.13 environment at: /var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmpg_fr_vf8/venv
+E             error: Request failed after 3 retries in 10.1s
+E               Caused by: Failed to fetch: `https://pypi.org/simple/cryptography/`
+E               Caused by: error sending request for url (https://pypi.org/simple/cryptography/)
+E               Caused by: client error (Connect)
+E               Caused by: dns error
+E               Caused by: failed to lookup address information: nodename nor servname provided, or not known
+E             
+E           assert 2 == 0
+E            +  where 2 = CompletedProcess(args=['uv', 'pip', 'install', '--python', '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmpg_fr_v...used by: dns error\n  Caused by: failed to lookup address information: nodename nor servname provided, or not known\n').returncode
+
+tests/test_langgraph_optional.py:80: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::test_cli_eval_compares_against_a_saved_baseline - T...
+FAILED tests/test_examples_commerce_agent.py::test_commerce_agent_passes_its_own_eval_dataset
+FAILED tests/test_langgraph_optional.py::test_import_and_native_runtime_work_without_langgraph_installed
+ERROR tests/test_http_tools.py::test_http_tool_get_with_path_placeholder_and_query_params
+ERROR tests/test_http_tools.py::test_http_tool_post_sends_json_body - Permiss...
+ERROR tests/test_http_tools.py::test_http_tool_composes_through_registry_rbac
+ERROR tests/test_http_tools.py::test_http_tool_declares_its_own_egress_host_from_the_url_template
+3 failed, 612 passed, 25 skipped, 4 errors in 19.88s

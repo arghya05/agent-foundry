@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8235294117647058,
+      "api_latency_s": 111.32922791619785,
+      "attempted": 17,
+      "correct": 14,
+      "cost_per_success_usd_upper": 0.04191241071428571,
+      "cost_usd_upper": 0.58677375,
+      "errors": 1,
+      "model_requests": 58,
+      "p50_latency_s": 6.3487602500244975,
+      "p95_latency_s": 15.490315542032477,
+      "planned": 60,
+      "unwanted_side_effects": 3
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8125,
+      "api_latency_s": 97.20875854213955,
+      "attempted": 16,
+      "correct": 13,
+      "cost_per_success_usd_upper": 0.018796153846153848,
+      "cost_usd_upper": 0.24435,
+      "errors": 0,
+      "model_requests": 51,
+      "p50_latency_s": 5.780665707978187,
+      "p95_latency_s": 11.228378708008677,
+      "planned": 60,
+      "unwanted_side_effects": 3
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.875,
+      "api_latency_s": 87.34878432913683,
+      "attempted": 16,
+      "correct": 14,
+      "cost_per_success_usd_upper": 0.01710064285714286,
+      "cost_usd_upper": 0.239409,
+      "errors": 0,
+      "model_requests": 50,
+      "p50_latency_s": 5.227581645507598,
+      "p95_latency_s": 7.118911708006635,
+      "planned": 60,
+      "unwanted_side_effects": 2
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 12.84274925,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 16
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": -0.0625,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.1875,
+        0
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 16
+    }
+  },
+  "rows_finished": 49,
+  "scope": "heldout",
+  "stop_reason": "RemoteProtocolError"
+}

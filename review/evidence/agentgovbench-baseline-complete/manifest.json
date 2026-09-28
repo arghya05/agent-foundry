@@ -1,0 +1,156 @@
+{
+  "recorded_utc": "2026-09-27T18:18:12.550263+00:00",
+  "source": "https://github.com/agentic-control-plane/agentgovbench",
+  "commit": "e0ce93ae175376d7847c69a64d0c36bdfa6ca717",
+  "upstream_tracked_tree_clean": true,
+  "script_sha256": "c31efce0c965df4fff95018606dc5eda7492430b474d58b7d09515eab4ceb868",
+  "python": "3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "packages": {
+    "PyYAML": "6.0.3",
+    "requests": "2.34.2",
+    "click": "8.1.8"
+  },
+  "command": [
+    "/private/tmp/agent-foundry-review-env/bin/python",
+    "-m",
+    "benchmark",
+    "run",
+    "--runner",
+    "vanilla",
+    "--include-outcomes",
+    "--out",
+    "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/review/evidence/agentgovbench-baseline-complete/vanilla.json"
+  ],
+  "cwd": "/private/tmp/agent-foundry-comparisons/agentgovbench",
+  "coverage": {
+    "expected": 48,
+    "observed": 48,
+    "exact_id_match": true
+  },
+  "aggregate": {
+    "by_category": [
+      {
+        "category": "audit_completeness",
+        "passed": 1,
+        "total": 6,
+        "pass_rate": 0.16666666666666666
+      },
+      {
+        "category": "cross_tenant_isolation",
+        "passed": 4,
+        "total": 6,
+        "pass_rate": 0.6666666666666666
+      },
+      {
+        "category": "delegation_provenance",
+        "passed": 0,
+        "total": 6,
+        "pass_rate": 0.0
+      },
+      {
+        "category": "fail_mode_discipline",
+        "passed": 3,
+        "total": 6,
+        "pass_rate": 0.5
+      },
+      {
+        "category": "identity_propagation",
+        "passed": 0,
+        "total": 6,
+        "pass_rate": 0.0
+      },
+      {
+        "category": "per_user_policy_enforcement",
+        "passed": 1,
+        "total": 6,
+        "pass_rate": 0.16666666666666666
+      },
+      {
+        "category": "rate_limit_cascade",
+        "passed": 3,
+        "total": 6,
+        "pass_rate": 0.5
+      },
+      {
+        "category": "scope_inheritance",
+        "passed": 1,
+        "total": 6,
+        "pass_rate": 0.16666666666666666
+      }
+    ],
+    "total_scenarios": 48,
+    "total_passed": 13
+  },
+  "foundry_result": false,
+  "paid_model_requests": 0,
+  "vendor_service_requests": 0,
+  "file_sha256": {
+    "LICENSE": "dc4fe43af4df8894d96356ca8a771a5ff2bd66d82dd300beda5287db0596a433",
+    "benchmark/__init__.py": "22610ea6eb14c97b2ff402b42d24408e0cfbf7004741ecbced8dd9ba955cf2eb",
+    "benchmark/__main__.py": "3129adff95e0f38b87ab34cddfc27082c7892bcaec267ff5d40f160fdf55b44a",
+    "benchmark/cli.py": "04f2acd0ab00f5e3cbf1e27b1c425397c64d75b3269f3b5e196cc4fab3968d03",
+    "benchmark/loader.py": "bc5a9959560dc63fdd3cd6ee25b2ebe88d689263d156fcf65fabc785712ce3f8",
+    "benchmark/runner.py": "be839babc5042beb031320c10cb2fbf09ef3ed0d5cceced022fbefa21a4e677a",
+    "benchmark/scorer.py": "1042c3714f99469c367d3d316d6bd5e34d2e2957538da72ddbffe6264c885f9c",
+    "benchmark/types.py": "3ac650c6096660b91fb0add3083e9c36711e29b7bc0841eaf7a716000c67f63d",
+    "fixtures/standard_tenant.yaml": "8a564c49dfd746123c1a5b73e0359229d5016375079a7034ca2f56d1416c702f",
+    "fixtures/two_tenants.yaml": "a634195aff5baaf7da3909ac4d13c159018e7c5e2edf82b287ed81be92de25c9",
+    "pyproject.toml": "597edd30057550dfbbfd5f5f0ef56ef4380bd01ca21e3e71c1d287560e629f7f",
+    "runners/langgraph_native.py": "15e7feca25e3e32ea38586ce193177f1156f87f435fd36f2323c7f1a1dd0cfb6",
+    "runners/vanilla.py": "62009626dee12212865ca8660a8484790d84f11943a64472c5dd0a9f9c9deb9b",
+    "scenarios/audit_completeness/01_required_fields.yaml": "77f88f880cee3f33ebec10f0b0f704f6ef4d42eb55cdd45e953f59f34ff3ef2a",
+    "scenarios/audit_completeness/02_denial_logged.yaml": "faf6ae1e42b104ac731592753a0ba31133d9f9c470cddfcdc69f137d61a22de2",
+    "scenarios/audit_completeness/03_reason_populated_on_deny.yaml": "176631760f98562619aa4906c6dd28d7144fa66feacbcf3e2ac72b6588bda2b7",
+    "scenarios/audit_completeness/04_trace_id_present.yaml": "d9e6fd5b6d66a0b72831c54b72fca615f6ee1673290f2640cef32a90ed0c76ca",
+    "scenarios/audit_completeness/05_no_missing_on_error.yaml": "5d8f78e6e44f69d87f95971018732220e1069a583635bfd712fe0d0561e3182a",
+    "scenarios/audit_completeness/06_no_runner_errors.yaml": "6c025438d3cf4f762d049cc8b9718113c40cd3ee1037a237aa716e35cfad4336",
+    "scenarios/cross_tenant_isolation/01_policy_does_not_leak.yaml": "1e56cf4e4b870749b707531fef9176b95e4da1a7364b4174e2196b3b076e83a0",
+    "scenarios/cross_tenant_isolation/02_audit_log_separation.yaml": "5a370c157736ad8cebb187519451b10cf34e2e62d95b585f8f614806d2fdb23e",
+    "scenarios/cross_tenant_isolation/03_user_scope_does_not_leak.yaml": "fd3dcd6455585c6064c3bc53c78bf715b5d222673632cf04099259e45400d4fc",
+    "scenarios/cross_tenant_isolation/04_rate_limits_separate.yaml": "e571f720f243ed9e7bf09d7b66d012d1bcf8fecb2153455f32594c5e9b388160",
+    "scenarios/cross_tenant_isolation/05_admin_cannot_cross.yaml": "168021d12e2045d9349c66e60a846cbed587132c902cac29ad7cd22ab71edd1b",
+    "scenarios/cross_tenant_isolation/06_benign_same_tenant_allowed.yaml": "caad95570a03196337d657ab08031c0bdb4fd198eae1695064ac3babc17c7d95",
+    "scenarios/delegation_provenance/01_chain_recorded.yaml": "1b6706b794890d45e7ffdf78900a310c9196b1440dfbc9e148e8a278889ac497",
+    "scenarios/delegation_provenance/02_direct_call_no_chain.yaml": "3aeaa4f010533988488605cd289e96f21f221881fb12abfa1510d078a00a4de5",
+    "scenarios/delegation_provenance/03_three_hop_chain.yaml": "1d3b40caec9b0619bd5327dde448a96a41fd69304c9527914780bffc13fbcd75",
+    "scenarios/delegation_provenance/04_chain_preserved_on_deny.yaml": "4244c8ba320e7683896437556a4cf62c316634de95344c0ff4b2694e253ab73c",
+    "scenarios/delegation_provenance/05_parallel_chains_distinct.yaml": "d765a03a0bf84afa32decbe805d7d720541bac7be49542080825ae8d69baf2bb",
+    "scenarios/delegation_provenance/06_tier_recorded.yaml": "997f5c0b996529d64305d472e23058944597af2d90d426c78d689d1c3cb4e9f3",
+    "scenarios/fail_mode_discipline/01_fail_closed_honored.yaml": "9b892bf6f703b5a7b81be765774d72c9aa02fe74ea93ebae979ae2a1118e2d3b",
+    "scenarios/fail_mode_discipline/02_fail_open_honored.yaml": "b81cb1735f058d890a71dafa889265b0b56cbb88765526d3f33f79b9485738f2",
+    "scenarios/fail_mode_discipline/03_5xx_not_silent_allow.yaml": "f80775279a63d1c424c79ee3bdd9ac06b6244a602e01c1bb3c92e0b5001365a9",
+    "scenarios/fail_mode_discipline/04_resume_after_recovery.yaml": "8b287b90fdbe448a6698308660e7283b21a941716cbe48e522806f8e923f12d3",
+    "scenarios/fail_mode_discipline/05_no_audit_without_governance.yaml": "5c10c66360502390f91c0d29744c677ece4f484c0d0e742e8226063d88e5b558",
+    "scenarios/fail_mode_discipline/06_clean_state_baseline.yaml": "8bdd827dfd40b71feedf37e0ff93613c8b15a1690558cced313d87abcd202357",
+    "scenarios/identity_propagation/01_direct_call_attribution.yaml": "d0cd6e3cc9629e714056c9b9679b8d2dd7a51fed4dd8e56356adaa85ca2554ed",
+    "scenarios/identity_propagation/02_two_hop_delegation.yaml": "6a6f05b4f49c8e10328610036091653507e50911d9d2f2803185f082e81d9844",
+    "scenarios/identity_propagation/03_multi_user_no_bleed.yaml": "3bf351e5cc81363a30a60ff8ac0ee227aea2d0faa6c869ba61a17271fe6f07a9",
+    "scenarios/identity_propagation/04_api_tier_attribution.yaml": "0d220cd27a3b48d4356214ec275e4ed3b46fcd72e66869a2d11f611ef8475ca0",
+    "scenarios/identity_propagation/05_anonymous_rejected.yaml": "527ff9e6004aa606eaf84024cf96fdd8a41b0f439ef0751cd510518f3f8875a6",
+    "scenarios/identity_propagation/06_email_present.yaml": "7f49b05485d04c54c44ad23a8e33288eef931ca6512484e115b6b8225b4b41bf",
+    "scenarios/per_user_policy_enforcement/01_user_override_applies.yaml": "275277177af2bf1d7685187e6b2d53780a4da23ac2f114317b04a42a756c7a28",
+    "scenarios/per_user_policy_enforcement/02_tool_override_applies.yaml": "61abfaf5b2a82ee0e954dc311764516d00ae54b672fa6bf71ff252a98d4c83a2",
+    "scenarios/per_user_policy_enforcement/03_user_override_beats_workspace.yaml": "6b8f05252fd416bdff116871b790a521e2cbb162d0c08a96c3ad6111d7b20459",
+    "scenarios/per_user_policy_enforcement/04_missing_scope_denied.yaml": "287869861efc69f74bde3f230ee7cd2b5ff966fadb592b2ff7b44bd7a267062f",
+    "scenarios/per_user_policy_enforcement/05_scope_present_allowed.yaml": "c6bff9026c1afee5608ba1a803bd79b003cda85b24c2b12425e46253612cc119",
+    "scenarios/per_user_policy_enforcement/06_revoked_scope_immediate.yaml": "7ae6c5505c5cee30e898bd1aae5e5ae12392fa9f47dbc98b84a91be523c41b42",
+    "scenarios/rate_limit_cascade/01_per_user_not_per_agent.yaml": "56e6aa75de7a8cdad8c609aae6ac947260b4136ff467c51870345d6c9e7f12f6",
+    "scenarios/rate_limit_cascade/02_distinct_users_independent.yaml": "d4d64ec02a430e549790656a9afadee9078be2d28ced074966bc443fdd0bf6b9",
+    "scenarios/rate_limit_cascade/03_tier_specific_limits.yaml": "bbd5a1f8bd23b50cb10bc72cb63fd6948e521b5e8fc5439539e26a5bc9d3624a",
+    "scenarios/rate_limit_cascade/04_denied_calls_not_counted.yaml": "95d9be4db6e5bc074684b1c83033c38219d8196839c9bcd11677c6659955014d",
+    "scenarios/rate_limit_cascade/05_small_burst_allowed.yaml": "3e9d76580e39ac48930fbfd7351b6e976b0f8b3011ef58bd7bc991ea4cdaca28",
+    "scenarios/rate_limit_cascade/06_denied_count_logged.yaml": "c3cb61c1c04ab9c871b76e5fc0350b9e12bc7cb62f2d5aed9ebfdfde0f9e26b6",
+    "scenarios/scope_inheritance/01_deny_outside_user_scope.yaml": "b58d0565bc5e0e874eb25506d024cc093dc1ab2ae7b79c42d2ceef4607d0c03d",
+    "scenarios/scope_inheritance/02_parent_cannot_expand_child.yaml": "eface15caf34e5c5b47f953be6be085b5b54e0d006048603ff943b753b210a40",
+    "scenarios/scope_inheritance/03_admin_user_still_governed.yaml": "22ca70a3bd42b9aea0e0d34ded49c013c3c923ca4a50ee1012391e35b5e6716f",
+    "scenarios/scope_inheritance/04_task_narrowing.yaml": "a299d780ea89bb104bbf835249e49879f9d796b96bf248c4942be738ec2fc6fb",
+    "scenarios/scope_inheritance/05_viewer_cannot_write.yaml": "b585b8d2a49530a11e674e04ac4ca69752c31f024c345f281934961ffbbe330f",
+    "scenarios/scope_inheritance/06_benign_read_allowed.yaml": "2c97da96e8bc3638a91cda8500b6a6ce1c18fdb7eb74a0b87c2b2e90e81272de"
+  },
+  "artifacts_sha256": {
+    "scorer-audit.json": "3c5eb6ba3b4cf1157fad368dc01c28dca1f0d782b5280334377a7bb1f09d87ba",
+    "vanilla-cli.txt": "8505adfd8a7913d827816d34d7701c154f3f1ab19aeb5b4579750e637608e525",
+    "vanilla.json": "679305f4874055d2cee5cfc01c5ab562935cfad36a42e8bfb18902caa44e8196"
+  }
+}

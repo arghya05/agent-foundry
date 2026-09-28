@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 108,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 108,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "3e2e9a76e17c47c622a4d581793a8fc3b842eebad8032b2a31150892492e2193",
+      "source": "data/results/analytics/claude-haiku-4.5_all_2026-06-03_18-00-59.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 82,
+        "side_effects": 7,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 82,
+        "side_effects": 7,
+        "total": 110
+      },
+      "sha256": "4fa46cfb9a04859cf95c8fc7f185992e62bfe383f603d87cfde37d5ef3789142",
+      "source": "data/results/calendar/claude-haiku-4.5_all_2026-06-03_18-00-33.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 71,
+        "side_effects": 6,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 71,
+        "side_effects": 6,
+        "total": 80
+      },
+      "sha256": "d12cd6c3a54d49aea5d2bc556efae4326598f78d8ba28b94d26f2b6119b160fb",
+      "source": "data/results/customer_relationship_manager/claude-haiku-4.5_all_2026-06-03_18-02-15.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 78,
+        "side_effects": 2,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 78,
+        "side_effects": 2,
+        "total": 90
+      },
+      "sha256": "f851c0475e70ecd951bd84df3a2f27e40dffbd601d5a780178c1956338a6f173",
+      "source": "data/results/email/claude-haiku-4.5_all_2026-06-03_18-00-07.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 117,
+        "side_effects": 82,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 117,
+        "side_effects": 82,
+        "total": 210
+      },
+      "sha256": "93812ccbdebe0b65daea2e630bb1275f9a70252019282156453df06329c43253",
+      "source": "data/results/multi_domain/claude-haiku-4.5_all_2026-06-03_18-02-53.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 60,
+        "side_effects": 18,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 60,
+        "side_effects": 18,
+        "total": 80
+      },
+      "sha256": "c5da0db98bca55f4134cc841488088e0fe2acb965a2e94f3be74ec717b64e201",
+      "source": "data/results/project_management/claude-haiku-4.5_all_2026-06-03_18-01-35.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Haiku 4.5",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 516,
+    "side_effects": 115,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

@@ -77,6 +77,9 @@ foundry = "agent_foundry.cli:main"
 [tool.setuptools.packages.find]
 include = ["agent_foundry*"]
 
+[tool.setuptools.package-data]
+agent_foundry = ["prompt_templates/*.md"]
+
 [tool.ruff.lint]
 # Explicit, not relying on ruff's own unconfigured "default" — that default
 # has drifted between ruff releases (an unpinned `pip install ruff` in CI

@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 113,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 113,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "c4b81b551055ce2d9b7f9866e44f4322b67fa3f33964e07e4e3ee949ebdf563d",
+      "source": "data/results/analytics/claude-sonnet-4.6_all_2026-06-03_13-30-26.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 103,
+        "side_effects": 4,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 103,
+        "side_effects": 4,
+        "total": 110
+      },
+      "sha256": "e2692aa5502f31e38bab633409757262c1bf1cf4b7bb75892a1824955b3a54b9",
+      "source": "data/results/calendar/claude-sonnet-4.6_all_2026-06-03_13-28-00.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 76,
+        "side_effects": 3,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 76,
+        "side_effects": 3,
+        "total": 80
+      },
+      "sha256": "d5818654fc0c6cbcd6b9d5167cbb7dfc641cca37f63f73c262af1d19842ac377",
+      "source": "data/results/customer_relationship_manager/claude-sonnet-4.6_all_2026-06-03_13-33-17.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "sha256": "48a2c7480adaa3657df9128ec667e65fd12f850e30eec8dd2be3264ec7eea00c",
+      "source": "data/results/email/claude-sonnet-4.6_all_2026-06-03_13-27-33.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 159,
+        "side_effects": 42,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 159,
+        "side_effects": 42,
+        "total": 210
+      },
+      "sha256": "d2a2690538d15eb4b839ae237c73eca71f3f24727b4d564340233f8aa09fc219",
+      "source": "data/results/multi_domain/claude-sonnet-4.6_all_2026-06-03_13-33-49.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 69,
+        "side_effects": 11,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 69,
+        "side_effects": 11,
+        "total": 80
+      },
+      "sha256": "2e64b71fab0bb81586a15245c588c304d0ce37e10ed9240045d1e2348cb8e468",
+      "source": "data/results/project_management/claude-sonnet-4.6_all_2026-06-03_13-31-06.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Sonnet 4.6",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 609,
+    "side_effects": 61,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

@@ -1,0 +1,23 @@
+{
+  "baseline_commit": "2623ea1b2fe2d93beb1976c0d4e2449891b6900a",
+  "baseline_files_verified": 225,
+  "changed_baseline_files": [],
+  "broken_local_links": [],
+  "json_artifacts_parse": true,
+  "probe_script_syntax_valid": true,
+  "documents": [
+    "BENCHMARK_PLAN.md",
+    "BENCHMARK_SCORECARD.md",
+    "FILE_COVERAGE.md",
+    "MISSING_CAPABILITIES.md",
+    "PUBLICATION_PLAN.md",
+    "README.md",
+    "REPOSITORY_REVIEW.md",
+    "RESEARCH_AND_COMPARISON.md",
+    "RESEARCH_DESIGN_2026.md",
+    "REVIEW_PLAN.md",
+    "SECURITY_EVALUATION_MONITORING.md",
+    "SPEED_AND_MULTIAGENT_EVALUATION.md",
+    "TARGET_ARCHITECTURE.md"
+  ]
+}

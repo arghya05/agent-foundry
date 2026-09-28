@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 106,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 106,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "f34a0c5c589ec4ad7dbc19bd7ba698b6328b4e4c6153d1a88ea2b13c8d581877",
+      "source": "data/results/analytics/glm-4.6_all_2026-06-03_21-37-09.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 91,
+        "side_effects": 6,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 91,
+        "side_effects": 6,
+        "total": 110
+      },
+      "sha256": "80ae068fd53bc8ad4e45e070c8f5786814d47606927148acb7441dc6ced5554d",
+      "source": "data/results/calendar/glm-4.6_all_2026-06-03_21-35-21.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 64,
+        "side_effects": 13,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 64,
+        "side_effects": 13,
+        "total": 80
+      },
+      "sha256": "42270db982847b3ba32444411e80c4f408cd84db96fbf61016bbf8e159de038a",
+      "source": "data/results/customer_relationship_manager/glm-4.6_all_2026-06-03_21-43-01.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "sha256": "6aeb7e7f2d488481fa9a01fa79fc74536c70b070dbf2e4a8642840d50b935c92",
+      "source": "data/results/email/glm-4.6_all_2026-06-03_21-32-58.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 128,
+        "side_effects": 73,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 128,
+        "side_effects": 73,
+        "total": 210
+      },
+      "sha256": "cfc1e1a8356e0e80654d0d626f4a1c375242849f64866f7e6f40caa1357300b2",
+      "source": "data/results/multi_domain/glm-4.6_all_2026-06-03_21-45-04.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 56,
+        "side_effects": 24,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 56,
+        "side_effects": 24,
+        "total": 80
+      },
+      "sha256": "8325bf91dc11a33dedc46b088f8eccc25dfe85abcd238634ad72248a5455e3ef",
+      "source": "data/results/project_management/glm-4.6_all_2026-06-03_21-39-22.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "GLM-4.6",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 534,
+    "side_effects": 117,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

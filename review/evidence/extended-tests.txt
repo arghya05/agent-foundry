@@ -1,0 +1,148 @@
+...............................ss................F...................... [ 31%]
+............................................................FFF..F...... [ 62%]
+........................................................................ [ 93%]
+...............                                                          [100%]
+=================================== FAILURES ===================================
+____ test_chroma_vector_store_ids_never_collide_across_a_simulated_restart _____
+
+    def test_chroma_vector_store_ids_never_collide_across_a_simulated_restart():
+        """Regression: the previous self._next_id counter started at 0 in every
+        NEW instance — a fresh process re-attaching to the same persistent
+        collection would re-issue id "1", colliding with whatever a prior
+        process already stored under that id. A uuid-based id has no such
+        restart state to collide on."""
+        import tempfile
+    
+        with tempfile.TemporaryDirectory() as tmp:
+>           store_a = ChromaVectorStore(path=tmp, collection_name="restart-test")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_context.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.context.ChromaVectorStore object at 0x10955fad0>
+path = '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmpzvj7wph6'
+embedding_function = None, collection_name = 'restart-test'
+
+    def __init__(self, *, path: str | None = None, embedding_function: Any = None, collection_name: str = "agent_foundry") -> None:
+>       import chromadb
+E       ModuleNotFoundError: No module named 'chromadb'
+
+agent_foundry/context.py:55: ModuleNotFoundError
+_____ test_build_agent_maps_policy_dict_including_autonomy_and_frozensets ______
+
+    def test_build_agent_maps_policy_dict_including_autonomy_and_frozensets():
+        spec = AgentSpec(
+            name="governed", instructions="Be careful.",
+            policy={"allowed_tools": ["echo"], "requires_approval": ["echo"], "autonomy": "L1_RECOMMEND", "max_cost_usd_per_thread": 2.5},
+        )
+>       agent = build_agent(spec)
+                ^^^^^^^^^^^^^^^^^
+
+tests/test_agent_spec.py:110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/agent_spec.py:218: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:420: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.llm_gateway.AnthropicProvider object at 0x109e17b90>
+workspace_id = None, pricing = None
+
+    def __init__(self, *, workspace_id: str | None = None, pricing: PricingRegistry | None = None) -> None:
+        import os
+    
+>       import anthropic
+E       ModuleNotFoundError: No module named 'anthropic'
+
+agent_foundry/llm_gateway.py:90: ModuleNotFoundError
+_____________________ test_build_agent_maps_identity_dict ______________________
+
+    def test_build_agent_maps_identity_dict():
+        spec = AgentSpec(name="id-test", instructions="x", identity={"id": "svc-1", "tenant_id": "acme", "roles": ["admin"]})
+>       agent = build_agent(spec)
+                ^^^^^^^^^^^^^^^^^
+
+tests/test_agent_spec.py:120: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/agent_spec.py:218: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:420: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.llm_gateway.AnthropicProvider object at 0x1096e3c10>
+workspace_id = None, pricing = None
+
+    def __init__(self, *, workspace_id: str | None = None, pricing: PricingRegistry | None = None) -> None:
+        import os
+    
+>       import anthropic
+E       ModuleNotFoundError: No module named 'anthropic'
+
+agent_foundry/llm_gateway.py:90: ModuleNotFoundError
+_______________________ test_build_agent_enables_memory ________________________
+
+    def test_build_agent_enables_memory():
+        spec = AgentSpec(name="rememberer", instructions="x", memory={"enabled": True})
+>       agent = build_agent(spec)
+                ^^^^^^^^^^^^^^^^^
+
+tests/test_agent_spec.py:127: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/agent_spec.py:218: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:420: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.llm_gateway.AnthropicProvider object at 0x109f48e50>
+workspace_id = None, pricing = None
+
+    def __init__(self, *, workspace_id: str | None = None, pricing: PricingRegistry | None = None) -> None:
+        import os
+    
+>       import anthropic
+E       ModuleNotFoundError: No module named 'anthropic'
+
+agent_foundry/llm_gateway.py:90: ModuleNotFoundError
+__________ test_structured_tool_entry_mixes_with_bare_string_entries ___________
+
+    def test_structured_tool_entry_mixes_with_bare_string_entries():
+        spec = AgentSpec(
+            name="mixed", instructions="x",
+            tools=["_spec_fixture_tools:echo", {"implementation": "_spec_fixture_tools:echo", "name": "echo2"}],
+        )
+>       agent = build_agent(spec)
+                ^^^^^^^^^^^^^^^^^
+
+tests/test_agent_spec.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+agent_foundry/agent_spec.py:218: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:420: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.llm_gateway.AnthropicProvider object at 0x109e4e550>
+workspace_id = None, pricing = None
+
+    def __init__(self, *, workspace_id: str | None = None, pricing: PricingRegistry | None = None) -> None:
+        import os
+    
+>       import anthropic
+E       ModuleNotFoundError: No module named 'anthropic'
+
+agent_foundry/llm_gateway.py:90: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_context.py::test_chroma_vector_store_ids_never_collide_across_a_simulated_restart
+FAILED tests/test_agent_spec.py::test_build_agent_maps_policy_dict_including_autonomy_and_frozensets
+FAILED tests/test_agent_spec.py::test_build_agent_maps_identity_dict - Module...
+FAILED tests/test_agent_spec.py::test_build_agent_enables_memory - ModuleNotF...
+FAILED tests/test_agent_spec.py::test_structured_tool_entry_mixes_with_bare_string_entries
+5 failed, 224 passed, 2 skipped in 5.61s

@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 89,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 89,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "8d4f23d1bf74b870fef0818a007f9107f63db96751ca094489265ff457cbfd09",
+      "source": "data/results/analytics/qwen-3.5-flash_all_2026-06-03_17-46-36.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 95,
+        "side_effects": 9,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 95,
+        "side_effects": 9,
+        "total": 110
+      },
+      "sha256": "49c54ab24c672b6a3cc60a39d137cd1f7b269b11fbde9e92a0c941ebfe170c94",
+      "source": "data/results/calendar/qwen-3.5-flash_all_2026-06-03_17-45-51.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "sha256": "4b50ce9d10a3576fabe674bc4011bb111a9cb1af0ed5302509a8c6d536d9e491",
+      "source": "data/results/customer_relationship_manager/qwen-3.5-flash_all_2026-06-03_17-56-38.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 75,
+        "side_effects": 12,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 75,
+        "side_effects": 12,
+        "total": 90
+      },
+      "sha256": "d6678cce8fc334f02d38380a1e5b7e3bf97cd0cbd3c0c2ab2e4a3d09079517ed",
+      "source": "data/results/email/qwen-3.5-flash_all_2026-06-03_17-45-13.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 116,
+        "side_effects": 81,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 116,
+        "side_effects": 81,
+        "total": 210
+      },
+      "sha256": "580f530682becf452bda2a97dd53d84e2a6d915c6159a5c171d906d62e16461f",
+      "source": "data/results/multi_domain/qwen-3.5-flash_all_2026-06-03_17-57-36.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 54,
+        "side_effects": 25,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 54,
+        "side_effects": 25,
+        "total": 80
+      },
+      "sha256": "85eaed6a432da15232058020e9cb7da25e3280b9c2f1b54d1fbc20c3d2434f52",
+      "source": "data/results/project_management/qwen-3.5-flash_all_2026-06-03_17-51-45.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Qwen3.5",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 488,
+    "side_effects": 148,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

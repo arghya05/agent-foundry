@@ -1,0 +1,8 @@
+{
+  "verified_utc": "2026-09-27T18:47:58.235629+00:00",
+  "published_target_matches_pinned_git_blob": true,
+  "artifact_hashes_match": true,
+  "executed_scripts_match_recorded_hashes": true,
+  "all_24_model_reports_match": true,
+  "paid_model_requests": 0
+}

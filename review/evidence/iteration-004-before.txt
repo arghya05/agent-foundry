@@ -1,0 +1,322 @@
+FFFFFFFFFFFFFFFFF                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_no_oracle_is_unmeasured_and_cannot_pass_quality_gate ___________
+
+    def test_no_oracle_is_unmeasured_and_cannot_pass_quality_gate():
+        score = run_eval(agent_with("done"), [EvalCase(input="hello")])
+        case = score.cases[0]
+>       assert case.task_success is None and case.tool_accuracy is None
+E       AssertionError: assert (True is None)
+E        +  where True = CaseResult(case=EvalCase(input='hello', name='', expected_substring=None, expected_tool=None, kpi=None, kpi_context=No..., 'content': 'hello'}, {'role': 'assistant', 'content': 'done'}], 'thread_id': 'eval-20f15792'}), trajectory_errors=[]).task_success
+
+tests/test_eval_evidence.py:26: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "b8a16ad9189f", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+____________ test_requested_kpi_gate_fails_when_no_case_measures_it ____________
+
+    def test_requested_kpi_gate_fails_when_no_case_measures_it():
+        score = run_eval(agent_with("yes"), [EvalCase(input="hi", expected_substring="yes")])
+>       assert score.passes({"groundedness_avg_min": .1})[0] is False
+E       assert True is False
+
+tests/test_eval_evidence.py:38: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "786b819372e3", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+___ test_partial_coverage_is_disclosed_and_requires_explicit_gate_tolerance ____
+
+    def test_partial_coverage_is_disclosed_and_requires_explicit_gate_tolerance():
+        score = run_eval(agent_with("yes", "other"), [
+            EvalCase(input="one", expected_substring="yes"), EvalCase(input="two")])
+        assert score.task_success_rate == 1
+>       assert score.metric_coverage["task_success_rate"] == .5
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Scorecard' object has no attribute 'metric_coverage'
+
+tests/test_eval_evidence.py:45: AttributeError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "1ab95141d179", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "evidence-agent", "span_id": "3d455d55c717", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+___________ test_trajectory_exception_is_failure_not_vacuous_success ___________
+
+    def test_trajectory_exception_is_failure_not_vacuous_success():
+        def fail(messages, model):
+            raise RuntimeError("provider unavailable")
+        score = run_eval(agent_with(fail), [EvalCase(input="hi", expected_tool_sequence=[])])
+        assert score.error_rate == 1
+>       assert score.trajectory_accuracy_rate == 0
+E       assert 1.0 == 0
+E        +  where 1.0 = Scorecard(agent_name='evidence', dataset_name='', cases=[CaseResult(case=EvalCase(input='hi', name='', expected_substr...03270799061283469, cost_usd=0.0, error="all models for task='default' failed", run_result=None, trajectory_errors=[])]).trajectory_accuracy_rate
+
+tests/test_eval_evidence.py:55: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "3cf96b1645e3", "name": "native.think", "attributes": {}, "duration_ms": 0.0}
+_ test_failure_retains_known_incremental_cost_and_marks_incompleteness[False-native] _
+
+runtime = 'native', explicit_budget = False
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("explicit_budget", [False, True])
+    def test_failure_retains_known_incremental_cost_and_marks_incompleteness(runtime, explicit_budget):
+        def fail(messages, model):
+            raise RuntimeError("failure after first billed response")
+    
+        def lookup():
+            """Return a test value."""
+            return "value"
+    
+        response = LLMResponse(text="CALL lookup {}", model="fixture", input_tokens=1,
+                               output_tokens=1, cost_usd=.25)
+        agent = Agent("evidence", "Use tools.", tools=[lookup], runtime=runtime,
+                      llm=LLMGateway(provider=ScriptedProvider([response, fail])))
+        context = ExecutionContext(thread_id="same-thread")
+        budget = RunBudget(Policy(max_cost_usd_per_thread=10)) if explicit_budget else agent.config.budget
+        if explicit_budget:
+            context.budget = budget
+        budget.spend(.1, thread_id="same-thread")
+        score = run_eval(agent, [EvalCase(input="lookup", expected_substring="done", context=context)])
+>       assert score.cases[0].cost_usd == pytest.approx(.25)
+E       assert 0.0 == 0.25 ± 2.5e-07
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.25 ± 2.5e-07
+
+tests/test_eval_evidence.py:78: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "07440e33a038", "name": "native.think", "attributes": {"cost_usd": 0.25, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "evidence-agent", "span_id": "bd35bc413c45", "name": "orchestration.act", "attributes": {"tool": "lookup", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 42.56}
+{"trace_id": "evidence-agent", "span_id": "4130e93e1141", "name": "native.think", "attributes": {}, "duration_ms": 0.01}
+_ test_failure_retains_known_incremental_cost_and_marks_incompleteness[False-langgraph] _
+
+runtime = 'langgraph', explicit_budget = False
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("explicit_budget", [False, True])
+    def test_failure_retains_known_incremental_cost_and_marks_incompleteness(runtime, explicit_budget):
+        def fail(messages, model):
+            raise RuntimeError("failure after first billed response")
+    
+        def lookup():
+            """Return a test value."""
+            return "value"
+    
+        response = LLMResponse(text="CALL lookup {}", model="fixture", input_tokens=1,
+                               output_tokens=1, cost_usd=.25)
+        agent = Agent("evidence", "Use tools.", tools=[lookup], runtime=runtime,
+                      llm=LLMGateway(provider=ScriptedProvider([response, fail])))
+        context = ExecutionContext(thread_id="same-thread")
+        budget = RunBudget(Policy(max_cost_usd_per_thread=10)) if explicit_budget else agent.config.budget
+        if explicit_budget:
+            context.budget = budget
+        budget.spend(.1, thread_id="same-thread")
+        score = run_eval(agent, [EvalCase(input="lookup", expected_substring="done", context=context)])
+>       assert score.cases[0].cost_usd == pytest.approx(.25)
+E       assert 0.0 == 0.25 ± 2.5e-07
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.25 ± 2.5e-07
+
+tests/test_eval_evidence.py:78: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "079c57b93a95", "name": "orchestration.think", "attributes": {"cost_usd": 0.25, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "evidence-agent", "span_id": "b1e118e2f4eb", "name": "orchestration.act", "attributes": {"tool": "lookup", "ok": true, "latency_ms": 0.0011920928955078125}, "duration_ms": 0.21}
+{"trace_id": "evidence-agent", "span_id": "f6eaaba373ca", "name": "orchestration.think", "attributes": {}, "duration_ms": 0.0}
+_ test_failure_retains_known_incremental_cost_and_marks_incompleteness[True-native] _
+
+runtime = 'native', explicit_budget = True
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("explicit_budget", [False, True])
+    def test_failure_retains_known_incremental_cost_and_marks_incompleteness(runtime, explicit_budget):
+        def fail(messages, model):
+            raise RuntimeError("failure after first billed response")
+    
+        def lookup():
+            """Return a test value."""
+            return "value"
+    
+        response = LLMResponse(text="CALL lookup {}", model="fixture", input_tokens=1,
+                               output_tokens=1, cost_usd=.25)
+        agent = Agent("evidence", "Use tools.", tools=[lookup], runtime=runtime,
+                      llm=LLMGateway(provider=ScriptedProvider([response, fail])))
+        context = ExecutionContext(thread_id="same-thread")
+        budget = RunBudget(Policy(max_cost_usd_per_thread=10)) if explicit_budget else agent.config.budget
+        if explicit_budget:
+            context.budget = budget
+        budget.spend(.1, thread_id="same-thread")
+        score = run_eval(agent, [EvalCase(input="lookup", expected_substring="done", context=context)])
+>       assert score.cases[0].cost_usd == pytest.approx(.25)
+E       assert 0.0 == 0.25 ± 2.5e-07
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.25 ± 2.5e-07
+
+tests/test_eval_evidence.py:78: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "1a0739a65de8", "name": "native.think", "attributes": {"cost_usd": 0.25, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "evidence-agent", "span_id": "5a982b5c630d", "name": "orchestration.act", "attributes": {"tool": "lookup", "ok": true, "latency_ms": 0.0}, "duration_ms": 0.14}
+{"trace_id": "evidence-agent", "span_id": "14cf16f974bc", "name": "native.think", "attributes": {}, "duration_ms": 0.0}
+_ test_failure_retains_known_incremental_cost_and_marks_incompleteness[True-langgraph] _
+
+runtime = 'langgraph', explicit_budget = True
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("explicit_budget", [False, True])
+    def test_failure_retains_known_incremental_cost_and_marks_incompleteness(runtime, explicit_budget):
+        def fail(messages, model):
+            raise RuntimeError("failure after first billed response")
+    
+        def lookup():
+            """Return a test value."""
+            return "value"
+    
+        response = LLMResponse(text="CALL lookup {}", model="fixture", input_tokens=1,
+                               output_tokens=1, cost_usd=.25)
+        agent = Agent("evidence", "Use tools.", tools=[lookup], runtime=runtime,
+                      llm=LLMGateway(provider=ScriptedProvider([response, fail])))
+        context = ExecutionContext(thread_id="same-thread")
+        budget = RunBudget(Policy(max_cost_usd_per_thread=10)) if explicit_budget else agent.config.budget
+        if explicit_budget:
+            context.budget = budget
+        budget.spend(.1, thread_id="same-thread")
+        score = run_eval(agent, [EvalCase(input="lookup", expected_substring="done", context=context)])
+>       assert score.cases[0].cost_usd == pytest.approx(.25)
+E       assert 0.0 == 0.25 ± 2.5e-07
+E         
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 0.25 ± 2.5e-07
+
+tests/test_eval_evidence.py:78: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "2ef618dd5701", "name": "orchestration.think", "attributes": {"cost_usd": 0.25, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "evidence-agent", "span_id": "cb4509da72a4", "name": "orchestration.act", "attributes": {"tool": "lookup", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.18}
+{"trace_id": "evidence-agent", "span_id": "1fff7816f0ee", "name": "orchestration.think", "attributes": {}, "duration_ms": 0.0}
+__________ test_reused_thread_does_not_count_previous_turn_cost_twice __________
+
+    def test_reused_thread_does_not_count_previous_turn_cost_twice():
+        replies = [LLMResponse(text="yes", model="fixture", input_tokens=1,
+                                output_tokens=1, cost_usd=c) for c in (.1, .2)]
+        context = ExecutionContext(thread_id="reused")
+        score = run_eval(agent_with(*replies), [EvalCase(input="hi", expected_substring="yes", context=context)] * 2)
+>       assert [c.cost_usd for c in score.cases] == pytest.approx([.1, .2])
+E       assert [0.1, 0.30000000000000004] == approx([0.1 ±....2 ± 2.0e-07])
+E         
+E         comparison failed. Mismatched elements: 1 / 2:
+E         Max absolute difference: 0.10000000000000003
+E         Max relative difference: 0.33333333333333337
+E         Index | Obtained            | Expected     
+E         1     | 0.30000000000000004 | 0.2 ± 2.0e-07
+
+tests/test_eval_evidence.py:90: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "a0f55fd408b4", "name": "native.think", "attributes": {"cost_usd": 0.1, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "evidence-agent", "span_id": "3721e85f615f", "name": "native.think", "attributes": {"cost_usd": 0.2, "model": "fixture", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+____________________ test_nonfinite_threshold_rejected[nan] ____________________
+
+value = nan
+
+    @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+    def test_nonfinite_threshold_rejected(value):
+>       with pytest.raises(ValueError, match="finite"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_eval_evidence.py:96: Failed
+____________________ test_nonfinite_threshold_rejected[inf] ____________________
+
+value = inf
+
+    @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+    def test_nonfinite_threshold_rejected(value):
+>       with pytest.raises(ValueError, match="finite"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_eval_evidence.py:96: Failed
+___________________ test_nonfinite_threshold_rejected[-inf] ____________________
+
+value = -inf
+
+    @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+    def test_nonfinite_threshold_rejected(value):
+>       with pytest.raises(ValueError, match="finite"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_eval_evidence.py:96: Failed
+__________________ test_nan_kpi_cannot_pass_or_enter_average ___________________
+
+    def test_nan_kpi_cannot_pass_or_enter_average():
+        kpi = KPI(name="invalid", score=lambda _: math.nan, direction="maximize", threshold=.5)
+        score = run_eval(agent_with("yes"), [EvalCase(input="hi", kpi=kpi)])
+        assert score.cases[0].ok is False
+>       assert score.groundedness_avg is None
+E       AssertionError: assert nan is None
+E        +  where nan = Scorecard(agent_name='evidence', dataset_name='', cases=[CaseResult(case=EvalCase(input='hi', name='', expected_substr...r', 'content': 'hi'}, {'role': 'assistant', 'content': 'yes'}], 'thread_id': 'eval-87866868'}), trajectory_errors=[])]).groundedness_avg
+
+tests/test_eval_evidence.py:104: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "15bb54d18bdb", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+__________ test_empty_scorecard_cannot_pass_even_an_operational_gate ___________
+
+    def test_empty_scorecard_cannot_pass_even_an_operational_gate():
+        score = Scorecard("empty", "d")
+>       assert score.passes()[0] is False
+E       assert True is False
+
+tests/test_eval_evidence.py:110: AssertionError
+________ test_unknown_metrics_survive_baseline_roundtrip_and_comparison ________
+
+tmp_path = PosixPath('/private/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/pytest-of-arghyamukherjee/pytest-15/test_unknown_metrics_survive_b0')
+
+    def test_unknown_metrics_survive_baseline_roundtrip_and_comparison(tmp_path):
+        score = run_eval(agent_with("done"), [EvalCase(input="hi")])
+        dataset = EvalDataset("unknown", "v1", [{"input": "hi"}])
+        dataset.save_baseline(score, tmp_path)
+        baseline = dataset.load_baseline(tmp_path, "unknown", "v1")
+>       assert baseline.task_success_rate is None
+E       assert 1.0 is None
+E        +  where 1.0 = BaselineScorecard(task_success_rate=1.0, tool_accuracy_rate=1.0, trajectory_accuracy_rate=1.0, groundedness_avg=None, p95_latency_ms=0.05620799493044615, avg_cost_usd=0.0, error_rate=0.0).task_success_rate
+
+tests/test_eval_evidence.py:119: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "evidence-agent", "span_id": "9b7d266fbf84", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+____ test_empty_text_expectation_is_not_a_valid_oracle[expected_substring] _____
+
+field = 'expected_substring'
+
+    @pytest.mark.parametrize("field", ["expected_substring", "expected_tool"])
+    def test_empty_text_expectation_is_not_a_valid_oracle(field):
+>       with pytest.raises(ValueError, match="empty"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_eval_evidence.py:125: Failed
+_______ test_empty_text_expectation_is_not_a_valid_oracle[expected_tool] _______
+
+field = 'expected_tool'
+
+    @pytest.mark.parametrize("field", ["expected_substring", "expected_tool"])
+    def test_empty_text_expectation_is_not_a_valid_oracle(field):
+>       with pytest.raises(ValueError, match="empty"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_eval_evidence.py:125: Failed
+=========================== short test summary info ============================
+FAILED tests/test_eval_evidence.py::test_no_oracle_is_unmeasured_and_cannot_pass_quality_gate
+FAILED tests/test_eval_evidence.py::test_requested_kpi_gate_fails_when_no_case_measures_it
+FAILED tests/test_eval_evidence.py::test_partial_coverage_is_disclosed_and_requires_explicit_gate_tolerance
+FAILED tests/test_eval_evidence.py::test_trajectory_exception_is_failure_not_vacuous_success
+FAILED tests/test_eval_evidence.py::test_failure_retains_known_incremental_cost_and_marks_incompleteness[False-native]
+FAILED tests/test_eval_evidence.py::test_failure_retains_known_incremental_cost_and_marks_incompleteness[False-langgraph]
+FAILED tests/test_eval_evidence.py::test_failure_retains_known_incremental_cost_and_marks_incompleteness[True-native]
+FAILED tests/test_eval_evidence.py::test_failure_retains_known_incremental_cost_and_marks_incompleteness[True-langgraph]
+FAILED tests/test_eval_evidence.py::test_reused_thread_does_not_count_previous_turn_cost_twice
+FAILED tests/test_eval_evidence.py::test_nonfinite_threshold_rejected[nan] - ...
+FAILED tests/test_eval_evidence.py::test_nonfinite_threshold_rejected[inf] - ...
+FAILED tests/test_eval_evidence.py::test_nonfinite_threshold_rejected[-inf]
+FAILED tests/test_eval_evidence.py::test_nan_kpi_cannot_pass_or_enter_average
+FAILED tests/test_eval_evidence.py::test_empty_scorecard_cannot_pass_even_an_operational_gate
+FAILED tests/test_eval_evidence.py::test_unknown_metrics_survive_baseline_roundtrip_and_comparison
+FAILED tests/test_eval_evidence.py::test_empty_text_expectation_is_not_a_valid_oracle[expected_substring]
+FAILED tests/test_eval_evidence.py::test_empty_text_expectation_is_not_a_valid_oracle[expected_tool]
+17 failed in 0.23s

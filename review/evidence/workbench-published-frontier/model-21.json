@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 68,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 68,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "bb988cf02718c1729685a32dd3d3a37e7731773bea34007175316cd5016fa977",
+      "source": "data/results/analytics/mistral-medium-3-5_all_2026-06-12_13-04-47.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 80,
+        "side_effects": 28,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 80,
+        "side_effects": 28,
+        "total": 110
+      },
+      "sha256": "666e7f6aa1fee66b85cff2622dc1c808669a35fac8e4a52cfe48d7235a611170",
+      "source": "data/results/calendar/mistral-medium-3-5_all_2026-06-12_13-02-53.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "sha256": "cbca195c45977e279441dbe01f198f0e40978b6d2e92d3ec2c659dcf3657c40e",
+      "source": "data/results/customer_relationship_manager/mistral-medium-3-5_all_2026-06-12_13-06-10.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 83,
+        "side_effects": 7,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 83,
+        "side_effects": 7,
+        "total": 90
+      },
+      "sha256": "67af419c47ed859eb413617b47e6ce8c647699b268996ae9277ec684ad08862e",
+      "source": "data/results/email/mistral-medium-3-5_all_2026-06-12_13-04-12.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 87,
+        "side_effects": 121,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 87,
+        "side_effects": 121,
+        "total": 210
+      },
+      "sha256": "4cc41f7e4a2a1cb400818db7ef7306eef0a0a7fc0e20bb3f83bc458669f0b63d",
+      "source": "data/results/multi_domain/mistral-medium-3-5_all_2026-06-12_13-06-12.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 47,
+        "side_effects": 33,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 47,
+        "side_effects": 33,
+        "total": 80
+      },
+      "sha256": "aa3358db4001fe95e73fbde010f09eccdd9796e2bd10aef772fc33262333812d",
+      "source": "data/results/project_management/mistral-medium-3-5_all_2026-06-12_13-05-33.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Mistral-Medium-3.5",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 424,
+    "side_effects": 210,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

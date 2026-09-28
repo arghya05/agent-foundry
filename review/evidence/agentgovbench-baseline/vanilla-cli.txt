@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/private/tmp/agent-foundry-comparisons/agentgovbench/benchmark/__main__.py", line 1, in <module>
+    from .cli import main
+  File "/private/tmp/agent-foundry-comparisons/agentgovbench/benchmark/cli.py", line 19, in <module>
+    import click
+ModuleNotFoundError: No module named 'click'

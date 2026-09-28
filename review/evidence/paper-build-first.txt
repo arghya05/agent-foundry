@@ -1,0 +1,13 @@
+{"verified_campaigns": 5, "verified_attempts": 219, "profile_comparison_status": "pending_both_complete_campaigns"}
+
+thread 'main' (9777401) panicked at src/config.rs:154:18:
+called `Result::unwrap()` on an `Err` value: this bundle isn't cached, and we couldn't get it from the internet. Error: error sending request for url (https://relay.fullyjustified.net/default_bundle_v33.tar.index.gz)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Traceback (most recent call last):
+  File "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/paper/build_paper.py", line 71, in <module>
+    main()
+  File "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/paper/build_paper.py", line 37, in main
+    subprocess.run([args.compiler, "--untrusted", "--keep-logs", "--keep-intermediates",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/private/tmp/agent-foundry-paper-tools/tectonic', '--untrusted', '--keep-logs', '--keep-intermediates', '--outdir', '/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/paper/build', 'agent_foundry_paper.tex']' returned non-zero exit status 101.

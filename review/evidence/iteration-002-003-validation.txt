@@ -1,0 +1,35 @@
+........................................................................ [ 21%]
+....F................................ss................................. [ 42%]
+........................................................................ [ 64%]
+........................................................................ [ 85%]
+................................................                         [100%]
+=================================== FAILURES ===================================
+____ test_chroma_vector_store_ids_never_collide_across_a_simulated_restart _____
+
+    def test_chroma_vector_store_ids_never_collide_across_a_simulated_restart():
+        """Regression: the previous self._next_id counter started at 0 in every
+        NEW instance — a fresh process re-attaching to the same persistent
+        collection would re-issue id "1", colliding with whatever a prior
+        process already stored under that id. A uuid-based id has no such
+        restart state to collide on."""
+        import tempfile
+    
+        with tempfile.TemporaryDirectory() as tmp:
+>           store_a = ChromaVectorStore(path=tmp, collection_name="restart-test")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_context.py:204: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_foundry.context.ChromaVectorStore object at 0x109aeb790>
+path = '/var/folders/0r/08dryr4n7fn4l5gbkpmsnt7h0000gn/T/tmpykvp8yxa'
+embedding_function = None, collection_name = 'restart-test'
+
+    def __init__(self, *, path: str | None = None, embedding_function: Any = None, collection_name: str = "agent_foundry") -> None:
+>       import chromadb
+E       ModuleNotFoundError: No module named 'chromadb'
+
+agent_foundry/context.py:55: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_context.py::test_chroma_vector_store_ids_never_collide_across_a_simulated_restart
+1 failed, 333 passed, 2 skipped in 2.75s

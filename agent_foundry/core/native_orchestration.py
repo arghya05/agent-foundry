@@ -44,6 +44,8 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
+from ..execution_scope import request_value
 from dataclasses import asdict, fields
 from typing import Any, Iterator
 
@@ -115,6 +117,9 @@ class _PausableTurns:
             "messages": list(messages), "thread_id": key,
             "critique_retries": 0, "critique_last_score": None, "_pending": None,
         }
+        identity = request_value({}, "request_identity")
+        if identity is not None:
+            state["request_identity"] = dict(identity)
         # Seed the engine's OWN _threads dict with this exact state object —
         # an engine discarded right after this call wouldn't need to, but
         # resume() reads state back via self._state_for(key), which looks in
@@ -621,7 +626,7 @@ class _NativeFanoutGraph:
         # is what actually lets `item.completed` stream out as each item
         # finishes, rather than all arriving together at the end.
         with ThreadPoolExecutor(max_workers=min(len(items), self._max_concurrency) or 1) as pool:
-            future_to_item = {pool.submit(_native_run_worker_messages, self._config, item, thread_id=thread_id): item for item in items}
+            future_to_item = {pool.submit(copy_context().run, _native_run_worker_messages, self._config, item, thread_id=thread_id): item for item in items}
             for future in as_completed(future_to_item):
                 item = future_to_item[future]
                 all_messages.extend(future.result())
@@ -658,7 +663,7 @@ class _NativeDagGraph:
             if not ready:
                 raise RuntimeError("DAG has unsatisfiable dependencies (a cycle, or a step depending on an unknown step)")
             with ThreadPoolExecutor(max_workers=min(len(ready), self._max_concurrency) or 1) as pool:
-                future_to_name = {pool.submit(step.fn, dict(results)): step.name for step in ready}
+                future_to_name = {pool.submit(copy_context().run, step.fn, dict(results)): step.name for step in ready}
                 for future in as_completed(future_to_name):
                     name = future_to_name[future]
                     results[name] = future.result()

@@ -1,0 +1,6 @@
+# Preserve original test output and CSV bytes for reproducibility and hashes.
+# Code and authored Markdown retain Git's normal whitespace checks.
+review/evidence/**/*.txt -text -whitespace
+review/evidence/**/*.log -text -whitespace
+review/evidence/**/*.csv -text -whitespace
+review/evidence/**/*.tar.gz -text

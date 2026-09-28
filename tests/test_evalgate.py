@@ -85,7 +85,7 @@ def test_run_eval_records_an_error_without_crashing_the_whole_run():
 
     assert scorecard.error_rate == 1.0
     assert scorecard.cases[0].error is not None
-    assert scorecard.task_success_rate == 0.0
+    assert scorecard.task_success_rate is None  # no task oracle was supplied
 
 
 def issue_refund(order_id: str, amount_usd: float) -> str:
@@ -174,17 +174,15 @@ def test_run_eval_must_request_approval_flags_a_turn_that_never_paused():
     assert "expected an approval request" in scorecard.cases[0].trajectory_errors[0]
 
 
-def test_run_eval_trajectory_accuracy_rate_is_unaffected_when_no_case_declares_expectations():
-    """Matches tool_accuracy_rate's own convention: 1.0 (not counted
-    against the release gate), not 0.0, when nothing declared a
-    trajectory expectation at all."""
+def test_run_eval_trajectory_accuracy_is_unmeasured_without_expectations():
+    """No oracle means unmeasured, never perfect trajectory accuracy."""
     provider = ScriptedProvider(["a reply"])
     agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
     cases = [EvalCase(input="hi")]
 
     scorecard = run_eval(agent, cases)
 
-    assert scorecard.trajectory_accuracy_rate == 1.0
+    assert scorecard.trajectory_accuracy_rate is None
 
 
 def test_scorecard_passes_respects_thresholds():
@@ -206,14 +204,14 @@ def test_scorecard_passes_respects_thresholds():
     assert ok2 is True and reasons2 == []
 
 
-def test_scorecard_passes_skips_thresholds_with_no_data():
+def test_scorecard_passes_rejects_thresholds_with_no_data():
     provider = ScriptedProvider(["hi"])
     agent = Agent("shopper", "Help.", llm=LLMGateway(provider=provider))
     scorecard = run_eval(agent, [EvalCase(input="hi")])  # no KPI used -> groundedness_avg is None
 
     ok, reasons = scorecard.passes({"groundedness_avg_min": 0.9})
 
-    assert ok is True and reasons == []
+    assert ok is False and "not measured" in reasons[0]
 
 
 def test_scorecard_compare_to_reports_deltas():

@@ -1,0 +1,5 @@
+{
+  "stop_reason": "RemoteProtocolError",
+  "finished_attempts": 156,
+  "action": "Complete remaining 24 attempts from byte-identical frozen source. All three failures and their reservations retained."
+}

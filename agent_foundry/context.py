@@ -403,7 +403,8 @@ class ContextEngine:
         correct for the common one-ContextEngine-per-tenant deployment."""
         if self.knowledge is None:
             return []
-        chunks = self.knowledge.search(tenant_id=tenant_id or self.tenant_id, knowledge_base_id=self.knowledge_base_id, query=query, k=k)
+        chunks = self.knowledge.search(tenant_id=self.tenant_id if tenant_id is None else tenant_id,
+                                       knowledge_base_id=self.knowledge_base_id, query=query, k=k)
         return [c for c in chunks if not c.permissions or (roles & c.permissions)]
 
     def retrieve(self, thread_id: str, query: str, *, k: int = 8) -> list[str]:
@@ -453,5 +454,7 @@ class ContextEngine:
         passages = self.rank(query, passages)
         passages = self.filter(passages)
         passages = self.compress(passages)
-        knowledge_passages = self.compress([f"[{c.source}] {c.text}" for c in self.retrieve_knowledge(query, k=k, roles=roles, tenant_id=tenant_id)])
+        knowledge_passages = self.compress(self.filter([
+            f"[{c.source}] {c.text}" for c in self.retrieve_knowledge(query, k=k, roles=roles, tenant_id=tenant_id)
+        ]))
         return self.budget(self.assemble(passages + knowledge_passages))

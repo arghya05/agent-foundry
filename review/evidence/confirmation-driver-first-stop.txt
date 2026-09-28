@@ -1,0 +1,2 @@
+{"campaign": "confirmation-20260928-baseline", "continuation": 0, "started_utc": "2026-09-28T05:18:34.599435+00:00"}
+confirmation-20260928-baseline: stopping on ReadTimeout

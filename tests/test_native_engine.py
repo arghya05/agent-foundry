@@ -5,8 +5,6 @@ two are actually interchangeable rather than just both existing.
 """
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from agent_foundry import Agent, ExecutionContext
@@ -165,7 +163,7 @@ def test_native_engine_tool_approval_pause_and_resume():
     class ApprovalGuardrails(GuardrailEngine):
         def check_action(self, tool_name, *, cost_so_far, destructive=False):
             from agent_foundry.contracts import GuardrailResult
-            return GuardrailResult(allowed=False, reason="needs approval", stage="action")
+            return GuardrailResult(allowed=False, reason="needs approval", stage="action", requires_approval=True)
 
     provider = ScriptedProvider(['CALL lookup_order {"order_id": "A100"}', "All set!"])
     policy = Policy(allowed_tools=frozenset({"lookup_order"}))

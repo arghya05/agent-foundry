@@ -18,6 +18,7 @@ from typing import Any
 
 from ..orchestration import AgentConfig, build_agent_graph
 from .execution_context import ExecutionContext
+from ..execution_scope import scoped_execution, request_value
 from .native_engine import _NativeGraph
 from .result import RunResult, result_from_graph_output
 
@@ -35,12 +36,22 @@ class _ResumePayload:
     resume: dict[str, Any]
 
 
+@scoped_execution
 def _invoke(compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:
     thread_id = context.resolved_thread_id()
-    raw = compiled.invoke({"messages": [{"role": "user", "content": message}], "thread_id": thread_id}, {"configurable": {"thread_id": thread_id}})
+    raw = compiled.invoke(_initial_state(message, thread_id), {"configurable": {"thread_id": thread_id}})
     return result_from_graph_output(raw, thread_id=thread_id)
 
 
+def _initial_state(message: str, thread_id: str) -> dict[str, Any]:
+    state: dict[str, Any] = {"messages": [{"role": "user", "content": message}], "thread_id": thread_id}
+    identity = request_value({}, "request_identity")
+    if identity is not None:
+        state["request_identity"] = dict(identity)
+    return state
+
+
+@scoped_execution
 def _invoke_resume(compiled: Any, *, approved: bool, decision: dict[str, Any] | None = None, context: ExecutionContext) -> RunResult:
     thread_id = context.resolved_thread_id()
     # `approved` stays the default so every existing caller (resume(approved=...))
@@ -76,10 +87,11 @@ class LangGraphWorkflowEngine:
     def run(self, compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:
         return _invoke(compiled, message=message, context=context)
 
+    @scoped_execution
     def stream(self, compiled: Any, *, message: str, context: ExecutionContext) -> Any:
         thread_id = context.resolved_thread_id()
         return compiled.stream(
-            {"messages": [{"role": "user", "content": message}], "thread_id": thread_id},
+            _initial_state(message, thread_id),
             {"configurable": {"thread_id": thread_id}}, stream_mode="values",
         )
 
@@ -101,10 +113,11 @@ class NativeWorkflowEngine:
     def run(self, compiled: Any, *, message: str, context: ExecutionContext) -> RunResult:
         return _invoke(compiled, message=message, context=context)
 
+    @scoped_execution
     def stream(self, compiled: Any, *, message: str, context: ExecutionContext) -> Any:
         thread_id = context.resolved_thread_id()
         return compiled.stream(
-            {"messages": [{"role": "user", "content": message}], "thread_id": thread_id},
+            _initial_state(message, thread_id),
             {"configurable": {"thread_id": thread_id}}, stream_mode="values",
         )
 

@@ -1,0 +1,120 @@
+{
+  "aggregates": {
+    "anthropic/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.0,
+      "api_latency_s": 0.38605999998981133,
+      "attempted": 1,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 2.02048,
+      "errors": 1,
+      "model_requests": 1,
+      "p50_latency_s": 0.9000615830300376,
+      "p95_latency_s": 0.9000615830300376,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "anthropic/foundry_native_serial": {
+      "accuracy_among_attempted": null,
+      "api_latency_s": 0,
+      "attempted": 0,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 0,
+      "errors": 0,
+      "model_requests": 0,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "anthropic/reference": {
+      "accuracy_among_attempted": null,
+      "api_latency_s": 0,
+      "attempted": 0,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 0,
+      "errors": 0,
+      "model_requests": 0,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": null,
+      "api_latency_s": 0,
+      "attempted": 0,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 0,
+      "errors": 0,
+      "model_requests": 0,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": null,
+      "api_latency_s": 0,
+      "attempted": 0,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 0,
+      "errors": 0,
+      "model_requests": 0,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": null,
+      "api_latency_s": 0,
+      "attempted": 0,
+      "correct": 0,
+      "cost_per_success_usd_upper": null,
+      "cost_usd_upper": 0,
+      "errors": 0,
+      "model_requests": 0,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "planned": 12,
+      "unwanted_side_effects": 0
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 2.02048,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "anthropic/foundry_langgraph_serial-reference": {
+      "accuracy_difference": null,
+      "exploratory_paired_bootstrap_95_interval": null,
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 0
+    },
+    "anthropic/foundry_native_serial-reference": {
+      "accuracy_difference": null,
+      "exploratory_paired_bootstrap_95_interval": null,
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 0
+    },
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": null,
+      "exploratory_paired_bootstrap_95_interval": null,
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 0
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": null,
+      "exploratory_paired_bootstrap_95_interval": null,
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 0
+    }
+  },
+  "rows_finished": 1,
+  "scope": "development",
+  "stop_reason": "HTTPStatusError"
+}

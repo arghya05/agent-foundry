@@ -1,0 +1,33 @@
+{
+  "archive_bytes": 13113,
+  "archive_format": "gzip-compressed tar; original file bytes retained",
+  "archive_sha256": "37fd91044afcfe703e4658b03c3c8ba3400fc150881b5cec8feef3007d66219b",
+  "campaign": "pilot-20260928-anthropic-diagnostic",
+  "complete": false,
+  "credential_pattern_matches": 0,
+  "files": {
+    "attempts/75c5d6daefcfffcd2cb5d8bd.json": {
+      "bytes": 38170,
+      "sha256": "65f76393a5e762ce206e3e3a31979d91cb85a6b529073e97f8b1be9f13f54495"
+    },
+    "environment.txt": {
+      "bytes": 1446,
+      "sha256": "f63fef47e23b2741fdc0617f47cbf8a5791c879f4108898b6150afb1435f6f82"
+    },
+    "execution.json": {
+      "bytes": 385,
+      "sha256": "48bac27d1b4957171602fc693a312fe355ff18feb833ceacb7b129b32ca5ad79"
+    },
+    "manifest.json": {
+      "bytes": 15167,
+      "sha256": "8f31bc71d865d71d9edf445e2b559b0a480edc78c2f2eb740ff8eb408dc70098"
+    },
+    "summary.json": {
+      "bytes": 2013,
+      "sha256": "0645dc7289d0322e9ae55da5853ed85088da7d83ad0fecce68fa5e00d79b9ec4"
+    }
+  },
+  "finished_attempts": 1,
+  "known_credential_matches": 0,
+  "scope": "Public synthetic WorkBench tasks; provider response items and usage; no request headers"
+}

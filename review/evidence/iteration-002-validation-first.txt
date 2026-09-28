@@ -1,0 +1,36 @@
+.............................................FF......................... [ 43%]
+........................................................................ [ 86%]
+.......................                                                  [100%]
+=================================== FAILURES ===================================
+_____ test_tool_timeout_thread_preserves_context_for_nested_agent[native] ______
+
+runtime = 'native'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_tool_timeout_thread_preserves_context_for_nested_agent(runtime):
+        child, provider, effects = action_agent(runtime)
+        # The parent may call the child tool, but the child may not call action.
+        outer_provider = ScriptedProvider(['CALL child {"query": "do it"}', 'Done.'])
+>       parent = Agent('parent', 'Do the task.', runtime=runtime, tools=[child.as_tool(name='child', description='Delegate')],
+                       llm=LLMGateway(outer_provider), step_timeout_s=5)
+E       TypeError: Agent.__init__() got an unexpected keyword argument 'step_timeout_s'
+
+tests/test_execution_controls.py:150: TypeError
+____ test_tool_timeout_thread_preserves_context_for_nested_agent[langgraph] ____
+
+runtime = 'langgraph'
+
+    @pytest.mark.parametrize('runtime', ['native', 'langgraph'])
+    def test_tool_timeout_thread_preserves_context_for_nested_agent(runtime):
+        child, provider, effects = action_agent(runtime)
+        # The parent may call the child tool, but the child may not call action.
+        outer_provider = ScriptedProvider(['CALL child {"query": "do it"}', 'Done.'])
+>       parent = Agent('parent', 'Do the task.', runtime=runtime, tools=[child.as_tool(name='child', description='Delegate')],
+                       llm=LLMGateway(outer_provider), step_timeout_s=5)
+E       TypeError: Agent.__init__() got an unexpected keyword argument 'step_timeout_s'
+
+tests/test_execution_controls.py:150: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_execution_controls.py::test_tool_timeout_thread_preserves_context_for_nested_agent[native]
+FAILED tests/test_execution_controls.py::test_tool_timeout_thread_preserves_context_for_nested_agent[langgraph]
+2 failed, 165 passed in 1.19s

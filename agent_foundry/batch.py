@@ -15,6 +15,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -62,7 +63,8 @@ def run_batch(
             return BatchItemResult(item_id=thread_id, ok=False, error=str(e), latency_ms=(time.time() - start) * 1000)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(run_one, items))
+        futures = [executor.submit(copy_context().run, run_one, item) for item in items]
+        results = [future.result() for future in futures]
     return BatchReport(results=results)
 
 

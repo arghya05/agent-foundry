@@ -36,10 +36,13 @@ Verified in `tests/test_examples_commerce_agent.py::test_agent_spec_yaml_still_r
 ## Score it
 
 ```bash
-foundry eval examples/commerce_agent/agent.py examples/commerce_agent/eval_dataset.json \
-    --thresholds '{"task_success_rate_min": 0.9, "trajectory_accuracy_rate_min": 1.0}'
+foundry eval examples/commerce_agent/agent.py examples/commerce_agent/eval_dataset.json
 ```
 
 `eval_dataset.json` exercises trajectory checks
 (`expected_tool_sequence`, `must_request_approval`) — "was this the correct
 trajectory," not just "did the final answer end up right."
+
+The default evaluation gate requires every case to pass its declared criteria.
+The order case measures approval behavior, while search/recommendation also have
+text expectations; task-text coverage is therefore 2/3, not a fabricated 100%.

@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 114,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 114,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "b05bd47ac520e1158d09b2205819d7b473417bdaf4f742634da261f4370db2f0",
+      "source": "data/results/analytics/kimi-k2.6_all_2026-06-03_21-17-46.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 102,
+        "side_effects": 4,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 102,
+        "side_effects": 4,
+        "total": 110
+      },
+      "sha256": "bed86de85402f814e98607e7bfa18cfbc059713845fa4c5c1e4cf8ab0169fb7e",
+      "source": "data/results/calendar/kimi-k2.6_all_2026-06-03_21-15-28.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "sha256": "9c7bb1c53aff96232b73d64206445776da0cd0acde031c9be4df03e9269a1b43",
+      "source": "data/results/customer_relationship_manager/kimi-k2.6_all_2026-06-03_21-35-39.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 87,
+        "side_effects": 2,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 87,
+        "side_effects": 2,
+        "total": 90
+      },
+      "sha256": "a563bb68b93c14b7e3074e7d6e0a30d300980db2bbdbd39c6b710299475e44ee",
+      "source": "data/results/email/kimi-k2.6_all_2026-06-03_21-14-29.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 158,
+        "side_effects": 27,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 158,
+        "side_effects": 27,
+        "total": 210
+      },
+      "sha256": "da8466a0756ab327739d32139705d6ade69796ee7371757fb9108b0fb5fe084b",
+      "source": "data/results/multi_domain/kimi-k2.6_all_2026-06-03_21-37-19.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 66,
+        "side_effects": 14,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 66,
+        "side_effects": 14,
+        "total": 80
+      },
+      "sha256": "375092339808e02f9966f6d49f43fd46af1ab6567262b1d52acb25a2a2a48cac",
+      "source": "data/results/project_management/kimi-k2.6_all_2026-06-03_21-29-16.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Kimi-K2.6",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 607,
+    "side_effects": 47,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

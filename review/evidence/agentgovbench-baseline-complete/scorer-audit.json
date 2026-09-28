@@ -1,0 +1,17 @@
+{
+  "purpose": "Scorer evidence-sufficiency audit; NOT a framework performance score",
+  "unmodified_scenarios": 48,
+  "empty_outcome_passing_scenarios": [
+    "audit_completeness.06_no_runner_errors",
+    "cross_tenant_isolation.02_audit_log_separation",
+    "rate_limit_cascade.01_per_user_not_per_agent",
+    "rate_limit_cascade.03_tier_specific_limits",
+    "rate_limit_cascade.05_small_burst_allowed"
+  ],
+  "assertion_counterexamples": {
+    "isolation_accepts_empty_audit": true,
+    "isolation_accepts_missing_tenant": true,
+    "rate_limit_accepts_zero_observed_attempts": true
+  },
+  "interpretation": "A pass alone does not prove calls were attempted or tenant isolation was enforced."
+}

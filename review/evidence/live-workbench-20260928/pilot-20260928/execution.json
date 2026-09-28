@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "benchmarks/workbench/run.py",
+    "live",
+    "--split",
+    "development",
+    "--per-domain",
+    "2",
+    "--max-spend-usd",
+    "25",
+    "--output",
+    "benchmarks/workbench/results/pilot-20260928"
+  ],
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "started_utc": "2026-09-27T18:58:23.135888+00:00"
+}

@@ -1,0 +1,67 @@
+{
+  "arithmetic_and_coverage_verified": true,
+  "boundary": "Stored official per-attempt scores recounted; original source/data/manifests/response traces retained in archives",
+  "campaigns": {
+    "confirmation-20260928-baseline": {
+      "archive_sha256": "2cab35bfbbb73ab1be6ef7b566382d653928162015f9d8f7906a30e715e5152d",
+      "attempts": 179,
+      "complete": false,
+      "source_manifest_sha256": "aa2c2f7acfbe65f1b59cd46de016bcbd081c6059434bfef3eafac35906f62169",
+      "stop_reason": "RemoteProtocolError"
+    },
+    "diagnostic-20260928-grounded": {
+      "archive_sha256": "db018e4ed878896aae40e2fc51d60b7524b33f93ff5897ce21eedbf5004c1cf2",
+      "attempts": 180,
+      "complete": true,
+      "source_manifest_sha256": "b6830ab426addb9d1ba4f57186de0f6234786caf42302aca985c0d726cb33f6e",
+      "stop_reason": null
+    },
+    "heldout-20260928-baseline": {
+      "archive_sha256": "d08cca46f4f6b4ea1be30816bb959e0b16f340ddc0c58cbb6ab953ee08cd9fe6",
+      "attempts": 180,
+      "complete": true,
+      "source_manifest_sha256": "59d1f33fe703bfbfc599831091245dee4303f349fbad686eabac8967b2f198e0",
+      "stop_reason": null
+    },
+    "pilot-20260928": {
+      "archive_sha256": "7acad4a67c38582dbef7d1cdce0d56e45374d3bcbf9d54939dcef116a7d4a9eb",
+      "attempts": 1,
+      "complete": false,
+      "source_manifest_sha256": "47d9eaeb0cb8e0cc199561bf5e4d5d214bd8a633dcf1a582373a00da84b02fe7",
+      "stop_reason": "HTTPStatusError"
+    },
+    "pilot-20260928-anthropic-diagnostic": {
+      "archive_sha256": "37fd91044afcfe703e4658b03c3c8ba3400fc150881b5cec8feef3007d66219b",
+      "attempts": 1,
+      "complete": false,
+      "source_manifest_sha256": "8f31bc71d865d71d9edf445e2b559b0a480edc78c2f2eb740ff8eb408dc70098",
+      "stop_reason": "HTTPStatusError"
+    },
+    "pilot-20260928-openai": {
+      "archive_sha256": "3f269ea67f3ee254ea9e373c98d40253662c84127852e663bd52588aeba77e25",
+      "attempts": 1,
+      "complete": false,
+      "source_manifest_sha256": "8d24d22d03ad157140bd5f59cb4cf652e26fbfeb2bbe8d6cce406d98b5f2cdea",
+      "stop_reason": "HTTPStatusError"
+    },
+    "pilot-20260928-openai-responses": {
+      "archive_sha256": "2fd9483699e9472e87eb7291da5eac2b836f940c9ebd6e268140946e9cdde05f",
+      "attempts": 36,
+      "complete": true,
+      "source_manifest_sha256": "a2656823966211e39fafea6eca5e08ed53794737c0fae0b583f2c15887dfbbba",
+      "stop_reason": null
+    }
+  },
+  "generated_files_sha256": {
+    "live_results.csv": "e2f3d43eee6ff72631e5080ca67a88def04fa3c1aee8b1b09d44eb0e7e424daf",
+    "live_results_rows.tex": "752df9d2c6923db8780147c2a7363f233b18b8341cd1d2f31237044922b3c4f7",
+    "per_attempt.csv": "a6123a3ad5704651b388228157203b923d35e7e13b7b808be90bafaed7e2c1d4",
+    "profile_comparison.json": "a73d815ccef13a58f7a23a02c00dfb44e7ee223b438a3f5c62135aba649d5354"
+  },
+  "live_inference_rerun": false,
+  "official_scorer_rerun": false,
+  "profile_comparison": {
+    "status": "pending_both_complete_campaigns"
+  },
+  "total_finished_attempts_including_setup_failures": 578
+}

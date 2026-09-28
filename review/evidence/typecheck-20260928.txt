@@ -1,0 +1,5 @@
+agent_foundry/distributed.py:70: error: Library stubs not installed for "redis"  [import-untyped]
+agent_foundry/distributed.py:70: note: Hint: "python3 -m pip install types-redis"
+agent_foundry/distributed.py:70: note: (or run "mypy --install-types" to install all missing stub packages)
+agent_foundry/distributed.py:70: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+Found 1 error in 1 file (checked 58 source files)

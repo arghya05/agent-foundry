@@ -1,0 +1,16 @@
+{
+  "boundary": "Known credentials and selected credential patterns; not a universal sensitive-data classifier",
+  "contents_scanned_including_archive_members": 1402,
+  "credential_file_mode": "0600",
+  "credential_file_staged": false,
+  "credential_matches": 0,
+  "distributions_scanned": [
+    "agent_foundry-0.1.0-py3-none-any.whl",
+    "agent_foundry-0.1.0.tar.gz"
+  ],
+  "index_content_manifest_sha256": "e1c04737f0d14db7d654d95b2b39cf751c510882ea293142a360978558742354",
+  "index_files_scanned": 455,
+  "recorded_utc": "2026-09-28T08:08:03.432797+00:00",
+  "scope": "Exact staged bytes and nested archives; report itself added after scan; paper draft excluded",
+  "whitespace_policy": "Original txt/log/csv evidence bytes preserved via .gitattributes; code and Markdown checked"
+}

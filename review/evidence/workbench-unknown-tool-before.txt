@@ -1,0 +1,74 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__ test_unknown_tool_cannot_disappear_from_scoring_after_recovery[reference] ___
+
+arm = 'reference'
+
+    @pytest.mark.parametrize("arm", ARMS)
+    def test_unknown_tool_cannot_disappear_from_scoring_after_recovery(arm):
+        unknown = {"id": "unknown", "name": "calendar_nonexistent", "arguments": {}}
+        transport = Scripted([response([unknown]), response([create_event()]), response()])
+        result = run_task(arm, "Create the adapter test meeting.", transport)
+        task = {"task": "Create the adapter test meeting.", "outcome": [
+            "calendar.create_event.func(event_name='Adapter test', participant_email='test@atlas.com', "
+            "event_start='2023-10-02 12:00:00', duration='60')"]}
+        # A valid later mutation must remain observable, but the official scorer
+        # rejects trajectories containing unknown tools even when end state matches.
+        assert len(result["function_calls"]) == 1
+>       assert not score(task, result["function_calls"], result["error"])["correct"]
+E       assert not True
+
+/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/test_workbench.py:88: AssertionError
+_ test_unknown_tool_cannot_disappear_from_scoring_after_recovery[foundry_native_serial] _
+
+arm = 'foundry_native_serial'
+
+    @pytest.mark.parametrize("arm", ARMS)
+    def test_unknown_tool_cannot_disappear_from_scoring_after_recovery(arm):
+        unknown = {"id": "unknown", "name": "calendar_nonexistent", "arguments": {}}
+        transport = Scripted([response([unknown]), response([create_event()]), response()])
+        result = run_task(arm, "Create the adapter test meeting.", transport)
+        task = {"task": "Create the adapter test meeting.", "outcome": [
+            "calendar.create_event.func(event_name='Adapter test', participant_email='test@atlas.com', "
+            "event_start='2023-10-02 12:00:00', duration='60')"]}
+        # A valid later mutation must remain observable, but the official scorer
+        # rejects trajectories containing unknown tools even when end state matches.
+        assert len(result["function_calls"]) == 1
+>       assert not score(task, result["function_calls"], result["error"])["correct"]
+E       assert not True
+
+/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/test_workbench.py:88: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "workbench-agent", "span_id": "722bffc8d21a", "name": "native.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.16}
+{"trace_id": "workbench-agent", "span_id": "663ad43b0934", "name": "native.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.18}
+{"trace_id": "workbench-agent", "span_id": "4bee7f483bb7", "name": "orchestration.act", "attributes": {"tool": "calendar_create_event", "ok": true, "latency_ms": 0.44798851013183594}, "duration_ms": 24.74}
+{"trace_id": "workbench-agent", "span_id": "b52b2ab5d03b", "name": "native.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.17}
+_ test_unknown_tool_cannot_disappear_from_scoring_after_recovery[foundry_langgraph_serial] _
+
+arm = 'foundry_langgraph_serial'
+
+    @pytest.mark.parametrize("arm", ARMS)
+    def test_unknown_tool_cannot_disappear_from_scoring_after_recovery(arm):
+        unknown = {"id": "unknown", "name": "calendar_nonexistent", "arguments": {}}
+        transport = Scripted([response([unknown]), response([create_event()]), response()])
+        result = run_task(arm, "Create the adapter test meeting.", transport)
+        task = {"task": "Create the adapter test meeting.", "outcome": [
+            "calendar.create_event.func(event_name='Adapter test', participant_email='test@atlas.com', "
+            "event_start='2023-10-02 12:00:00', duration='60')"]}
+        # A valid later mutation must remain observable, but the official scorer
+        # rejects trajectories containing unknown tools even when end state matches.
+        assert len(result["function_calls"]) == 1
+>       assert not score(task, result["function_calls"], result["error"])["correct"]
+E       assert not True
+
+/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/test_workbench.py:88: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "workbench-agent", "span_id": "5794cc8a3337", "name": "orchestration.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.22}
+{"trace_id": "workbench-agent", "span_id": "d79a794adb00", "name": "orchestration.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 1, "task": "default"}, "duration_ms": 0.16}
+{"trace_id": "workbench-agent", "span_id": "a8dbd1385b07", "name": "orchestration.act", "attributes": {"tool": "calendar_create_event", "ok": true, "latency_ms": 0.3879070281982422}, "duration_ms": 0.96}
+{"trace_id": "workbench-agent", "span_id": "9090a633765f", "name": "orchestration.think", "attributes": {"cost_usd": 0, "model": "offline-scripted", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.17}
+=========================== short test summary info ============================
+FAILED benchmarks/workbench/test_workbench.py::test_unknown_tool_cannot_disappear_from_scoring_after_recovery[reference]
+FAILED benchmarks/workbench/test_workbench.py::test_unknown_tool_cannot_disappear_from_scoring_after_recovery[foundry_native_serial]
+FAILED benchmarks/workbench/test_workbench.py::test_unknown_tool_cannot_disappear_from_scoring_after_recovery[foundry_langgraph_serial]
+3 failed, 16 deselected in 0.94s

@@ -1,5 +1,8 @@
 # Agent Foundry
 
+Start with the [startup guide](docs/STARTUP_GUIDE.md) for installation, a tested
+runtime path, application evaluation and the requirements for a production pilot.
+
 [![Tests](https://github.com/arghya05/agent-foundry/actions/workflows/test.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/test.yml)
 [![Package build](https://github.com/arghya05/agent-foundry/actions/workflows/build.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/build.yml)
 [![Security](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml/badge.svg)](https://github.com/arghya05/agent-foundry/actions/workflows/security.yml)
@@ -9,6 +12,14 @@ Built by **Arghya Mukherjee** — a reference architecture for
 taking a 0-to-1 startup from idea to a production-grade agentic product fast,
 without re-deriving the governance, memory, and multi-agent primitives from
 scratch each time.
+
+**Validation status — September 2026:** this is a reference framework under
+active evaluation. The [repository review](review/README.md) identifies remaining
+remaining integration and distributed-state gaps; it is not yet a generally
+enterprise-certified or SOTA platform. Four repair iterations address authorization,
+request controls, retrieval filtering, cache correctness and evaluation integrity.
+The full local suite records **620 passed, 25 skipped**. See [benchmark evidence](#benchmark-evidence-and-research)
+for measured results, limitations, and the publication experiment log.
 
 **Agent Foundry is an open-source runtime and control plane for building,
 governing, and operating enterprise AI agents — a Python-native core with
@@ -94,12 +105,14 @@ entirely optional (`pip install agent-foundry[langchain]`), and nothing
    and a `while` loop, zero `StateGraph`/`Send`/`interrupt()`. LangGraph is
    one pluggable, optional backend behind `core.protocols.WorkflowEngine`,
    not the thing everything else here is built on top of.
-2. **That claim is proven, not asserted.** `Agent(..., runtime="native")`
-   and `Agent(..., runtime="langgraph")` run the identical
+2. **Two runtimes with shared configuration and parity tests.** `Agent(..., runtime="native")`
+   and `Agent(..., runtime="langgraph")` accept the same
    `AgentConfig` — same guardrails, budget, critique, RBAC — and
    `tests/test_native_engine.py`/`tests/test_native_orchestration.py` run
    the *exact same test scenarios* against both engines to verify it, not
-   just document it. `benchmarks/native_vs_langgraph.py` measures the
+   just document it. Request controls and local delegation have since been
+   repaired and tested; remote controls and durability still need work. Selected
+   tests do not establish full parity. `benchmarks/native_vs_langgraph.py` measures the
    difference instead of claiming one (see the
    [benchmark table](#native-vs-langgraph--measured-not-claimed)).
 3. **All 6 multi-agent topologies, on either runtime.** Most agent
@@ -107,10 +120,10 @@ entirely optional (`pip install agent-foundry[langchain]`), and nothing
    it. Supervisor, swarm, blackboard, debate, fanout, and DAG each have a
    real native-Python implementation (`core/native_orchestration.py`)
    alongside the LangGraph one, picked per call with `runtime=`.
-4. **Governance is load-bearing, not a wrapper.** RBAC-scoped tools,
-   fail-closed budgets, guardrails, an audit trail, and critique-and-retry
-   run through the same `AgentConfig` on every path — there's no "fast demo
-   mode" that quietly skips them.
+4. **Governance in the core agent path.** Scoped tools, budgets, guardrails,
+   an audit trail, and critique-and-retry share `AgentConfig`. Adapter and
+   distributed-control coverage still needs work; consult the
+   [security review](review/SECURITY_EVALUATION_MONITORING.md) before deployment.
 5. **Interop over reimplementation.** MCP and A2A are first-class tool/agent
    bridges; CrewAI and AutoGen agents plug in as tools (and vice versa)
    instead of needing a rewrite into this framework's own DSL.
@@ -168,13 +181,11 @@ alongside them, not instead of a specific one:
 | **CrewAI / AutoGen** | Own their own agent-definition DSL and execution model end to end | Treated as interop targets, not competitors to rewrite into — wrap a CrewAI crew or AutoGen agent as a single governed `ToolSpec` (RBAC, guardrails, audit trail all apply to that call like any other tool), or hand one of your tools to *their* agent — no rewrite either direction |
 | **Calling the LLM API directly** | Fastest to a demo, nothing else included | RBAC-scoped tools, guardrails, fail-closed budgets, an eval-as-release-gate, and a formal `Run` lifecycle (`pause`/`resume`/`fork`/`replay`) come with the framework instead of getting hand-rolled per project once a demo needs to become a product |
 
-The concrete claim, not just the positioning: the same `AgentConfig` you
-write once is portable across backends — `Agent(..., runtime="native")` and
-`Agent(..., runtime="langgraph")` run identical governance, guardrails, and
-critique logic, verified by `tests/test_native_engine.py` running the exact
-scenarios `tests/test_core_agent.py` runs against the other engine. That
-portability is the thing to check for in any framework claiming to be
-"vendor-neutral" — not just which model providers it lists.
+The same `AgentConfig` can be used across backends. Tests cover shared
+governance, guardrail, and critique scenarios, while the
+[runtime review](review/REPOSITORY_REVIEW.md) records remaining differences.
+Choose the backend and adapters against your application's actual permission,
+recovery, and persistence requirements.
 
 ## Why this helps a 0-to-1 startup
 
@@ -344,7 +355,7 @@ flowchart TD
     Act --> Sec
     GR --> Policy
     Act -. "requires_approval" .-> Escalation
-    ToolsG -. "sandboxed tools" .-> Sandbox
+    ToolsG -. "trusted code helper" .-> Sandbox
     Critique --> KPI --> Eval
     NCritique --> KPI
     Loop --> Obs
@@ -479,7 +490,7 @@ repo, not just the concept:
 | `security.py` | `ToolManifestRegistry`, `EgressPolicy`, `CredentialVault`, `VaultCredentialProvider`, `AuditLog`, `EncryptedJSONLAuditLog` | Signed tool manifests, egress allowlisting, encrypted audit trail |
 | `policy_engine.py` | `OPAPolicyEngine`, `CedarPolicyEngine` | Real policy-as-code (Rego or Cedar), alongside or instead of `Policy` |
 | `escalation.py` | `EscalationTicket`, `QueueEscalator` | The third outcome besides auto-approve/deny |
-| `sandbox.py` | `run_sandboxed()`, `code_execution_tool()` | Restricted-builtins, wall-clock-timeout execution for untrusted code |
+| `sandbox.py` | `run_sandboxed()`, `code_execution_tool()` | Restricted-builtins helper for trusted code; no hostile-code isolation or hard termination |
 
 ### Eval, observability & optimization
 
@@ -528,8 +539,9 @@ box. What's actually there:
 - **Guardrails** — input/output/action gates, regex/heuristic by default
   (`GuardrailEngine`, zero extra dependencies), with an LLM-based option
   (`LLMGuardrails`) layered on top (`guardrails.py`)
-- **Sandboxed execution** — untrusted code runs with a restricted builtins
-  namespace and a wall-clock timeout (`sandbox.py`)
+- **Trusted code helper** — restricted builtins in the hosting process
+  (`sandbox.py`). It does not isolate untrusted code, enforce filesystem/network
+  boundaries, or forcibly terminate a running worker.
 - **Pluggable secrets** — `SecretsProvider` Protocol + `VaultCredentialProvider`
   (`security.py`) — nothing hardcoded
 - **Human-in-the-loop** — `Policy.requires_approval` pauses a destructive
@@ -1197,3 +1209,50 @@ pytest
 - `docs/IMPLEMENTATION_GUIDE.md` — step-by-step build guide
 - `docs/OWASP_LLM_TOP10.md` — how each OWASP LLM Top 10 risk is addressed
 - `docs/BACKUP_DR.md` — what state needs backing up and how, per deployment
+
+## Benchmark evidence and research
+
+The goal is a useful platform for startups, supported by reproducible evidence.
+No public-benchmark leadership or conference-publication claim is currently made.
+
+| Evidence | Result | What it establishes |
+| --- | --- | --- |
+| [WorkBench official tests](review/evidence/workbench-official-tests.txt) | 257 passed | Official scorer/tool environment works locally |
+| [Saved WorkBench GPT-4o reproduction](review/evidence/workbench-baseline-reproduction.json) | 476/690 correct; 104 unwanted-side-effect cases; exact match to upstream domain totals | Upstream baseline reproduced; **not a Foundry score** |
+| [Published WorkBench frontier](review/SOTA_BENCHMARK_STATUS.md) | All 24 saved model runs re-scored; all 16,560 prediction counts match | Best in the pinned comparison: 674/690 correct, 13 unwanted-side-effect cases; **upstream, not Foundry** |
+| [Foundry adapter tests](review/evidence/workbench-adapter-tests.txt) | Offline contract tests passed; see log for current count | Prompt/schema parity, state binding, action order, and cost guards |
+| [WorkBench scoring follow-up](review/evidence/workbench-adapter-validation-002.txt) | 19 offline tests passed | Unknown tool calls cannot disappear from scoring after recovery |
+| [Current WorkBench adapter](review/evidence/workbench-adapter-validation-008.txt) | 24 offline tests passed | Protocol v4, prompt/schema parity, transport/accounting and resume checks |
+| [First hardening iteration](review/evidence/iteration-001-validation.txt) | 178 passed, 2 skipped in the targeted suite | Tested hard-denial precedence and effective-request cache identity |
+| [AgentGovBench baseline and scorer audit](review/CLOSEST_REPOSITORIES.md) | Vanilla 13/48; all scenario IDs accounted for | Upstream baseline only; evidence gaps documented; **not a Foundry score** |
+| [Live WorkBench results](review/LIVE_BENCHMARK_RESULTS.md) | Initial 60-task baseline: native 49/60, LangGraph 48/60, reference 50/60; all failures retained | No demonstrated advantage; later diagnostic reuse and incomplete fresh run disclosed |
+| [Full local validation](review/evidence/full-suite-20260928-final.txt) | 620 passed, 25 skipped | Four tested repair iterations; one local environment |
+| Other frameworks, multi-agent benchmarks, and proposed research method | **Pending** | No superiority or novelty conclusion |
+
+The [WorkBench harness](benchmarks/workbench/README.md) provides a fixed 12-task
+development pilot comparing the reference loop, Foundry native, and Foundry
+LangGraph using OpenAI and Anthropic. Both Foundry arms use documented serial
+tool dispatch. They are not standalone LangGraph/CrewAI competitive baselines.
+The scorer/data revision, models, prices, prompts, limits, source hashes,
+usage, failures, side effects, latency, and upper estimated costs are logged.
+The bounded live campaign used a shared $25 cap and has stopped; its evidence
+contains $16.71967550 in usage estimates and unknown reservations, not an invoice.
+Fresh guidance remains unrun. Keys belong only in the ignored
+`benchmarks/workbench/.env`, never in Git or published artifacts.
+
+Read the [paper experiment log](review/PAPER_EXPERIMENT_LOG.md),
+[SOTA target and current benchmark status](review/SOTA_BENCHMARK_STATUS.md),
+[research and framework comparison](review/RESEARCH_AND_COMPARISON.md),
+[pinned source comparison](review/CLOSEST_REPOSITORIES.md),
+[benchmark scorecard](review/BENCHMARK_SCORECARD.md), and
+[candidate research design](review/RESEARCH_DESIGN_2026.md).
+The literature survey is scoped and records reading depth. Development iterations
+remain separate from final evaluation; failed and negative results remain evidence.
+
+**Compatibility notes:** custom action guards requesting approval must return
+`GuardrailResult(..., requires_approval=True)`. The word `approval` in a denial
+reason no longer permits a human override. Custom prompt caches used by
+`LLMGateway` must accept keyword `options=` in `get` and `set`, so tools and
+generation parameters participate in cache identity. Evaluation metrics now preserve
+missing values and expose oracle coverage; see [evaluation migration](review/EVALUATION_MIGRATION.md).
+Request controls must be supplied on every run/resume; see [implementation limits](review/IMPLEMENTATION_20260928.md).

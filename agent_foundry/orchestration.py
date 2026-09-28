@@ -44,6 +44,8 @@ import json
 import operator
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
+from .execution_scope import check_admission, intersect_policies, request_value
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, Any, Callable, Mapping, TypedDict
 
@@ -357,7 +359,7 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
             # identity, not necessarily the right override when there's no
             # actual per-request caller to reflect.
             request_identity = _resolve_identity(config, state)
-            has_request_identity = state.get("request_identity") is not None
+            has_request_identity = request_value(state, "request_identity") is not None
             built = config.context_engine.build(
                 _memory_key(state, session_id), last_user["content"], roles=frozenset(request_identity.roles),
                 tenant_id=request_identity.tenant_id if has_request_identity else None,
@@ -398,6 +400,7 @@ def make_think_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                 return config.llm.complete(messages, task=task, tools=native_tools or None, models=models)
             resp = with_timeout(call, seconds=config.step_timeout_s) if config.step_timeout_s else call()
             budget.spend(resp.cost_usd, thread_id=session_id)
+            check_admission(state)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model, native_tool_calls=len(resp.tool_calls), task=task)
         config.eval_harness.record("atomic", "think", "responded", 1.0, model=resp.model, task=task, session_id=session_id)
 
@@ -432,6 +435,7 @@ def _invoke_tool_call(
     spec = config.tools.get(tool_name) if config.tools.has(tool_name) else None
 
     def call() -> ToolResult:
+        check_admission()
         if spec is not None and inspect.iscoroutinefunction(spec.fn):
             return asyncio.run(config.tools.ainvoke(tool_name, args, identity=identity, policy=policy, idempotency_key=idem_key))
         return config.tools.invoke(tool_name, args, identity=identity, policy=policy, idempotency_key=idem_key)
@@ -495,7 +499,7 @@ def _dispatch_tool_calls(
     out = []
     with ThreadPoolExecutor(max_workers=len(cleared)) as pool:
         futures = {
-            pool.submit(_invoke_tool_call, config, tool_name, args, identity=identity, policy=policy, idem_key=idem_key, timeout=timeout): i
+            pool.submit(copy_context().run, _invoke_tool_call, config, tool_name, args, identity=identity, policy=policy, idem_key=idem_key, timeout=timeout): i
             for i, tool_name, args, idem_key, timeout in cleared
         }
         for future in futures:
@@ -520,6 +524,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
     def act(state: AgentState) -> dict:
         session_id = state.get("thread_id") or config.tracer.thread_id
         _check_cancellation(state)
+        _check_deadline(state, session_id)
         identity = _resolve_identity(config, state)
         policy = _resolve_tool_policy(config, state)
         budget = _resolve_budget(config, state)
@@ -570,6 +575,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
 
         for i, (tool_name, args, tool_call_id) in enumerate(calls):
             _check_cancellation(state)
+            _check_deadline(state, session_id)
             tool_names_by_index[i] = tool_name
             call_ids_by_index[i] = tool_call_id
             if config.tools.has(tool_name):
@@ -605,7 +611,7 @@ def make_act_node(config: AgentConfig) -> Callable[[AgentState], dict]:
                                     scopes=spec.scopes if spec is not None else frozenset(),
                                     requires_confirmation=spec is not None and spec.requires_confirmation,
                                     data_classification=spec.data_classification if spec is not None else "internal")
-            if not gr.allowed and gr.reason and "approval" in gr.reason:
+            if not gr.allowed and gr.requires_approval:
                 flush_cleared()  # everything gated before this call runs for real now, same ordering the old sequential loop gave
                 decision = interrupt({"tool": tool_name, "args": args, "reason": gr.reason})
                 config.audit.record(identity=identity, action="approval_decision", tool=tool_name, approved=bool(decision.get("approved")))
@@ -1020,11 +1026,19 @@ def _resolve_supervisor_route(
     options = ", ".join(agents)
 
     def ask(correction: str = "") -> str:
+        check_admission()
+        budget = request_value({}, "request_budget")
+        if budget is not None:
+            budget.step()
         route_messages = [
             {"role": "system", "content": f"{prompt}{correction}\n\nReply with exactly: ROUTE <agent_name>\nAvailable agents: {options}"},
             *messages,
         ]
-        resp = llm.complete(route_messages, task=task)
+        models = _allowed_model_names(llm, task, request_value({}, "request_model_policy"))
+        resp = llm.complete(route_messages, task=task, models=models)
+        if budget is not None:
+            budget.spend(resp.cost_usd)
+        check_admission()
         return resp.text.strip().removeprefix("ROUTE ").strip()
 
     name = ask()
@@ -1447,7 +1461,7 @@ def _resolve_identity(config: AgentConfig, state: Mapping[str, Any]) -> Identity
     Falls back to config.identity when no per-request identity was set —
     unchanged behavior for every existing caller that doesn't populate
     ExecutionContext.user_id/tenant_id/permissions."""
-    raw = state.get("request_identity")
+    raw = request_value(state, "request_identity")
     if raw is None:
         return config.identity
     return Identity(id=raw["id"], tenant_id=raw["tenant_id"], roles=tuple(raw.get("roles", ())))
@@ -1461,7 +1475,7 @@ def _resolve_budget(config: AgentConfig, state: Mapping[str, Any]) -> RunBudgetL
     config.budget/config.pdp's cost_so_far/CostLedger.close_task would
     otherwise read the static budget directly, so an override actually
     governs (and is reflected in) this run's real spend accounting."""
-    return state.get("request_budget") or config.budget
+    return request_value(state, "request_budget") or config.budget
 
 
 def _check_deadline(state: Mapping[str, Any], session_id: str) -> None:
@@ -1470,7 +1484,7 @@ def _check_deadline(state: Mapping[str, Any], session_id: str) -> None:
     step_timeout_s/latency_budget — those bound a single step/the whole
     session; this bounds THIS run against the caller's own clock (e.g. an
     inbound HTTP request's own timeout)."""
-    deadline = state.get("request_deadline")
+    deadline = request_value(state, "request_deadline")
     if deadline is not None and time.time() > deadline:
         raise BudgetExceeded(f"thread {session_id!r} passed its deadline ({deadline})")
 
@@ -1479,7 +1493,7 @@ def _check_cancellation(state: Mapping[str, Any]) -> None:
     """Raises RunCancelled once ExecutionContext.cancellation_token has been
     cancelled — see CancellationToken's own docstring for why this is
     cooperative, checked only at loop-safe points, not preemptive."""
-    token = state.get("request_cancellation_token")
+    token = request_value(state, "request_cancellation_token")
     if token is not None and token.is_cancelled():
         raise RunCancelled("run was cancelled")
 
@@ -1492,17 +1506,10 @@ def _resolve_tool_policy(config: AgentConfig, state: Mapping[str, Any]) -> Polic
     max_cost_usd_per_thread/max_steps_per_thread/autonomy each take the
     stricter (lower) of the two. None (default): config.policy unchanged,
     existing behavior for every caller that doesn't set tool_policy."""
-    override = state.get("request_tool_policy")
+    override = request_value(state, "request_tool_policy")
     if override is None:
         return config.policy
-    base = config.policy
-    return Policy(
-        allowed_tools=base.allowed_tools & override.allowed_tools,
-        max_cost_usd_per_thread=min(base.max_cost_usd_per_thread, override.max_cost_usd_per_thread),
-        max_steps_per_thread=min(base.max_steps_per_thread, override.max_steps_per_thread),
-        requires_approval=base.requires_approval | override.requires_approval,
-        autonomy=min(base.autonomy, override.autonomy),
-    )
+    return intersect_policies(config.policy, override)
 
 
 def _resolve_model_names(config: AgentConfig, state: Mapping[str, Any], task: str) -> list[str] | None:
@@ -1512,14 +1519,24 @@ def _resolve_model_names(config: AgentConfig, state: Mapping[str, Any], task: st
     to model selection only, not a duplicate cost ceiling — total spend is
     already governed by _resolve_budget/RunBudget, a second, weaker,
     after-the-fact cost check here would just be redundant. Returns None
-    (config.llm's own routing, unchanged) when no override, or when the
-    override and the route share no model in common."""
-    override = state.get("request_model_policy")
-    if not override or not override.get("allowed_models"):
+    only when no override exists; an empty/disjoint/invalid allowlist fails
+    closed before any provider call."""
+    return _allowed_model_names(config.llm, task, request_value(state, "request_model_policy"))
+
+
+def _allowed_model_names(llm: LLMGateway, task: str, override: Any) -> list[str] | None:
+    if override is None:
         return None
-    base_route = config.llm.routes.get(task, config.llm.routes["default"])
+    if not isinstance(override, dict) or set(override) != {"allowed_models"}:
+        raise PermissionError("model_policy requires an explicit allowed_models list")
+    allowed = override["allowed_models"]
+    if not isinstance(allowed, (list, tuple, set, frozenset)) or any(not isinstance(m, str) for m in allowed):
+        raise PermissionError("allowed_models must contain model names")
+    base_route = llm.routes.get(task, llm.routes["default"])
     narrowed = [m for m in base_route if m in override["allowed_models"]]
-    return narrowed or None
+    if not narrowed:
+        raise PermissionError("no configured model is permitted by this request")
+    return narrowed
 
 
 def _memory_key(state: Mapping[str, Any], session_id: str) -> str:
@@ -1530,4 +1547,4 @@ def _memory_key(state: Mapping[str, Any], session_id: str) -> str:
     audit, which stay thread-scoped — those are internal per-turn
     bookkeeping keyed consistently by session_id at both their write and
     read sites, not user-facing "memory" in the sense memory_scope means."""
-    return state.get("request_memory_scope") or session_id
+    return request_value(state, "request_memory_scope") or session_id

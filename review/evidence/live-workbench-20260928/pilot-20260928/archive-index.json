@@ -1,0 +1,33 @@
+{
+  "archive_bytes": 13090,
+  "archive_format": "gzip-compressed tar; original file bytes retained",
+  "archive_sha256": "7acad4a67c38582dbef7d1cdce0d56e45374d3bcbf9d54939dcef116a7d4a9eb",
+  "campaign": "pilot-20260928",
+  "complete": false,
+  "credential_pattern_matches": 0,
+  "files": {
+    "attempts/61e0fc63a8b1c4c151e1d0e2.json": {
+      "bytes": 37868,
+      "sha256": "38caa371e443cb8baa4ac430ee4a9d8e1c7d12e45c9f25830cd5fa7765c2b2bb"
+    },
+    "environment.txt": {
+      "bytes": 1446,
+      "sha256": "f63fef47e23b2741fdc0617f47cbf8a5791c879f4108898b6150afb1435f6f82"
+    },
+    "execution.json": {
+      "bytes": 328,
+      "sha256": "eceedc4eb7413b8d6bb610fb42071ac80fc3865b6ca9900b9b820e29d121a1e4"
+    },
+    "manifest.json": {
+      "bytes": 15181,
+      "sha256": "47d9eaeb0cb8e0cc199561bf5e4d5d214bd8a633dcf1a582373a00da84b02fe7"
+    },
+    "summary.json": {
+      "bytes": 3650,
+      "sha256": "19bf2d5ed7ad1536f7ad30ea095d7ab078f68246ab3b8ec08a3195387b450c0e"
+    }
+  },
+  "finished_attempts": 1,
+  "known_credential_matches": 0,
+  "scope": "Public synthetic WorkBench tasks; provider response items and usage; no request headers"
+}

@@ -1,0 +1,14 @@
+{
+  "recorded_utc": "2026-09-27T18:53:21.588090+00:00",
+  "campaign": "WorkBench development pilot",
+  "total_cap_usd": 25,
+  "providers": [
+    "openai",
+    "anthropic"
+  ],
+  "scope": "Shared persistent ledger; no paid external business tools",
+  "basis": "User acknowledged the benchmark proposal with ok; assistant chose the smallest proposed pilot cap and stated it before starting.",
+  "planned_tasks": 12,
+  "planned_attempts": 72,
+  "status": "preparing_live_execution"
+}

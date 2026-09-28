@@ -1,0 +1,354 @@
+FFFFFFFFFFFFF                                                            [100%]
+=================================== FAILURES ===================================
+___ test_hard_denials_cannot_be_overridden_by_approval[external-tool-native] ___
+
+runtime = 'native', approval_source = 'tool', denial = 'external'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...: None, 'reason': "'approval_tool' requires human approval before executing (ToolSpec.requires_confirmation=True)"})]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "80e39f0056db", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_ test_hard_denials_cannot_be_overridden_by_approval[external-tool-langgraph] __
+
+runtime = 'langgraph', approval_source = 'tool', denial = 'external'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...fore executing (ToolSpec.requires_confirmation=True)"}, id='ce3796ef1271b4f7842860c282dfbd94', response_schema=None)]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "25794425ec73", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+__ test_hard_denials_cannot_be_overridden_by_approval[external-policy-native] __
+
+runtime = 'native', approval_source = 'policy', denial = 'external'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...tool_name': 'approval_tool', 'args': {}, 'tool_call_id': None, 'reason': "'approval_tool' requires human approval"})]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "32d6ee6cc44a", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_ test_hard_denials_cannot_be_overridden_by_approval[external-policy-langgraph] _
+
+runtime = 'langgraph', approval_source = 'policy', denial = 'external'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass..., 'reason': "'approval_tool' requires human approval"}, id='d6814efe999a74a68a3a3f7aef480bf1', response_schema=None)]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "49d8a208f695", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+____ test_hard_denials_cannot_be_overridden_by_approval[egress-tool-native] ____
+
+runtime = 'native', approval_source = 'tool', denial = 'egress'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...: None, 'reason': "'approval_tool' requires human approval before executing (ToolSpec.requires_confirmation=True)"})]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "c67cad935b50", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+__ test_hard_denials_cannot_be_overridden_by_approval[egress-tool-langgraph] ___
+
+runtime = 'langgraph', approval_source = 'tool', denial = 'egress'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...fore executing (ToolSpec.requires_confirmation=True)"}, id='077eba1d0045208d5fc6e9a4defe8bb3', response_schema=None)]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "dcf298a05ff8", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+___ test_hard_denials_cannot_be_overridden_by_approval[egress-policy-native] ___
+
+runtime = 'native', approval_source = 'policy', denial = 'egress'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass...tool_name': 'approval_tool', 'args': {}, 'tool_call_id': None, 'reason': "'approval_tool' requires human approval"})]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "cfc634b962c4", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_ test_hard_denials_cannot_be_overridden_by_approval[egress-policy-langgraph] __
+
+runtime = 'langgraph', approval_source = 'policy', denial = 'egress'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    @pytest.mark.parametrize("approval_source", ["tool", "policy"])
+    @pytest.mark.parametrize("denial", ["external", "egress"])
+    def test_hard_denials_cannot_be_overridden_by_approval(runtime, approval_source, denial):
+        agent, effects = governed_agent(runtime, approval_source)
+        if denial == "external":
+            engine = MutablePolicyEngine()
+            engine.allowed = False
+            agent.config.pdp.policy_engine = engine
+        else:
+            agent.config.pdp.egress = EgressPolicy(allowed_hosts={"approval_tool": frozenset({"other.example"})})
+        result = agent.run("Perform the action.")
+>       assert not result.awaiting_approval
+E       assert not True
+E        +  where True = RunResult(content='CALL approval_tool {}', messages=[{'role': 'user', 'content': 'Perform the action.'}, {'role': 'ass..., 'reason': "'approval_tool' requires human approval"}, id='9305a1fa5ba84372234d79366b58df99', response_schema=None)]}).awaiting_approval
+
+tests/test_review_regressions.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "4fa325af419d", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+_____ test_policy_revoked_while_waiting_for_approval_still_blocks[native] ______
+
+runtime = 'native'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    def test_policy_revoked_while_waiting_for_approval_still_blocks(runtime):
+        agent, effects = governed_agent(runtime, "tool")
+        engine = MutablePolicyEngine()
+        agent.config.pdp.policy_engine = engine
+        context = ExecutionContext(thread_id="revocation")
+        assert agent.run("Perform the action.", context=context).awaiting_approval
+        engine.allowed = False
+        result = agent.resume(approved=True, context=context)
+>       assert effects == []
+E       AssertionError: assert ['executed'] == []
+E         
+E         Left contains one more item: 'executed'
+E         Use -v to get more diff
+
+tests/test_review_regressions.py:57: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "dc02c8c903aa", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+{"trace_id": "review-agent", "span_id": "b6486d5ef0c6", "name": "orchestration.act", "attributes": {"tool": "approval_tool", "ok": true, "latency_ms": 0.003814697265625}, "duration_ms": 25.93}
+{"trace_id": "review-agent", "span_id": "16d0a816a4ff", "name": "native.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+____ test_policy_revoked_while_waiting_for_approval_still_blocks[langgraph] ____
+
+runtime = 'langgraph'
+
+    @pytest.mark.parametrize("runtime", ["native", "langgraph"])
+    def test_policy_revoked_while_waiting_for_approval_still_blocks(runtime):
+        agent, effects = governed_agent(runtime, "tool")
+        engine = MutablePolicyEngine()
+        agent.config.pdp.policy_engine = engine
+        context = ExecutionContext(thread_id="revocation")
+        assert agent.run("Perform the action.", context=context).awaiting_approval
+        engine.allowed = False
+        result = agent.resume(approved=True, context=context)
+>       assert effects == []
+E       AssertionError: assert ['executed'] == []
+E         
+E         Left contains one more item: 'executed'
+E         Use -v to get more diff
+
+tests/test_review_regressions.py:57: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"trace_id": "review-agent", "span_id": "810ef106f752", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.01}
+{"trace_id": "review-agent", "span_id": "db4361430740", "name": "orchestration.act", "attributes": {"tool": "approval_tool", "ok": true, "latency_ms": 0.00095367431640625}, "duration_ms": 0.18}
+{"trace_id": "review-agent", "span_id": "b45faad3c17c", "name": "orchestration.think", "attributes": {"cost_usd": 0.0, "model": "claude-sonnet-5", "native_tool_calls": 0, "task": "default"}, "duration_ms": 0.0}
+_____ test_prompt_cache_never_reuses_a_different_effective_request[tools] ______
+
+changed = 'tools'
+
+    @pytest.mark.parametrize("changed", ["tools", "generation", "history"])
+    def test_prompt_cache_never_reuses_a_different_effective_request(changed):
+        class Provider:
+            calls = 0
+    
+            def complete(self, messages, *, model, **kwargs):
+                self.calls += 1
+                return LLMResponse(str(self.calls), model, 1, 1, 0)
+    
+        provider = Provider()
+        gateway = LLMGateway(provider, routes={"default": ["test"]}, cache=PromptCache())
+        first = [{"role": "user", "content": "same prompt"}]
+        second = first
+        options = {}
+        other_options = {}
+        if changed == "tools":
+            options = {"tools": [{"name": "read", "parameters": {"type": "object"}}]}
+            other_options = {"tools": [{"name": "write", "parameters": {"type": "object"}}]}
+        elif changed == "generation":
+            options, other_options = {"temperature": 0}, {"temperature": 1}
+        else:
+            first = [{"role": "assistant", "content": "", "tool_calls": [{"id": "a", "name": "read", "args": {}}]}]
+            second = [{"role": "assistant", "content": "", "tool_calls": [{"id": "b", "name": "write", "args": {}}]}]
+        one = gateway.complete(first, **options)
+        two = gateway.complete(second, **other_options)
+>       assert one.text != two.text
+E       AssertionError: assert '1' != '1'
+E        +  where '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+E        +  and   '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+
+tests/test_review_regressions.py:86: AssertionError
+___ test_prompt_cache_never_reuses_a_different_effective_request[generation] ___
+
+changed = 'generation'
+
+    @pytest.mark.parametrize("changed", ["tools", "generation", "history"])
+    def test_prompt_cache_never_reuses_a_different_effective_request(changed):
+        class Provider:
+            calls = 0
+    
+            def complete(self, messages, *, model, **kwargs):
+                self.calls += 1
+                return LLMResponse(str(self.calls), model, 1, 1, 0)
+    
+        provider = Provider()
+        gateway = LLMGateway(provider, routes={"default": ["test"]}, cache=PromptCache())
+        first = [{"role": "user", "content": "same prompt"}]
+        second = first
+        options = {}
+        other_options = {}
+        if changed == "tools":
+            options = {"tools": [{"name": "read", "parameters": {"type": "object"}}]}
+            other_options = {"tools": [{"name": "write", "parameters": {"type": "object"}}]}
+        elif changed == "generation":
+            options, other_options = {"temperature": 0}, {"temperature": 1}
+        else:
+            first = [{"role": "assistant", "content": "", "tool_calls": [{"id": "a", "name": "read", "args": {}}]}]
+            second = [{"role": "assistant", "content": "", "tool_calls": [{"id": "b", "name": "write", "args": {}}]}]
+        one = gateway.complete(first, **options)
+        two = gateway.complete(second, **other_options)
+>       assert one.text != two.text
+E       AssertionError: assert '1' != '1'
+E        +  where '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+E        +  and   '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+
+tests/test_review_regressions.py:86: AssertionError
+____ test_prompt_cache_never_reuses_a_different_effective_request[history] _____
+
+changed = 'history'
+
+    @pytest.mark.parametrize("changed", ["tools", "generation", "history"])
+    def test_prompt_cache_never_reuses_a_different_effective_request(changed):
+        class Provider:
+            calls = 0
+    
+            def complete(self, messages, *, model, **kwargs):
+                self.calls += 1
+                return LLMResponse(str(self.calls), model, 1, 1, 0)
+    
+        provider = Provider()
+        gateway = LLMGateway(provider, routes={"default": ["test"]}, cache=PromptCache())
+        first = [{"role": "user", "content": "same prompt"}]
+        second = first
+        options = {}
+        other_options = {}
+        if changed == "tools":
+            options = {"tools": [{"name": "read", "parameters": {"type": "object"}}]}
+            other_options = {"tools": [{"name": "write", "parameters": {"type": "object"}}]}
+        elif changed == "generation":
+            options, other_options = {"temperature": 0}, {"temperature": 1}
+        else:
+            first = [{"role": "assistant", "content": "", "tool_calls": [{"id": "a", "name": "read", "args": {}}]}]
+            second = [{"role": "assistant", "content": "", "tool_calls": [{"id": "b", "name": "write", "args": {}}]}]
+        one = gateway.complete(first, **options)
+        two = gateway.complete(second, **other_options)
+>       assert one.text != two.text
+E       AssertionError: assert '1' != '1'
+E        +  where '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+E        +  and   '1' = LLMResponse(text='1', model='test', input_tokens=1, output_tokens=1, cost_usd=0, tool_calls=[]).text
+
+tests/test_review_regressions.py:86: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[external-tool-native]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[external-tool-langgraph]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[external-policy-native]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[external-policy-langgraph]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[egress-tool-native]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[egress-tool-langgraph]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[egress-policy-native]
+FAILED tests/test_review_regressions.py::test_hard_denials_cannot_be_overridden_by_approval[egress-policy-langgraph]
+FAILED tests/test_review_regressions.py::test_policy_revoked_while_waiting_for_approval_still_blocks[native]
+FAILED tests/test_review_regressions.py::test_policy_revoked_while_waiting_for_approval_still_blocks[langgraph]
+FAILED tests/test_review_regressions.py::test_prompt_cache_never_reuses_a_different_effective_request[tools]
+FAILED tests/test_review_regressions.py::test_prompt_cache_never_reuses_a_different_effective_request[generation]
+FAILED tests/test_review_regressions.py::test_prompt_cache_never_reuses_a_different_effective_request[history]
+13 failed in 0.17s

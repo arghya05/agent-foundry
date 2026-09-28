@@ -34,10 +34,10 @@ class PolicyDecisionPoint:
     """The single mandatory call site the review asked for, instead of
     Policy.allowed_tools/EgressPolicy/an external PolicyEngine being loosely
     related utilities a caller has to remember to wire together itself.
-    Composes (in order) a ToolSpec-scope check, a data-classification role
-    check, the deterministic action guardrail, an optional external
-    PolicyEngine (OPAPolicyEngine/CedarPolicyEngine above), and an optional
-    EgressPolicy host allowlist — the same delegate-don't-replace
+    Composes the tool allowlist, ToolSpec scopes, data-classification roles,
+    external policy and egress checks before the action guardrail and an
+    explicit approval request. Hard denials cannot be overridden by approval.
+    It uses the same delegate-don't-replace
     composition guardrails.LLMGuardrails.check_action already uses for
     GuardrailEngine. Each piece stays independently usable/testable; this is
     just the thing that calls all of them for one tool-call decision.
@@ -57,6 +57,8 @@ class PolicyDecisionPoint:
         scopes: frozenset[str] = frozenset(), requires_confirmation: bool = False,
         data_classification: str = "internal",
     ) -> GuardrailResult:
+        if tool_name not in policy.allowed_tools:
+            return GuardrailResult(False, f"{tool_name!r} is not allowed by policy", "action")
         # ToolSpec.scopes: the identity must carry at least one of the
         # tool's declared scopes — enforced here, not left as pure metadata
         # never checked against Identity.roles.
@@ -68,15 +70,8 @@ class PolicyDecisionPoint:
             required_role = f"data:{data_classification}"
             if required_role not in identity.roles:
                 return GuardrailResult(False, f"{tool_name!r} handles {data_classification!r} data — identity {identity.id!r} lacks the {required_role!r} role", "action")
-        gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
-        if not gr.allowed:
-            return gr
-        # ToolSpec.requires_confirmation: forces the SAME "needs human
-        # approval" signal make_act_node already knows how to interrupt()
-        # on, independent of Policy.requires_approval/autonomy — a tool can
-        # demand confirmation on its own terms, not only via the policy.
-        if requires_confirmation:
-            return GuardrailResult(False, f"{tool_name!r} requires human approval before executing (ToolSpec.requires_confirmation=True)", "action")
+        # Hard denials precede approval requests. A human approval must never
+        # skip the external policy or egress checks, including after resume.
         if self.policy_engine is not None:
             allowed = self.policy_engine.allow({
                 "identity_id": identity.id, "tool": tool_name, "allowed_tools": list(policy.allowed_tools),
@@ -92,6 +87,12 @@ class PolicyDecisionPoint:
             for host in hosts:
                 if not self.egress.check(tool_name, host):
                     return GuardrailResult(False, f"{tool_name!r} denied: {host!r} not in egress allowlist for this tool", "action")
+        gr = self.guardrails.check_action(tool_name, cost_so_far=cost_so_far, destructive=destructive)
+        if not gr.allowed:
+            return gr
+        if requires_confirmation:
+            return GuardrailResult(False, f"{tool_name!r} requires human approval before executing (ToolSpec.requires_confirmation=True)",
+                                   "action", requires_approval=True)
         return GuardrailResult(True, stage="action")
 
 

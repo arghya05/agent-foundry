@@ -1,0 +1,6 @@
+{
+  "stop_reason": "RemoteProtocolError",
+  "finished_attempts": 103,
+  "action": "Resume the identical campaign; all finished attempts including the failed task are retained without retry; unknown request reservation stays in shared ledger",
+  "original_log_sha256": "de7d404eba2ac7e0fa59beaf75de68d87e3ba1b27b54cf4b317766f3388334cd"
+}

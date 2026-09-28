@@ -1,0 +1,68 @@
+
+==================================== ERRORS ====================================
+_________ ERROR collecting tests/test_examples_autonomous_workflow.py __________
+ImportError while importing test module '/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/tests/test_examples_autonomous_workflow.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_examples_autonomous_workflow.py:26: in <module>
+    from examples.autonomous_workflow.agent import build_agent
+examples/autonomous_workflow/agent.py:78: in <module>
+    agent = build_agent()
+            ^^^^^^^^^^^^^
+examples/autonomous_workflow/agent.py:68: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:429: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+agent_foundry/llm_gateway.py:91: in __init__
+    import anthropic
+E   ModuleNotFoundError: No module named 'anthropic'
+____________ ERROR collecting tests/test_examples_commerce_agent.py ____________
+ImportError while importing test module '/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/tests/test_examples_commerce_agent.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_examples_commerce_agent.py:16: in <module>
+    from examples.commerce_agent.agent import build_agent
+examples/commerce_agent/agent.py:83: in <module>
+    agent = build_agent()
+            ^^^^^^^^^^^^^
+examples/commerce_agent/agent.py:73: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:429: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+agent_foundry/llm_gateway.py:91: in __init__
+    import anthropic
+E   ModuleNotFoundError: No module named 'anthropic'
+____________ ERROR collecting tests/test_examples_research_agent.py ____________
+ImportError while importing test module '/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/tests/test_examples_research_agent.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.11/3.11.15/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_examples_research_agent.py:19: in <module>
+    from examples.research_agent.agent import SOURCE_BY_TEXT, build_agent
+examples/research_agent/agent.py:72: in <module>
+    agent = build_agent()
+            ^^^^^^^^^^^^^
+examples/research_agent/agent.py:62: in build_agent
+    return Agent(
+agent_foundry/core/agent.py:429: in __init__
+    llm=llm or LLMGateway(provider=PROVIDERS[provider]() if provider is not None else AnthropicProvider()),
+                                                                                      ^^^^^^^^^^^^^^^^^^^
+agent_foundry/llm_gateway.py:91: in __init__
+    import anthropic
+E   ModuleNotFoundError: No module named 'anthropic'
+=========================== short test summary info ============================
+ERROR tests/test_examples_autonomous_workflow.py
+ERROR tests/test_examples_commerce_agent.py
+ERROR tests/test_examples_research_agent.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 3 errors during collection !!!!!!!!!!!!!!!!!!!!
+9 skipped, 3 errors in 0.30s

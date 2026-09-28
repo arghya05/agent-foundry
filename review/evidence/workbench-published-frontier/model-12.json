@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 113,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 113,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "c048b64f2f9215d7d01525fabe3bdbc51f8f1045fa26a687df25405174154fa7",
+      "source": "data/results/analytics/gemini-3.1-pro_all_2026-06-03_20-54-17.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 108,
+        "side_effects": 0,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 108,
+        "side_effects": 0,
+        "total": 110
+      },
+      "sha256": "ecfefac621d8d7ede1a822ed565e004f0b17bbedfa36066384ca42786896a1c4",
+      "source": "data/results/calendar/gemini-3.1-pro_all_2026-06-03_20-52-46.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "sha256": "d7258848eb5327ecfbb3b5c388ec285dcc22827fd0fc6af875882c6c9f6c6934",
+      "source": "data/results/customer_relationship_manager/gemini-3.1-pro_all_2026-06-03_20-57-40.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 90,
+        "side_effects": 0,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 90,
+        "side_effects": 0,
+        "total": 90
+      },
+      "sha256": "e64d6c8ea74fa99ff371c8d733df114dea60494c088e61d9febc9a2ce6e88be6",
+      "source": "data/results/email/gemini-3.1-pro_all_2026-06-03_20-51-56.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 197,
+        "side_effects": 11,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 197,
+        "side_effects": 11,
+        "total": 210
+      },
+      "sha256": "4a25b025fcde6bec054096cbf336da317d9aae41c42f85c9d55e6b1f126a5e49",
+      "source": "data/results/multi_domain/gemini-3.1-pro_all_2026-06-03_20-59-25.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 71,
+        "side_effects": 9,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 71,
+        "side_effects": 9,
+        "total": 80
+      },
+      "sha256": "930af7e52f7b1dc6e40c9078363802cd5a72558b267073bca360ab4b13a5e884",
+      "source": "data/results/project_management/gemini-3.1-pro_all_2026-06-03_20-55-56.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Gemini-3.1-pro",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 659,
+    "side_effects": 20,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

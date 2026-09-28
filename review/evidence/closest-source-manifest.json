@@ -1,0 +1,370 @@
+{
+  "recorded_utc": "2026-09-27T18:19:25.978366+00:00",
+  "scope": "Seven closest source comparisons; only AgentGovBench vanilla and scorer probes executed",
+  "all_files_read": false,
+  "competitor_performance_ranking": false,
+  "repositories": [
+    {
+      "name": "langgraph",
+      "origin": "https://github.com/langchain-ai/langgraph.git",
+      "commit": "7daa3ab49d678a5da75edb08baa87db4a2be52c3",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/langgraph",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "d9bb52f2e3540d60ff50d8f0f5b6ba649b7fd346948c4c3d086c8afb120763c7",
+      "source_selections": [
+        {
+          "path": "libs/langgraph/langgraph/types.py",
+          "reviewed_lines": [
+            [
+              455,
+              650
+            ],
+            [
+              887,
+              1025
+            ]
+          ],
+          "file_sha256": "cb451aef481886ba5e9701230e85ef38b35eb95608f959ed421f409a05a5a6e6",
+          "permalink": "https://github.com/langchain-ai/langgraph/blob/7daa3ab49d678a5da75edb08baa87db4a2be52c3/libs/langgraph/langgraph/types.py"
+        },
+        {
+          "path": "libs/langgraph/tests/test_pregel.py",
+          "reviewed_lines": [
+            [
+              5820,
+              5870
+            ]
+          ],
+          "file_sha256": "5f4c2746b08bf6cece255dea280c785ca8931175c8eb759a9cebb9952076d179",
+          "permalink": "https://github.com/langchain-ai/langgraph/blob/7daa3ab49d678a5da75edb08baa87db4a2be52c3/libs/langgraph/tests/test_pregel.py"
+        }
+      ]
+    },
+    {
+      "name": "pydantic-ai",
+      "origin": "https://github.com/pydantic/pydantic-ai.git",
+      "commit": "69eb81bde23c8db52ee8617217bdaf46bf0468df",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/pydantic-ai",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "bc0e89738f36944c8106e1947c3d69631f9c33b8f1bcb60ec4f89d677d2dfcf4",
+      "source_selections": [
+        {
+          "path": "pydantic_ai_slim/pydantic_ai/toolsets/approval_required.py",
+          "reviewed_lines": "full",
+          "file_sha256": "cf2606131d95aa9acb79dd7a397835416afcd6b9c00740a60334dec9027d038a",
+          "permalink": "https://github.com/pydantic/pydantic-ai/blob/69eb81bde23c8db52ee8617217bdaf46bf0468df/pydantic_ai_slim/pydantic_ai/toolsets/approval_required.py"
+        },
+        {
+          "path": "pydantic_ai_slim/pydantic_ai/durable_exec/_spec.py",
+          "reviewed_lines": "full",
+          "file_sha256": "eda34a1cddb0a0f392ad516f3611f291b0c08850bac565232f454a0508bb648c",
+          "permalink": "https://github.com/pydantic/pydantic-ai/blob/69eb81bde23c8db52ee8617217bdaf46bf0468df/pydantic_ai_slim/pydantic_ai/durable_exec/_spec.py"
+        }
+      ]
+    },
+    {
+      "name": "crewai",
+      "origin": "https://github.com/crewAIInc/crewAI.git",
+      "commit": "4ed2abc7bbf504a634d3b733f2a97e0fbe8d44ec",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/crewai",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "28868731966f4aa37f02879839aabc797137e27ddde4e274ef9cf965f9a71774",
+      "source_selections": [
+        {
+          "path": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+          "reviewed_lines": [
+            [
+              1,
+              220
+            ]
+          ],
+          "file_sha256": "bed26a8738299b84caa1dae4bcfb054355e1929a120eda7937099bfea3063685",
+          "permalink": "https://github.com/crewAIInc/crewAI/blob/4ed2abc7bbf504a634d3b733f2a97e0fbe8d44ec/lib/crewai/src/crewai/flow/persistence/sqlite.py"
+        },
+        {
+          "path": "lib/crewai/src/crewai/utilities/guardrail.py",
+          "reviewed_lines": [
+            [
+              1,
+              160
+            ]
+          ],
+          "file_sha256": "0f09bbb902e3c92a00a6b2917588ebaa1262609496f0a45eb2980ddac078cf03",
+          "permalink": "https://github.com/crewAIInc/crewAI/blob/4ed2abc7bbf504a634d3b733f2a97e0fbe8d44ec/lib/crewai/src/crewai/utilities/guardrail.py"
+        },
+        {
+          "path": "lib/crewai/tests/test_guardrail_serialization.py",
+          "reviewed_lines": [
+            [
+              1,
+              110
+            ]
+          ],
+          "file_sha256": "be782f6b64cc33bc8cfd1f104acd9cd24b3ef312abed776d8e9cbecc38f39afd",
+          "permalink": "https://github.com/crewAIInc/crewAI/blob/4ed2abc7bbf504a634d3b733f2a97e0fbe8d44ec/lib/crewai/tests/test_guardrail_serialization.py"
+        }
+      ]
+    },
+    {
+      "name": "agent-framework",
+      "origin": "https://github.com/microsoft/agent-framework.git",
+      "commit": "6f1522a50b66f117da34cc25ea299ba24a528b15",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/agent-framework",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "source_selections": [
+        {
+          "path": "python/packages/core/agent_framework/_harness/_tool_approval.py",
+          "reviewed_lines": [
+            [
+              319,
+              342
+            ]
+          ],
+          "file_sha256": "8f74f027418cc28108a40c206ab2bde99dcf2657c826d68927929bc62aa09f3d",
+          "permalink": "https://github.com/microsoft/agent-framework/blob/6f1522a50b66f117da34cc25ea299ba24a528b15/python/packages/core/agent_framework/_harness/_tool_approval.py"
+        },
+        {
+          "path": "python/packages/core/agent_framework/_workflows/_checkpoint.py",
+          "reviewed_lines": [
+            [
+              505,
+              575
+            ],
+            [
+              608,
+              665
+            ]
+          ],
+          "file_sha256": "839711adc5d74e76e1291e5aeeb45579dd426bd28ea0c188f4b59270bd402ed6",
+          "permalink": "https://github.com/microsoft/agent-framework/blob/6f1522a50b66f117da34cc25ea299ba24a528b15/python/packages/core/agent_framework/_workflows/_checkpoint.py"
+        }
+      ]
+    },
+    {
+      "name": "agent-governance-toolkit",
+      "origin": "https://github.com/microsoft/agent-governance-toolkit.git",
+      "commit": "6b644564d112b879e48183bc1655fcf73c86d23e",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/agent-governance-toolkit",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "7df20dcdf9197e9945c14858d41c60f11b52b93e5b69e2b63416b874d598d322",
+      "source_selections": [
+        {
+          "path": "agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/binding.py",
+          "reviewed_lines": "full",
+          "file_sha256": "b7524262af7120619f2d98772f1ee0b874ae20ec419ce7acc14a2c5d17774020",
+          "permalink": "https://github.com/microsoft/agent-governance-toolkit/blob/6b644564d112b879e48183bc1655fcf73c86d23e/agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/binding.py"
+        },
+        {
+          "path": "agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/digest.py",
+          "reviewed_lines": "full",
+          "file_sha256": "a2551a5b4223f547652660bfcb699f215d552074ccde65e23e45728c1e539afc",
+          "permalink": "https://github.com/microsoft/agent-governance-toolkit/blob/6b644564d112b879e48183bc1655fcf73c86d23e/agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/digest.py"
+        },
+        {
+          "path": "agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/coordinator.py",
+          "reviewed_lines": [
+            [
+              311,
+              415
+            ]
+          ],
+          "file_sha256": "7361627e42230d93302b7146edf2a35282bdefade2019f8675c6911215004b1f",
+          "permalink": "https://github.com/microsoft/agent-governance-toolkit/blob/6b644564d112b879e48183bc1655fcf73c86d23e/agent-governance-python/agent-mesh/src/agentmesh/governance/approval_protocol/coordinator.py"
+        },
+        {
+          "path": "agent-governance-python/agent-mesh/src/agentmesh/identity/delegation.py",
+          "reviewed_lines": [
+            [
+              100,
+              155
+            ],
+            [
+              272,
+              317
+            ]
+          ],
+          "file_sha256": "a64cc43ac2a839fb91f356f473ef8fbade95850649f82dd4887535820cfc19c1",
+          "permalink": "https://github.com/microsoft/agent-governance-toolkit/blob/6b644564d112b879e48183bc1655fcf73c86d23e/agent-governance-python/agent-mesh/src/agentmesh/identity/delegation.py"
+        },
+        {
+          "path": "agent-governance-python/agent-mesh/tests/test_approval_protocol.py",
+          "reviewed_lines": [
+            [
+              150,
+              188
+            ],
+            [
+              281,
+              318
+            ]
+          ],
+          "file_sha256": "d166272251daad9afd3dba3b21262fc689ec268e9c429a68eed53d37452cdb94",
+          "permalink": "https://github.com/microsoft/agent-governance-toolkit/blob/6b644564d112b879e48183bc1655fcf73c86d23e/agent-governance-python/agent-mesh/tests/test_approval_protocol.py"
+        }
+      ]
+    },
+    {
+      "name": "deepagents",
+      "origin": "https://github.com/langchain-ai/deepagents.git",
+      "commit": "0c756c4f8037d9132c96b5191d4ef1f5a57a42f8",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/deepagents",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "4ec67e4ca6e6721dba849b2ca82261597c86a61ee214bbf21416006b7b2d0478",
+      "source_selections": [
+        {
+          "path": "libs/deepagents/deepagents/middleware/subagents.py",
+          "reviewed_lines": [
+            [
+              700,
+              820
+            ]
+          ],
+          "file_sha256": "9d019be424be3be08bf6b2337f3a180499e27a6e50000310e3d1c32f7ef98cd4",
+          "permalink": "https://github.com/langchain-ai/deepagents/blob/0c756c4f8037d9132c96b5191d4ef1f5a57a42f8/libs/deepagents/deepagents/middleware/subagents.py"
+        },
+        {
+          "path": "libs/deepagents/deepagents/graph.py",
+          "reviewed_lines": [
+            [
+              650,
+              760
+            ]
+          ],
+          "file_sha256": "c8f6784ca9bc12d339526667c6898608c326b8121ccd39036fab125491840715",
+          "permalink": "https://github.com/langchain-ai/deepagents/blob/0c756c4f8037d9132c96b5191d4ef1f5a57a42f8/libs/deepagents/deepagents/graph.py"
+        }
+      ]
+    },
+    {
+      "name": "agentgovbench",
+      "origin": "https://github.com/agentic-control-plane/agentgovbench.git",
+      "commit": "e0ce93ae175376d7847c69a64d0c36bdfa6ca717",
+      "local_checkout": "/private/tmp/agent-foundry-comparisons/agentgovbench",
+      "tracked_tree_clean": true,
+      "codegraph_present": false,
+      "review_depth": "Selected source sections, not a full repository audit",
+      "license_file_sha256": "dc4fe43af4df8894d96356ca8a771a5ff2bd66d82dd300beda5287db0596a433",
+      "source_selections": [
+        {
+          "path": "README.md",
+          "reviewed_lines": "full",
+          "file_sha256": "d14d71ecfd2ba2ed203bf0c49550f85bacf9a9d5a4e9b961e5f9fea7aecc5099",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/README.md"
+        },
+        {
+          "path": "benchmark/runner.py",
+          "reviewed_lines": "full",
+          "file_sha256": "be839babc5042beb031320c10cb2fbf09ef3ed0d5cceced022fbefa21a4e677a",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/benchmark/runner.py"
+        },
+        {
+          "path": "benchmark/loader.py",
+          "reviewed_lines": "full",
+          "file_sha256": "bc5a9959560dc63fdd3cd6ee25b2ebe88d689263d156fcf65fabc785712ce3f8",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/benchmark/loader.py"
+        },
+        {
+          "path": "benchmark/scorer.py",
+          "reviewed_lines": "full",
+          "file_sha256": "1042c3714f99469c367d3d316d6bd5e34d2e2957538da72ddbffe6264c885f9c",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/benchmark/scorer.py"
+        },
+        {
+          "path": "benchmark/types.py",
+          "reviewed_lines": [
+            [
+              160,
+              220
+            ]
+          ],
+          "file_sha256": "3ac650c6096660b91fb0add3083e9c36711e29b7bc0841eaf7a716000c67f63d",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/benchmark/types.py"
+        },
+        {
+          "path": "benchmark/cli.py",
+          "reviewed_lines": [
+            [
+              1,
+              205
+            ]
+          ],
+          "file_sha256": "04f2acd0ab00f5e3cbf1e27b1c425397c64d75b3269f3b5e196cc4fab3968d03",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/benchmark/cli.py"
+        },
+        {
+          "path": "runners/vanilla.py",
+          "reviewed_lines": "full",
+          "file_sha256": "62009626dee12212865ca8660a8484790d84f11943a64472c5dd0a9f9c9deb9b",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/runners/vanilla.py"
+        },
+        {
+          "path": "runners/langgraph_native.py",
+          "reviewed_lines": "full",
+          "file_sha256": "15e7feca25e3e32ea38586ce193177f1156f87f435fd36f2323c7f1a1dd0cfb6",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/runners/langgraph_native.py"
+        },
+        {
+          "path": "scenarios/per_user_policy_enforcement/06_revoked_scope_immediate.yaml",
+          "reviewed_lines": "full",
+          "file_sha256": "7ae6c5505c5cee30e898bd1aae5e5ae12392fa9f47dbc98b84a91be523c41b42",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/scenarios/per_user_policy_enforcement/06_revoked_scope_immediate.yaml"
+        },
+        {
+          "path": "scenarios/scope_inheritance/04_task_narrowing.yaml",
+          "reviewed_lines": "full",
+          "file_sha256": "a299d780ea89bb104bbf835249e49879f9d796b96bf248c4942be738ec2fc6fb",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/scenarios/scope_inheritance/04_task_narrowing.yaml"
+        },
+        {
+          "path": "scenarios/cross_tenant_isolation/02_audit_log_separation.yaml",
+          "reviewed_lines": "full",
+          "file_sha256": "5a370c157736ad8cebb187519451b10cf34e2e62d95b585f8f614806d2fdb23e",
+          "permalink": "https://github.com/agentic-control-plane/agentgovbench/blob/e0ce93ae175376d7847c69a64d0c36bdfa6ca717/scenarios/cross_tenant_isolation/02_audit_log_separation.yaml"
+        }
+      ]
+    }
+  ],
+  "paper_sections": [
+    {
+      "url": "https://arxiv.org/html/2609.24446v2",
+      "sections": [
+        "Methodology",
+        "Experimental Setup",
+        "Limitations and Future Work"
+      ],
+      "reproduced": false
+    },
+    {
+      "url": "https://arxiv.org/html/2601.12449v2",
+      "sections": [
+        "3.1 Offline tool extractor",
+        "3.2 Online tool orchestrator",
+        "Limitations",
+        "C.4 LLM ablations",
+        "C.5 Control metadata ablation"
+      ],
+      "reproduced": false
+    },
+    {
+      "url": "https://arxiv.org/html/2512.07850v1",
+      "sections": [
+        "4.1 Safeguards for Mutating Actions",
+        "4.2 SABER System Implementation"
+      ],
+      "reproduced": false
+    }
+  ]
+}

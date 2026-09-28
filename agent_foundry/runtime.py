@@ -6,6 +6,7 @@ Thread/session lifecycle itself is delegated to LangGraph's checkpointer
 from __future__ import annotations
 
 import concurrent.futures
+from contextvars import copy_context
 import threading
 import time
 from dataclasses import dataclass, field
@@ -175,7 +176,7 @@ def with_timeout(fn: Callable[[], T], *, seconds: float) -> T:
     on 3.11+, where it's an alias) gets the exact same exception on every
     supported version this way."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-        return ex.submit(fn).result(timeout=seconds)
+        return ex.submit(copy_context().run, fn).result(timeout=seconds)
 
 
 class CircuitBreakerLike(Protocol):

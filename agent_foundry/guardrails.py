@@ -111,10 +111,10 @@ class GuardrailEngine:
             return GuardrailResult(False, "autonomy level does not permit taking actions", "action")
         if autonomy == AutonomyLevel.L2_DRAFT and destructive:
             return GuardrailResult(False, "autonomy level permits drafting only, not executing destructive actions", "action")
-        if tool_name in self.policy.requires_approval and autonomy < AutonomyLevel.L4_POLICY_BOUND:
-            return GuardrailResult(False, f"{tool_name!r} requires human approval", "action")
         if cost_so_far >= self.policy.max_cost_usd_per_thread:
             return GuardrailResult(False, "thread cost budget exceeded", "action")
+        if tool_name in self.policy.requires_approval and autonomy < AutonomyLevel.L4_POLICY_BOUND:
+            return GuardrailResult(False, f"{tool_name!r} requires human approval", "action", requires_approval=True)
         return GuardrailResult(True, stage="action")
 
 

@@ -19,10 +19,10 @@ model does real structured tool-calling (AIMessage.tool_calls), not text parsing
 
 This is the simple path. `orchestration.py`'s AgentConfig/build_*_graph path is
 the governed one — RBAC, guardrails, eval, cost/audit, autonomy levels, multi-agent
-topologies. to_langchain_tool() below is the bridge between them: a tool already
-registered in a ToolRegistry (governed) becomes a plain callable this module's
-create_agent-based path accepts too, so a team can start here and grow into the
-full framework without rewriting their tools.
+topologies. to_langchain_tool() below converts a ToolSpec's callable and
+description. It does not carry ToolRegistry or AgentConfig enforcement into
+LangChain: policy, approval, audit, rate limits and budgets must be supplied by
+the host application. Use the governed Agent path for Foundry controls.
 """
 from __future__ import annotations
 
@@ -51,11 +51,12 @@ def plug_and_play_agent(
 
 
 def to_langchain_tool(spec: "ToolSpec") -> Any:
-    """Bridges a governed ToolSpec (tools_gateway.ToolRegistry) into a real
-    LangChain StructuredTool, so the same tool works in either path. Schema is
-    inferred from spec.fn's own type hints, not spec.parameters (which is a loose
-    documentation dict, not JSON Schema) — write real type hints on your tool
-    functions and both paths get a correct schema for free."""
+    """Convert a raw callable to a LangChain StructuredTool without governance.
+
+    This exports spec.fn directly; it does not preserve registry policy,
+    approvals, validation, audit, caching or limits. LangChain infers its schema
+    from function type hints instead of using spec.parameters.
+    """
     from langchain_core.tools import StructuredTool
 
     return StructuredTool.from_function(func=spec.fn, name=spec.name, description=spec.description)

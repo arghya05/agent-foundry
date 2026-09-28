@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 107,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 107,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "d76df44dff4a8b03a9537aab2ef0a22f9d51820e97024bce2cbb0f085708ce49",
+      "source": "data/results/analytics/deepseek-v4-pro_all_2026-06-03_18-12-23.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 100,
+        "side_effects": 7,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 100,
+        "side_effects": 7,
+        "total": 110
+      },
+      "sha256": "d2f2637e7608650d61afb37f058f7812f2d849b80d144c37aaeea8abb3b8834e",
+      "source": "data/results/calendar/deepseek-v4-pro_all_2026-06-03_18-10-02.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 75,
+        "side_effects": 4,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 75,
+        "side_effects": 4,
+        "total": 80
+      },
+      "sha256": "c296e2d7a3a3ffbcef57ffbf60fe0852dc9eeeaffb4aac570c358797e8802ed2",
+      "source": "data/results/customer_relationship_manager/deepseek-v4-pro_all_2026-06-03_18-18-20.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 88,
+        "side_effects": 1,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 88,
+        "side_effects": 1,
+        "total": 90
+      },
+      "sha256": "cbaf774b04e7ec17426ed6a402a5b814ba35b8a49c6c6dfa1391abfef1e7257a",
+      "source": "data/results/email/deepseek-v4-pro_all_2026-06-03_18-08-20.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 152,
+        "side_effects": 55,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 152,
+        "side_effects": 55,
+        "total": 210
+      },
+      "sha256": "5cb8bd46905bab3c5d55646dc7e9160996e662607cb1acf2bf05ff69e48dee62",
+      "source": "data/results/multi_domain/deepseek-v4-pro_all_2026-06-03_18-21-45.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 59,
+        "side_effects": 21,
+        "total": 80
+      },
+      "sha256": "cb59cc23601eacfbad81c2d86db37b72256d40f400aa3769fbce4b15c7f54e9f",
+      "source": "data/results/project_management/deepseek-v4-pro_all_2026-06-03_18-15-53.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "DeepSeek-V4-pro",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 581,
+    "side_effects": 88,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

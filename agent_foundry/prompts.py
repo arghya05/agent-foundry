@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from importlib.resources import files
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,6 +17,16 @@ if TYPE_CHECKING:
 def load_prompt(path: str | Path, /, **variables: str) -> str:
     text = Path(path).read_text()
     return text.format(**variables) if variables else text
+
+
+def with_execution_guidance(instructions: str) -> str:
+    """Opt-in general execution guidance; not an enforcement or safety boundary.
+
+    Keep this profile explicit and benchmark it against the original prompt.
+    It contains no task answers, benchmark-specific rules, or tool names.
+    """
+    guidance = files("agent_foundry").joinpath("prompt_templates/grounded_execution.md").read_text(encoding="utf-8")
+    return instructions + "\n\n" + guidance.strip()
 
 
 @dataclass

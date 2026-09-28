@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/private/tmp/agent-foundry-baseline-20260928/benchmarks/workbench/run.py",
+    "live",
+    "--split",
+    "heldout",
+    "--per-domain",
+    "2",
+    "--heldout-per-domain",
+    "10",
+    "--providers",
+    "openai",
+    "--max-spend-usd",
+    "25",
+    "--ledger",
+    "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/results/budget-ledger.json",
+    "--output",
+    "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/benchmarks/workbench/results/heldout-20260928-baseline"
+  ],
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "started_utc": "2026-09-27T19:10:22.611500+00:00"
+}

@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 105,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 105,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "14d6cf5953acb8efce0221059b9b1778f9674f1a5472910a7f85aa35991b23c0",
+      "source": "data/results/analytics/gpt-4.1_all_2026-06-04_10-11-57.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 91,
+        "side_effects": 17,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 91,
+        "side_effects": 17,
+        "total": 110
+      },
+      "sha256": "5be82ebae0a53d2bcd225e88f4a2ba123a9662096226b9dc11df5dcd3d1dd3b1",
+      "source": "data/results/calendar/gpt-4.1_all_2026-06-04_10-11-26.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 59,
+        "side_effects": 12,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 59,
+        "side_effects": 12,
+        "total": 80
+      },
+      "sha256": "34dfefa13ae1c9042a0f0f9e56273881f0e6d3d67b10611615d24565d7ededd1",
+      "source": "data/results/customer_relationship_manager/gpt-4.1_all_2026-06-04_10-12-51.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 89,
+        "side_effects": 1,
+        "total": 90
+      },
+      "sha256": "0820d1395646bd2d384b3e7fcbd28d983976fb852c96c8f3f14432b4b35bb004",
+      "source": "data/results/email/gpt-4.1_all_2026-06-04_10-10-16.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 108,
+        "side_effects": 87,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 108,
+        "side_effects": 87,
+        "total": 210
+      },
+      "sha256": "55e575b8519b4404d8cf6becd0b8722cd3fdf98d6bb01d9df30893088b00ad07",
+      "source": "data/results/multi_domain/gpt-4.1_all_2026-06-04_10-13-33.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 55,
+        "side_effects": 17,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 55,
+        "side_effects": 17,
+        "total": 80
+      },
+      "sha256": "d4ec4a0f28cea57184d1883fe0196af6871feccb43b6f0885e669801218942c4",
+      "source": "data/results/project_management/gpt-4.1_all_2026-06-04_10-12-27.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "GPT-4.1",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 507,
+    "side_effects": 134,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

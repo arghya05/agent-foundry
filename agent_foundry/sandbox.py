@@ -1,14 +1,9 @@
-"""Execution sandbox — runs untrusted code with a restricted builtins namespace and
-a wall-clock timeout. This closes both the "execution sandbox" (runtime harness)
-and "code execution tool" (tools gateway) gaps with one primitive: run_sandboxed()
-is the runtime mechanism, code_execution_tool() is the same thing wrapped as a
-ToolSpec an agent can call.
+"""Legacy restricted-builtins helper for trusted Python snippets.
 
-Honesty check: this is process-level isolation only — a restricted namespace plus
-a timeout, no seccomp, no container, no VM. It stops accidental misuse (an
-infinite loop, a stray `import os`), not a deliberately hostile actor. Swap
-run_sandboxed() for gVisor/Firecracker/a Docker-per-call before trusting genuinely
-untrusted input in production.
+This executes inside the hosting process. It provides no process, filesystem,
+network or hostile-code isolation, and does not prevent Python introspection.
+The thread timeout cannot terminate running code and may wait for it to finish.
+Use an independently isolated executor for untrusted or generated code.
 """
 from __future__ import annotations
 
@@ -26,8 +21,10 @@ _SAFE_BUILTINS = {name: getattr(_builtins, name) for name in _SAFE_NAMES}
 
 
 def run_sandboxed(code: str, *, timeout_s: float = 5.0) -> str:
-    """Executes `code` with only the names in _SAFE_BUILTINS available (no import,
-    no open, no exec/eval, no dunder access) and returns str(scope["result"])."""
+    """Execute trusted code with restricted builtins and return str(scope['result']).
+
+    Restricting builtins does not block introspection or establish a sandbox.
+    """
 
     def _exec() -> str:
         scope: dict[str, Any] = {"__builtins__": _SAFE_BUILTINS}
@@ -46,7 +43,7 @@ def code_execution_tool(*, timeout_s: float = 5.0) -> ToolSpec:
 
     return ToolSpec(
         name="run_python",
-        description="Run a short Python snippet in a restricted sandbox (no imports, no file/network access). Assign the answer to a variable named `result`.",
+        description="Run a trusted Python snippet with restricted builtins. This is not an isolation boundary. Assign the answer to a variable named `result`.",
         parameters={"code": "string"},
         fn=run_python,
     )

@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8222222222222222,
+      "api_latency_s": 310.9435449661687,
+      "attempted": 45,
+      "correct": 37,
+      "cost_per_success_usd_upper": 0.02805897972972973,
+      "cost_usd_upper": 1.03818225,
+      "errors": 1,
+      "model_requests": 143,
+      "p50_latency_s": 6.065518458024599,
+      "p95_latency_s": 10.934196166985203,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8444444444444444,
+      "api_latency_s": 269.56316758226603,
+      "attempted": 45,
+      "correct": 38,
+      "cost_per_success_usd_upper": 0.01935345394736842,
+      "cost_usd_upper": 0.73543125,
+      "errors": 0,
+      "model_requests": 144,
+      "p50_latency_s": 5.939378792012576,
+      "p95_latency_s": 8.661417333001737,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.7777777777777778,
+      "api_latency_s": 290.08718337485334,
+      "attempted": 45,
+      "correct": 35,
+      "cost_per_success_usd_upper": 0.03026421428571429,
+      "cost_usd_upper": 1.0592475000000001,
+      "errors": 1,
+      "model_requests": 148,
+      "p50_latency_s": 6.109873208974022,
+      "p95_latency_s": 12.066800458007492,
+      "planned": 60,
+      "unwanted_side_effects": 6
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 10.7255615,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0.044444444444444446,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.06666666666666667,
+        0.15555555555555556
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 45
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.06666666666666667,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.022222222222222223,
+        0.15555555555555556
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 45
+    }
+  },
+  "rows_finished": 135,
+  "scope": "diagnostic",
+  "stop_reason": "RemoteProtocolError"
+}

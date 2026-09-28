@@ -1,0 +1,147 @@
+{
+  "additional_core_tests": {
+    "artifact": "mnemosyne-core-validation-20260928.txt",
+    "files": [
+      "tests/core/test_validated_recovery_admission_boundary.py",
+      "tests/core/test_commit_batch_and_projection.py",
+      "tests/core/test_op_id_idempotency.py",
+      "tests/core/test_outbox_intents.py"
+    ],
+    "passed": 8
+  },
+  "boundary": "Selected RQ tests implement local abstractions; production comparator validates hard-coded capability records, not live PostgreSQL/Temporal behavior. No Foundry performance comparison.",
+  "commit": "7aab09c43c1672c01b415b4987cd2d1d9a6fd0a4",
+  "inspected_files": [
+    {
+      "from_imports": [],
+      "lines": 38,
+      "path": "ARTIFACT_EVALUATION.md",
+      "sha256": "ad9f87bf776911ae287edff4bb22c746cf036d72a7007a5fe462ee271f31179b"
+    },
+    {
+      "from_imports": [],
+      "lines": 38,
+      "path": "pyproject.toml",
+      "sha256": "e28600bc812f432776b154cb40572aa7be0e29b37432efca892e41ddb5d0511f"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "collections.abc",
+        "dataclasses",
+        "mnemosyne.core.fsm",
+        "mnemosyne.core.models",
+        "mnemosyne.core.protocols",
+        "mnemosyne.core.replay",
+        "typing"
+      ],
+      "lines": 260,
+      "path": "mnemosyne/core/validation/validator.py",
+      "sha256": "da73af32c672540c064f6e00a1becbc1366bd935d7796407f4c1c85a6b1b8d3d"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "pathlib"
+      ],
+      "lines": 75,
+      "path": "tests/benchmarks/test_production_tp_comparator.py",
+      "sha256": "1ae34fbef718976aaa97d8c34d2adcfeebac8633a08bc64e8f551196aaff2953"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 335,
+      "path": "tests/experiments/test_rq1_authority_separation.py",
+      "sha256": "5343d39fba48da6048f83b3ec619f696d632c183e3a62722814e0e329b093b31"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "concurrent.futures",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 462,
+      "path": "tests/experiments/test_rq2_serial_equivalent_admission.py",
+      "sha256": "490b5e6f157c018d62557fbd927e45d96786165094786649eeb7c0441f53b879"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 336,
+      "path": "tests/experiments/test_rq3_evidence_preserving_repair.py",
+      "sha256": "dc7a9f9fafda16a86bb6c10b81b7a144276969437511bbbabccc5a0b6615791f"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 292,
+      "path": "tests/experiments/test_rq4_obligation_containment.py",
+      "sha256": "daefde99dccf3268213d0f7fba73740dfc3f1683e5b80fee921a7ac6dd59f35f"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 294,
+      "path": "tests/experiments/test_rq5_effective_state_compensation.py",
+      "sha256": "fade5e3d57de8c6494fccbc0647949492a1285625aa17dfcbdb0d5a3e47ed766"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "concurrent.futures",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 436,
+      "path": "tests/experiments/test_rq6_storage_substrate_correctness.py",
+      "sha256": "d8e34342fe70325ea94375b2aa1effd03a3441c2d30c7e1bed3855b5d0e2def3"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 318,
+      "path": "tests/experiments/test_rq7_j1_j4_end_to_end_atp.py",
+      "sha256": "42863ad59607c371a658900b6c3f7a0149226ca573d61259a2ee951b075a0ee6"
+    },
+    {
+      "from_imports": [
+        "__future__",
+        "dataclasses",
+        "pathlib"
+      ],
+      "lines": 284,
+      "path": "tests/experiments/test_rq8_proposer_quality_safety_invariant.py",
+      "sha256": "195b9e0419cbed72360f5dc6eb9571fab0c2d0c4f32ecc1c801c421ece10d529"
+    }
+  ],
+  "missing_at_paper_named_tag": [
+    "tests/benchmarks/test_recursive_recovery_stress.py",
+    "tests/benchmarks/test_rq5_data_scale.py"
+  ],
+  "not_executed": [
+    "Live LLM pilots",
+    "Temporal product test",
+    "Live PostgreSQL tests"
+  ],
+  "source": "https://github.com/eyuchang/Mnemosyne",
+  "tag": "arxiv-atp-rq1-rq9b-r8-v2",
+  "tests_passed": 10,
+  "warning": "pytest-asyncio absent; selected tests were synchronous"
+}

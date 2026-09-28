@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "benchmarks/workbench/run.py",
+    "live",
+    "--split",
+    "diagnostic",
+    "--per-domain",
+    "2",
+    "--heldout-per-domain",
+    "10",
+    "--instruction-profile",
+    "grounded",
+    "--providers",
+    "openai",
+    "--max-spend-usd",
+    "25",
+    "--output",
+    "benchmarks/workbench/results/diagnostic-20260928-grounded"
+  ],
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "started_utc": "2026-09-28T01:17:54.100005+00:00"
+}

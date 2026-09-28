@@ -1,0 +1,7 @@
+Using Python 3.11.15 environment at: /private/tmp/agent-foundry-review-env
+error: Request failed after 3 retries in 9.6s
+  Caused by: Failed to fetch: `https://pypi.org/simple/ruff/`
+  Caused by: error sending request for url (https://pypi.org/simple/ruff/)
+  Caused by: client error (Connect)
+  Caused by: dns error
+  Caused by: failed to lookup address information: nodename nor servname provided, or not known

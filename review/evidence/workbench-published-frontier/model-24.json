@@ -1,0 +1,105 @@
+{
+  "domains": {
+    "analytics": {
+      "expected": {
+        "correct": 119,
+        "side_effects": 0,
+        "total": 120
+      },
+      "matches": true,
+      "measured": {
+        "correct": 119,
+        "side_effects": 0,
+        "total": 120
+      },
+      "sha256": "d23bf1bf47b5895fda61bdaaf8843d97fba432e54f3ac619c8663eb25a5c70a1",
+      "source": "data/results/analytics/claude-fable-5_all_2026-06-09_22-16-45.csv.gz"
+    },
+    "calendar": {
+      "expected": {
+        "correct": 109,
+        "side_effects": 1,
+        "total": 110
+      },
+      "matches": true,
+      "measured": {
+        "correct": 109,
+        "side_effects": 1,
+        "total": 110
+      },
+      "sha256": "45e3194ee4106fcea1909720629385a6829f4ce7248df7b04acfa55755d7a8ba",
+      "source": "data/results/calendar/claude-fable-5_all_2026-06-09_22-13-47.csv.gz"
+    },
+    "customer_relationship_manager": {
+      "expected": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 80,
+        "side_effects": 0,
+        "total": 80
+      },
+      "sha256": "7de9c6f5ce0c120f6deec64e67ba6e13bb0c4b06a98203579e043ec0f332af30",
+      "source": "data/results/customer_relationship_manager/claude-fable-5_all_2026-06-09_22-20-08.csv.gz"
+    },
+    "email": {
+      "expected": {
+        "correct": 90,
+        "side_effects": 0,
+        "total": 90
+      },
+      "matches": true,
+      "measured": {
+        "correct": 90,
+        "side_effects": 0,
+        "total": 90
+      },
+      "sha256": "28a1312c5946de4cb0ee0583ecb66a24baaaf6bf076f74d9b2257db7372b3e96",
+      "source": "data/results/email/claude-fable-5_all_2026-06-09_22-15-23.csv.gz"
+    },
+    "multi_domain": {
+      "expected": {
+        "correct": 205,
+        "side_effects": 3,
+        "total": 210
+      },
+      "matches": true,
+      "measured": {
+        "correct": 205,
+        "side_effects": 3,
+        "total": 210
+      },
+      "sha256": "b2341a5cd83ce52db06212db2d0fc0443a6bcd61febbfe61626cc5f6971cf86a",
+      "source": "data/results/multi_domain/claude-fable-5_all_2026-06-09_22-21-37.csv.gz"
+    },
+    "project_management": {
+      "expected": {
+        "correct": 71,
+        "side_effects": 9,
+        "total": 80
+      },
+      "matches": true,
+      "measured": {
+        "correct": 71,
+        "side_effects": 9,
+        "total": 80
+      },
+      "sha256": "a9eae116206ee88d274585a0ca669b766bb635caaee19a6b6a776fa58e24f209",
+      "source": "data/results/project_management/claude-fable-5_all_2026-06-09_22-18-27.csv.gz"
+    }
+  },
+  "ground_truth_version": "v2",
+  "kind": "upstream_saved_prediction_reproduction",
+  "matches": true,
+  "model": "Fable 5",
+  "not_foundry_performance": true,
+  "totals": {
+    "correct": 674,
+    "side_effects": 13,
+    "total": 690
+  },
+  "workbench_commit": "49c7dfd00c03d384ec59ea57374f50b766aa5613"
+}

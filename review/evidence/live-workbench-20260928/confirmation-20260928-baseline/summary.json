@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8166666666666667,
+      "api_latency_s": 454.8581874074298,
+      "attempted": 60,
+      "correct": 49,
+      "cost_per_success_usd_upper": 0.038616229591836734,
+      "cost_usd_upper": 1.89219525,
+      "errors": 3,
+      "model_requests": 197,
+      "p50_latency_s": 5.9126547494961414,
+      "p95_latency_s": 11.629269334021956,
+      "planned": 60,
+      "unwanted_side_effects": 7
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8333333333333334,
+      "api_latency_s": 390.41851465724176,
+      "attempted": 60,
+      "correct": 50,
+      "cost_per_success_usd_upper": 0.024838815,
+      "cost_usd_upper": 1.24194075,
+      "errors": 1,
+      "model_requests": 189,
+      "p50_latency_s": 5.957063562498661,
+      "p95_latency_s": 11.228378708008677,
+      "planned": 60,
+      "unwanted_side_effects": 8
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.7627118644067796,
+      "api_latency_s": 444.22982061834773,
+      "attempted": 59,
+      "correct": 45,
+      "cost_per_success_usd_upper": 0.040296066666666665,
+      "cost_usd_upper": 1.813323,
+      "errors": 3,
+      "model_requests": 181,
+      "p50_latency_s": 5.813141749997158,
+      "p95_latency_s": 13.289932542014867,
+      "planned": 60,
+      "unwanted_side_effects": 8
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 16.7196755,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0.06779661016949153,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.03389830508474576,
+        0.1694915254237288
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 59
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.06779661016949153,
+      "exploratory_paired_bootstrap_95_interval": [
+        -0.05084745762711865,
+        0.1694915254237288
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 59
+    }
+  },
+  "rows_finished": 179,
+  "scope": "heldout",
+  "stop_reason": "RemoteProtocolError"
+}

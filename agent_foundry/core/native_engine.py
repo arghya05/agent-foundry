@@ -42,9 +42,11 @@ from typing import Any, Iterator
 from ..guardrails import screen_tool_output
 from ..orchestration import (
     CLARIFY_PREFIX, AgentConfig, _default_idempotency_key, _dispatch_tool_calls, _finalize_turn, _get_all_tool_calls,
-    _resolve_identity, _tool_param_names, _tool_timeout,
+    _resolve_identity, _tool_param_names, _tool_timeout, _resolve_budget, _resolve_tool_policy,
+    _resolve_model_names, _memory_key,
 )
 from ..runtime import with_timeout
+from ..execution_scope import request_value, check_admission
 from ..tools_gateway import PermissionDenied
 from .protocols import StateStore
 
@@ -190,6 +192,7 @@ class NativeEngine:
 
     def _resume_locked(self, config: AgentConfig, *, approved: bool, thread_id: str) -> dict[str, Any]:
         state = self._state_for(thread_id)
+        check_admission(state)
         pending = state.get("_pending")
         if pending is None:
             raise RuntimeError(f"thread {thread_id!r} has nothing pending to resume")
@@ -208,7 +211,7 @@ class NativeEngine:
         assert config.critique is not None
         if not approved:
             state["messages"][-1] = {"role": "assistant", "content": config.critique.fallback_message}
-        _finalize_turn(config, thread_id, budget=config.budget, outcome="completed_with_review")
+        _finalize_turn(config, thread_id, budget=_resolve_budget(config, state), outcome="completed_with_review")
         return self._raw(state)
 
     # ---- the loop -----------------------------------------------------------
@@ -253,7 +256,7 @@ class NativeEngine:
                 yield self._raw(state)  # critique requested a retry this step
                 continue  # critique retry -> think
 
-            _finalize_turn(config, thread_id, budget=config.budget, outcome="completed")
+            _finalize_turn(config, thread_id, budget=_resolve_budget(config, state), outcome="completed")
             yield self._raw(state)
             return
 
@@ -275,7 +278,8 @@ class NativeEngine:
 
     def _think(self, config: AgentConfig, state: dict[str, Any], thread_id: str) -> None:
         session_id = thread_id
-        config.budget.step(thread_id=session_id)
+        check_admission(state)
+        _resolve_budget(config, state).step(thread_id=session_id)
         if config.latency_budget is not None:
             config.latency_budget.check(thread_id=session_id)
 
@@ -302,9 +306,9 @@ class NativeEngine:
             # make_think_node — see its own comment for why tenant_id stays
             # None absent an actual per-request identity.
             request_identity = _resolve_identity(config, state)
-            has_request_identity = state.get("request_identity") is not None
+            has_request_identity = request_value(state, "request_identity") is not None
             built = config.context_engine.build(
-                session_id, last_user["content"], roles=frozenset(request_identity.roles),
+                _memory_key(state, session_id), last_user["content"], roles=frozenset(request_identity.roles),
                 tenant_id=request_identity.tenant_id if has_request_identity else None,
             )
             if built:
@@ -312,7 +316,7 @@ class NativeEngine:
         elif config.memory is not None and last_user is not None:
             from ..guardrails import looks_like_injection
 
-            passages = [p for p in config.memory.semantic.search(session_id, last_user["content"]) if not looks_like_injection(p)]
+            passages = [p for p in config.memory.semantic.search(_memory_key(state, session_id), last_user["content"]) if not looks_like_injection(p)]
             if passages:
                 prompt = config.system_prompt + "\n\nRelevant context:\n" + "\n".join(f"- {p}" for p in passages)
 
@@ -322,14 +326,16 @@ class NativeEngine:
             if profile:
                 prompt = prompt + "\n\nWhat you already know about this user (persists across sessions):\n" + "\n".join(f"- {k}: {v}" for k, v in profile.items())
 
-        native_tools = config.tools.native_tools(config.policy)
+        native_tools = config.tools.native_tools(_resolve_tool_policy(config, state))
         messages = [{"role": "system", "content": prompt}, *state["messages"]]
         task = config.task(state) if callable(config.task) else config.task
         with config.tracer.span("native.think") as span:
             def call():
-                return config.llm.complete(messages, task=task, tools=native_tools or None)
+                return config.llm.complete(messages, task=task, tools=native_tools or None,
+                                           models=_resolve_model_names(config, state, task))
             resp = with_timeout(call, seconds=config.step_timeout_s) if config.step_timeout_s else call()
-            config.budget.spend(resp.cost_usd, thread_id=session_id)
+            _resolve_budget(config, state).spend(resp.cost_usd, thread_id=session_id)
+            check_admission(state)
             span["attributes"].update(cost_usd=resp.cost_usd, model=resp.model, native_tool_calls=len(resp.tool_calls), task=task)
         config.eval_harness.record("atomic", "think", "responded", 1.0, model=resp.model, task=task, session_id=session_id)
 
@@ -353,6 +359,7 @@ class NativeEngine:
         self, config: AgentConfig, state: dict[str, Any], thread_id: str, *, resume: tuple[str, str | None, bool] | None = None,
     ) -> dict[str, Any] | None:
         session_id = thread_id
+        check_admission(state)
         identity = _resolve_identity(config, state)
         resolved_user_id = (config.user_id(state) if callable(config.user_id) else config.user_id) if config.user_id is not None else None
         calls = _get_all_tool_calls(state["messages"][-1])
@@ -374,7 +381,7 @@ class NativeEngine:
             LangGraph's interrupt()) so everything ordered before an
             approval-needing call has genuinely run, and once more after
             the loop for whatever's left."""
-            for i, outcome in _dispatch_tool_calls(config, cleared, identity=identity, policy=config.policy):
+            for i, outcome in _dispatch_tool_calls(config, cleared, identity=identity, policy=_resolve_tool_policy(config, state)):
                 tool_name = tool_names_by_index[i]
                 tool_call_id = call_ids_by_index[i]
                 if isinstance(outcome, PermissionDenied):
@@ -393,6 +400,7 @@ class NativeEngine:
             cleared.clear()
 
         for i, (tool_name, args, tool_call_id) in enumerate(calls):
+            check_admission(state)
             tool_names_by_index[i] = tool_name
             call_ids_by_index[i] = tool_call_id
             if config.tools.has(tool_name):
@@ -410,13 +418,13 @@ class NativeEngine:
             # Every tool call goes through the PDP, no bypass — AgentConfig.
             # __post_init__ guarantees config.pdp is never None.
             assert config.pdp is not None
-            gr = config.pdp.decide(tool_name, args, identity=identity, policy=config.policy,
-                                    destructive=destructive, cost_so_far=config.budget.cost_usd_for(session_id),
+            gr = config.pdp.decide(tool_name, args, identity=identity, policy=_resolve_tool_policy(config, state),
+                                    destructive=destructive, cost_so_far=_resolve_budget(config, state).cost_usd_for(session_id),
                                     hosts=spec.egress_hosts if spec is not None else frozenset(),
                                     scopes=spec.scopes if spec is not None else frozenset(),
                                     requires_confirmation=spec is not None and spec.requires_confirmation,
                                     data_classification=spec.data_classification if spec is not None else "internal")
-            needs_approval = not gr.allowed and gr.reason is not None and "approval" in gr.reason
+            needs_approval = not gr.allowed and gr.requires_approval
             if needs_approval:
                 already_decided = resume is not None and resume[0] == tool_name and resume[1] == tool_call_id
                 if not already_decided:
@@ -461,6 +469,7 @@ class NativeEngine:
     def _critique(self, config: AgentConfig, state: dict[str, Any], thread_id: str) -> dict[str, Any] | None:
         assert config.critique is not None
         session_id = thread_id
+        check_admission(state)
         draft = state["messages"][-1]["content"]
 
         if isinstance(draft, str) and draft.strip().startswith(CLARIFY_PREFIX):
@@ -468,7 +477,7 @@ class NativeEngine:
             config.eval_harness.record("atomic", "critique", "clarification_requested", 1.0,
                                         reason="model asked the user a clarifying question instead of guessing", session_id=session_id)
             state["messages"].append({"role": "assistant", "content": question})
-            _finalize_turn(config, session_id, budget=config.budget, outcome="needs_clarification")
+            _finalize_turn(config, session_id, budget=_resolve_budget(config, state), outcome="needs_clarification")
             return self._raw(state)
 
         result = config.critique.kpi.evaluate(config.critique.context(state, draft))
@@ -521,7 +530,7 @@ class NativeEngine:
             state["_pending"] = pending
             return self._raw(state, interrupt=pending)
 
-        _finalize_turn(config, session_id, budget=config.budget, outcome="completed" if result.passed else "completed_low_confidence")
+        _finalize_turn(config, session_id, budget=_resolve_budget(config, state), outcome="completed" if result.passed else "completed_low_confidence")
         return self._raw(state)
 
 

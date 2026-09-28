@@ -1,0 +1,33 @@
+{
+  "archive_bytes": 13170,
+  "archive_format": "gzip-compressed tar; original file bytes retained",
+  "archive_sha256": "3f269ea67f3ee254ea9e373c98d40253662c84127852e663bd52588aeba77e25",
+  "campaign": "pilot-20260928-openai",
+  "complete": false,
+  "credential_pattern_matches": 0,
+  "files": {
+    "attempts/a9440003860d60e12d97a36f.json": {
+      "bytes": 40985,
+      "sha256": "af89cf704af1168349c3e9233c23b3119fb49be430a6d2a3c4002cdc2be08015"
+    },
+    "environment.txt": {
+      "bytes": 1446,
+      "sha256": "f63fef47e23b2741fdc0617f47cbf8a5791c879f4108898b6150afb1435f6f82"
+    },
+    "execution.json": {
+      "bytes": 368,
+      "sha256": "4fcfb6a70ef68e3f857b1a8a40d57b187cedf4470b43102dd35d1876a2ccb925"
+    },
+    "manifest.json": {
+      "bytes": 15164,
+      "sha256": "8d24d22d03ad157140bd5f59cb4cf652e26fbfeb2bbe8d6cce406d98b5f2cdea"
+    },
+    "summary.json": {
+      "bytes": 1996,
+      "sha256": "c417b976ecad60dac387ab3b7430f2c95aaffb67dd652a1746bec297ea970f26"
+    }
+  },
+  "finished_attempts": 1,
+  "known_credential_matches": 0,
+  "scope": "Public synthetic WorkBench tasks; provider response items and usage; no request headers"
+}

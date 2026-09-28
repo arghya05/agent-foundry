@@ -1,0 +1,712 @@
+tests/test_a2a_bridge.py:10:1: E402 Module level import not at top of file
+   |
+ 8 | fastapi = pytest.importorskip("fastapi")
+ 9 |
+10 | from agent_foundry.contracts import Identity, LLMResponse, Policy
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+11 | from agent_foundry.eval import EvalHarness
+12 | from agent_foundry.guardrails import GuardrailEngine
+   |
+
+tests/test_a2a_bridge.py:11:1: E402 Module level import not at top of file
+   |
+10 | from agent_foundry.contracts import Identity, LLMResponse, Policy
+11 | from agent_foundry.eval import EvalHarness
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+12 | from agent_foundry.guardrails import GuardrailEngine
+13 | from agent_foundry.llm_gateway import LLMGateway
+   |
+
+tests/test_a2a_bridge.py:12:1: E402 Module level import not at top of file
+   |
+10 | from agent_foundry.contracts import Identity, LLMResponse, Policy
+11 | from agent_foundry.eval import EvalHarness
+12 | from agent_foundry.guardrails import GuardrailEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+13 | from agent_foundry.llm_gateway import LLMGateway
+14 | from agent_foundry.observability import Tracer
+   |
+
+tests/test_a2a_bridge.py:13:1: E402 Module level import not at top of file
+   |
+11 | from agent_foundry.eval import EvalHarness
+12 | from agent_foundry.guardrails import GuardrailEngine
+13 | from agent_foundry.llm_gateway import LLMGateway
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+14 | from agent_foundry.observability import Tracer
+15 | from agent_foundry.orchestration import build_agent_graph
+   |
+
+tests/test_a2a_bridge.py:14:1: E402 Module level import not at top of file
+   |
+12 | from agent_foundry.guardrails import GuardrailEngine
+13 | from agent_foundry.llm_gateway import LLMGateway
+14 | from agent_foundry.observability import Tracer
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+15 | from agent_foundry.orchestration import build_agent_graph
+16 | from agent_foundry.runtime import RunBudget
+   |
+
+tests/test_a2a_bridge.py:15:1: E402 Module level import not at top of file
+   |
+13 | from agent_foundry.llm_gateway import LLMGateway
+14 | from agent_foundry.observability import Tracer
+15 | from agent_foundry.orchestration import build_agent_graph
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+16 | from agent_foundry.runtime import RunBudget
+17 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_a2a_bridge.py:16:1: E402 Module level import not at top of file
+   |
+14 | from agent_foundry.observability import Tracer
+15 | from agent_foundry.orchestration import build_agent_graph
+16 | from agent_foundry.runtime import RunBudget
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+17 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_a2a_bridge.py:17:1: E402 Module level import not at top of file
+   |
+15 | from agent_foundry.orchestration import build_agent_graph
+16 | from agent_foundry.runtime import RunBudget
+17 | from agent_foundry.tools_gateway import ToolRegistry
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+18 |
+19 | from agent_foundry.a2a_bridge import agent_card_for, build_a2a_app, send_a2a_message
+   |
+
+tests/test_a2a_bridge.py:19:1: E402 Module level import not at top of file
+   |
+17 | from agent_foundry.tools_gateway import ToolRegistry
+18 |
+19 | from agent_foundry.a2a_bridge import agent_card_for, build_a2a_app, send_a2a_message
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+tests/test_agent_distributed_redis.py:24:1: E402 Module level import not at top of file
+   |
+22 | pytestmark = pytest.mark.skipif(not _REDIS_AVAILABLE, reason="no reachable redis-server on localhost:6399")
+23 |
+24 | from agent_foundry import Agent, ExecutionContext
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+25 | from agent_foundry.contracts import Policy
+26 | from agent_foundry.distributed import RedisRunBudget
+   |
+
+tests/test_agent_distributed_redis.py:25:1: E402 Module level import not at top of file
+   |
+24 | from agent_foundry import Agent, ExecutionContext
+25 | from agent_foundry.contracts import Policy
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+26 | from agent_foundry.distributed import RedisRunBudget
+27 | from agent_foundry.llm_gateway import LLMGateway
+   |
+
+tests/test_agent_distributed_redis.py:26:1: E402 Module level import not at top of file
+   |
+24 | from agent_foundry import Agent, ExecutionContext
+25 | from agent_foundry.contracts import Policy
+26 | from agent_foundry.distributed import RedisRunBudget
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+27 | from agent_foundry.llm_gateway import LLMGateway
+28 | from agent_foundry.runtime import BudgetExceeded
+   |
+
+tests/test_agent_distributed_redis.py:27:1: E402 Module level import not at top of file
+   |
+25 | from agent_foundry.contracts import Policy
+26 | from agent_foundry.distributed import RedisRunBudget
+27 | from agent_foundry.llm_gateway import LLMGateway
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+28 | from agent_foundry.runtime import BudgetExceeded
+   |
+
+tests/test_agent_distributed_redis.py:28:1: E402 Module level import not at top of file
+   |
+26 | from agent_foundry.distributed import RedisRunBudget
+27 | from agent_foundry.llm_gateway import LLMGateway
+28 | from agent_foundry.runtime import BudgetExceeded
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+29 |
+30 | from conftest import ScriptedProvider
+   |
+
+tests/test_agent_distributed_redis.py:30:1: E402 Module level import not at top of file
+   |
+28 | from agent_foundry.runtime import BudgetExceeded
+29 |
+30 | from conftest import ScriptedProvider
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+31 |
+32 | _REDIS_URL = "redis://localhost:6399/0"
+   |
+
+tests/test_autogen_bridge.py:6:1: E402 Module level import not at top of file
+  |
+4 | autogen_core = pytest.importorskip("autogen_core")
+5 |
+6 | from agent_foundry.autogen_bridge import autogen_as_tool
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+7 | from agent_foundry.contracts import Identity, Policy
+8 | from agent_foundry.tools_gateway import ToolRegistry
+  |
+
+tests/test_autogen_bridge.py:7:1: E402 Module level import not at top of file
+  |
+6 | from agent_foundry.autogen_bridge import autogen_as_tool
+7 | from agent_foundry.contracts import Identity, Policy
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+8 | from agent_foundry.tools_gateway import ToolRegistry
+  |
+
+tests/test_autogen_bridge.py:8:1: E402 Module level import not at top of file
+  |
+6 | from agent_foundry.autogen_bridge import autogen_as_tool
+7 | from agent_foundry.contracts import Identity, Policy
+8 | from agent_foundry.tools_gateway import ToolRegistry
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+  |
+
+tests/test_cli.py:15:39: F401 [*] `agent_foundry.llm_gateway.LLMGateway` imported but unused
+   |
+13 | from agent_foundry import cli
+14 | from agent_foundry.contracts import LLMResponse
+15 | from agent_foundry.llm_gateway import LLMGateway
+   |                                       ^^^^^^^^^^ F401
+   |
+   = help: Remove unused import: `agent_foundry.llm_gateway.LLMGateway`
+
+tests/test_contracts_and_guardrails.py:1:52: F401 [*] `agent_foundry.contracts.GuardrailResult` imported but unused
+  |
+1 | from agent_foundry.contracts import AutonomyLevel, GuardrailResult, LLMResponse, Policy, ToolCall
+  |                                                    ^^^^^^^^^^^^^^^ F401
+2 | from agent_foundry.guardrails import GuardrailEngine, LLMGuardrails, redact
+  |
+  = help: Remove unused import: `agent_foundry.contracts.GuardrailResult`
+
+tests/test_distributed.py:34:1: E402 Module level import not at top of file
+   |
+32 | pytestmark = pytest.mark.skipif(not _REDIS_UP, reason=f"no Redis reachable at {REDIS_URL}")
+33 |
+34 | from agent_foundry.contracts import Policy, ToolResult, ToolSpec
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+35 | from agent_foundry.distributed import (
+36 |     RedisCostLedger, RedisIdempotencyStore, RedisLease, RedisRateLimiter, RedisRunBudget, RedisSLATracker,
+   |
+
+tests/test_distributed.py:35:1: E402 Module level import not at top of file
+   |
+34 |   from agent_foundry.contracts import Policy, ToolResult, ToolSpec
+35 | / from agent_foundry.distributed import (
+36 | |     RedisCostLedger, RedisIdempotencyStore, RedisLease, RedisRateLimiter, RedisRunBudget, RedisSLATracker,
+37 | |     RedisToolCache,
+38 | | )
+   | |_^ E402
+39 |   from agent_foundry.orchestration import build_agent_graph
+40 |   from agent_foundry.runtime import BudgetExceeded
+   |
+
+tests/test_distributed.py:39:1: E402 Module level import not at top of file
+   |
+37 |     RedisToolCache,
+38 | )
+39 | from agent_foundry.orchestration import build_agent_graph
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+40 | from agent_foundry.runtime import BudgetExceeded
+41 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_distributed.py:40:1: E402 Module level import not at top of file
+   |
+38 | )
+39 | from agent_foundry.orchestration import build_agent_graph
+40 | from agent_foundry.runtime import BudgetExceeded
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+41 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_distributed.py:41:1: E402 Module level import not at top of file
+   |
+39 | from agent_foundry.orchestration import build_agent_graph
+40 | from agent_foundry.runtime import BudgetExceeded
+41 | from agent_foundry.tools_gateway import ToolRegistry
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+42 |
+43 | from conftest import ScriptedProvider, make_config_kwargs
+   |
+
+tests/test_distributed.py:43:1: E402 Module level import not at top of file
+   |
+41 | from agent_foundry.tools_gateway import ToolRegistry
+42 |
+43 | from conftest import ScriptedProvider, make_config_kwargs
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+tests/test_eval_and_kpi.py:43:43: F401 [*] `agent_foundry.llm_gateway.LLMGateway` imported but unused
+   |
+41 |     failure, not just two independent tool calls."""
+42 |     from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+43 |     from agent_foundry.llm_gateway import LLMGateway
+   |                                           ^^^^^^^^^^ F401
+44 |     from agent_foundry.orchestration import build_agent_graph
+45 |     from agent_foundry.tools_gateway import ToolRegistry
+   |
+   = help: Remove unused import: `agent_foundry.llm_gateway.LLMGateway`
+
+tests/test_eval_and_kpi.py:174:5: E731 Do not assign a `lambda` expression, use a `def`
+    |
+172 |     exactly the case reference_check_kpi's fuzzy math alone would score
+173 |     deceptively high)."""
+174 |     references = lambda ctx: ["Metformin SR 500 mg — 1 tablet twice daily, take with food"]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E731
+175 |     kpi = composite_grounding_kpi("grounding", references=references, weight_reference=0.5, weight_fact=0.5, threshold=0.5)
+    |
+    = help: Rewrite `references` as a `def`
+
+tests/test_eval_and_kpi.py:196:5: E731 Do not assign a `lambda` expression, use a `def`
+    |
+194 |         return 0.4  # deliberately below what the deterministic checks alone would give
+195 |
+196 |     references = lambda ctx: ["Metformin SR 500 mg — 1 tablet twice daily"]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E731
+197 |     kpi = composite_grounding_kpi(
+198 |         "grounding", references=references, judge=fake_judge,
+    |
+    = help: Rewrite `references` as a `def`
+
+tests/test_eval_and_kpi.py:223:5: E731 Do not assign a `lambda` expression, use a `def`
+    |
+221 |     fact's weight must be excluded (not scored as 1.0) when there's
+222 |     nothing for it to check."""
+223 |     references = lambda ctx: ["standard refund turnaround is 3-5 business days"]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E731
+224 |     kpi = composite_grounding_kpi("grounding", references=references, weight_reference=0.4, weight_fact=0.4, threshold=0.3)
+    |
+    = help: Rewrite `references` as a `def`
+
+tests/test_events.py:3:68: F401 [*] `agent_foundry.contracts.ToolSpec` imported but unused
+  |
+1 | import json
+2 |
+3 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+  |                                                                    ^^^^^^^^ F401
+4 | from agent_foundry.eval import EvalHarness
+5 | from agent_foundry.events import InMemoryEventBus, wire_event_driven
+  |
+  = help: Remove unused import: `agent_foundry.contracts.ToolSpec`
+
+tests/test_i18n.py:3:8: F401 [*] `pytest` imported but unused
+  |
+1 | from datetime import date
+2 |
+3 | import pytest
+  |        ^^^^^^ F401
+4 |
+5 | from agent_foundry.i18n import (
+  |
+  = help: Remove unused import: `pytest`
+
+tests/test_native_engine.py:8:8: F401 [*] `time` imported but unused
+   |
+ 6 | from __future__ import annotations
+ 7 |
+ 8 | import time
+   |        ^^^^ F401
+ 9 |
+10 | import pytest
+   |
+   = help: Remove unused import: `time`
+
+tests/test_native_engine_mutual_exclusion.py:54:5: F841 Local variable `thread_b_entered_while_a_still_blocked` is assigned to but never used
+   |
+53 |     # give B every opportunity to sneak in while A is blocked
+54 |     thread_b_entered_while_a_still_blocked = threading.Event()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ F841
+55 |
+56 |     def try_b() -> None:
+   |
+   = help: Remove assignment to unused variable `thread_b_entered_while_a_still_blocked`
+
+tests/test_native_orchestration_streaming.py:12:34: F401 [*] `agent_foundry.ExecutionContext` imported but unused
+   |
+10 | from __future__ import annotations
+11 |
+12 | from agent_foundry import Agent, ExecutionContext, Workflow
+   |                                  ^^^^^^^^^^^^^^^^ F401
+13 | from agent_foundry.blackboard import Blackboard
+14 | from agent_foundry.contracts import LLMResponse, Policy, ToolCall, ToolSpec
+   |
+   = help: Remove unused import: `agent_foundry.ExecutionContext`
+
+tests/test_orchestration.py:899:39: F401 [*] `agent_foundry.runtime.RunBudget` imported but unused
+    |
+897 |     hypothetical — found while wiring a multi-patient healthcare deployment."""
+898 |     from agent_foundry.contracts import Policy
+899 |     from agent_foundry.runtime import RunBudget
+    |                                       ^^^^^^^^^ F401
+900 |
+901 |     policy = Policy(allowed_tools=frozenset(), max_cost_usd_per_thread=1.0)
+    |
+    = help: Remove unused import: `agent_foundry.runtime.RunBudget`
+
+tests/test_run_lifecycle.py:87:5: F841 Local variable `provider` is assigned to but never used
+   |
+86 |     policy = Policy(max_cost_usd_per_thread=0.0)  # any spend at all exceeds this
+87 |     provider = ScriptedProvider(["a reply that costs something"])
+   |     ^^^^^^^^ F841
+88 |
+89 |     class ExpensiveProvider:
+   |
+   = help: Remove assignment to unused variable `provider`
+
+tests/test_runtime.py:73:26: E702 Multiple statements on one line (semicolon)
+   |
+71 |     cb = CircuitBreaker(failure_threshold=3)
+72 |     assert not cb.is_open("t")
+73 |     cb.record("t", False); cb.record("t", False)
+   |                          ^ E702
+74 |     assert not cb.is_open("t")
+75 |     cb.record("t", False)
+   |
+
+tests/test_security_and_policy_engine.py:339:39: F541 [*] f-string without any placeholders
+    |
+337 |     port = _free_port()
+338 |     proc = subprocess.Popen(
+339 |         [vault_bin, "server", "-dev", f"-dev-root-token-id=test-root-token", f"-dev-listen-address=127.0.0.1:{port}"],
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ F541
+340 |         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+341 |     )
+    |
+    = help: Remove extraneous `f` prefix
+
+tests/test_serve_and_channels.py:9:1: E402 Module level import not at top of file
+   |
+ 8 | fastapi = pytest.importorskip("fastapi")
+ 9 | from fastapi.testclient import TestClient
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+10 |
+11 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+   |
+
+tests/test_serve_and_channels.py:11:1: E402 Module level import not at top of file
+   |
+ 9 | from fastapi.testclient import TestClient
+10 |
+11 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+12 | from agent_foundry.eval import EvalHarness
+13 | from agent_foundry.guardrails import GuardrailEngine
+   |
+
+tests/test_serve_and_channels.py:12:1: E402 Module level import not at top of file
+   |
+11 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+12 | from agent_foundry.eval import EvalHarness
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+13 | from agent_foundry.guardrails import GuardrailEngine
+14 | from agent_foundry.llm_gateway import LLMGateway
+   |
+
+tests/test_serve_and_channels.py:13:1: E402 Module level import not at top of file
+   |
+11 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+12 | from agent_foundry.eval import EvalHarness
+13 | from agent_foundry.guardrails import GuardrailEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+14 | from agent_foundry.llm_gateway import LLMGateway
+15 | from agent_foundry.observability import Tracer
+   |
+
+tests/test_serve_and_channels.py:14:1: E402 Module level import not at top of file
+   |
+12 | from agent_foundry.eval import EvalHarness
+13 | from agent_foundry.guardrails import GuardrailEngine
+14 | from agent_foundry.llm_gateway import LLMGateway
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+15 | from agent_foundry.observability import Tracer
+16 | from agent_foundry.orchestration import build_agent_graph
+   |
+
+tests/test_serve_and_channels.py:15:1: E402 Module level import not at top of file
+   |
+13 | from agent_foundry.guardrails import GuardrailEngine
+14 | from agent_foundry.llm_gateway import LLMGateway
+15 | from agent_foundry.observability import Tracer
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+16 | from agent_foundry.orchestration import build_agent_graph
+17 | from agent_foundry.runtime import LatencyBudget, RunBudget
+   |
+
+tests/test_serve_and_channels.py:16:1: E402 Module level import not at top of file
+   |
+14 | from agent_foundry.llm_gateway import LLMGateway
+15 | from agent_foundry.observability import Tracer
+16 | from agent_foundry.orchestration import build_agent_graph
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+17 | from agent_foundry.runtime import LatencyBudget, RunBudget
+18 | from agent_foundry.serve import build_http_app
+   |
+
+tests/test_serve_and_channels.py:17:1: E402 Module level import not at top of file
+   |
+15 | from agent_foundry.observability import Tracer
+16 | from agent_foundry.orchestration import build_agent_graph
+17 | from agent_foundry.runtime import LatencyBudget, RunBudget
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+18 | from agent_foundry.serve import build_http_app
+19 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_serve_and_channels.py:18:1: E402 Module level import not at top of file
+   |
+16 | from agent_foundry.orchestration import build_agent_graph
+17 | from agent_foundry.runtime import LatencyBudget, RunBudget
+18 | from agent_foundry.serve import build_http_app
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+19 | from agent_foundry.tools_gateway import ToolRegistry
+   |
+
+tests/test_serve_and_channels.py:19:1: E402 Module level import not at top of file
+   |
+17 | from agent_foundry.runtime import LatencyBudget, RunBudget
+18 | from agent_foundry.serve import build_http_app
+19 | from agent_foundry.tools_gateway import ToolRegistry
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+tests/test_serve_and_channels.py:88:37: F401 [*] `agent_foundry.serve.chat_response_from_result` imported but unused
+   |
+86 |     proves the caller's own /chat (registered after build_http_app returns)
+87 |     actually wins, not the generic one, when serve_chat_route=False."""
+88 |     from agent_foundry.serve import chat_response_from_result
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^ F401
+89 |
+90 |     app = build_http_app(_support_graph(), serve_chat_route=False, allow_unauthenticated_demo=True)
+   |
+   = help: Remove unused import: `agent_foundry.serve.chat_response_from_result`
+
+tests/test_state_store_backends.py:38:1: E402 Module level import not at top of file
+   |
+36 |     _POSTGRES_UP = False
+37 |
+38 | from agent_foundry.core.state_store import PostgresStateStore
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+39 | from agent_foundry.distributed import RedisStateStore
+   |
+
+tests/test_state_store_backends.py:39:1: E402 Module level import not at top of file
+   |
+38 | from agent_foundry.core.state_store import PostgresStateStore
+39 | from agent_foundry.distributed import RedisStateStore
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+tests/test_tools_and_llm_gateway.py:3:37: F401 [*] `agent_foundry.contracts.Identity` imported but unused
+  |
+1 | import pytest
+2 |
+3 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+  |                                     ^^^^^^^^ F401
+4 | from agent_foundry.llm_gateway import (
+5 |     LLMGateway, MultiProvider, PricingRegistry, PromptCache, RateLimitExceeded,
+  |
+  = help: Remove unused import: `agent_foundry.contracts.Identity`
+
+tests/test_tools_and_llm_gateway.py:5:62: F401 [*] `agent_foundry.llm_gateway.RateLimitExceeded` imported but unused
+  |
+3 | from agent_foundry.contracts import Identity, LLMResponse, Policy, ToolSpec
+4 | from agent_foundry.llm_gateway import (
+5 |     LLMGateway, MultiProvider, PricingRegistry, PromptCache, RateLimitExceeded,
+  |                                                              ^^^^^^^^^^^^^^^^^ F401
+6 | )
+7 | from agent_foundry.runtime import RateLimiter
+  |
+  = help: Remove unused import: `agent_foundry.llm_gateway.RateLimitExceeded`
+
+tests/test_tools_and_llm_gateway.py:57:41: F811 [*] Redefinition of unused `Identity` from line 3
+   |
+55 |     with the same tenant_id getting a cache hit, and a different tenant_id
+56 |     NOT getting one, even though the tool call and args are identical."""
+57 |     from agent_foundry.contracts import Identity
+   |                                         ^^^^^^^^ F811
+58 |
+59 |     calls = []
+   |
+   = help: Remove definition: `Identity`
+
+tests/test_tools_and_llm_gateway.py:121:41: F811 [*] Redefinition of unused `Identity` from line 3
+    |
+119 |     inside ToolRegistry.invoke() instead of always failing on the first
+120 |     transient error."""
+121 |     from agent_foundry.contracts import Identity
+    |                                         ^^^^^^^^ F811
+122 |
+123 |     attempts = []
+    |
+    = help: Remove definition: `Identity`
+
+tests/test_tools_and_llm_gateway.py:278:22: E702 Multiple statements on one line (semicolon)
+    |
+276 |     captured_a = {}
+277 |     class FakeBlock:
+278 |         type = "text"; text = "ok"
+    |                      ^ E702
+279 |     class FakeUsage:
+280 |         input_tokens = 1; output_tokens = 1
+    |
+
+tests/test_tools_and_llm_gateway.py:280:25: E702 Multiple statements on one line (semicolon)
+    |
+278 |         type = "text"; text = "ok"
+279 |     class FakeUsage:
+280 |         input_tokens = 1; output_tokens = 1
+    |                         ^ E702
+281 |     class FakeAResp:
+282 |         content = [FakeBlock()]; usage = FakeUsage()
+    |
+
+tests/test_tools_and_llm_gateway.py:282:32: E702 Multiple statements on one line (semicolon)
+    |
+280 |         input_tokens = 1; output_tokens = 1
+281 |     class FakeAResp:
+282 |         content = [FakeBlock()]; usage = FakeUsage()
+    |                                ^ E702
+283 |     class FakeAMessages:
+284 |         def create(self, **kw):
+    |
+
+tests/test_tools_and_llm_gateway.py:285:34: E702 Multiple statements on one line (semicolon)
+    |
+283 |     class FakeAMessages:
+284 |         def create(self, **kw):
+285 |             captured_a.update(kw); return FakeAResp()
+    |                                  ^ E702
+286 |     class FakeAClient:
+287 |         messages = FakeAMessages()
+    |
+
+tests/test_tools_and_llm_gateway.py:296:23: E702 Multiple statements on one line (semicolon)
+    |
+294 |     captured_o = {}
+295 |     class FakeMsg:
+296 |         content = "ok"; tool_calls = None
+    |                       ^ E702
+297 |     class FakeChoice:
+298 |         message = FakeMsg()
+    |
+
+tests/test_tools_and_llm_gateway.py:300:26: E702 Multiple statements on one line (semicolon)
+    |
+298 |         message = FakeMsg()
+299 |     class FakeOUsage:
+300 |         prompt_tokens = 1; completion_tokens = 1
+    |                          ^ E702
+301 |     class FakeOResp:
+302 |         choices = [FakeChoice()]; usage = FakeOUsage()
+    |
+
+tests/test_tools_and_llm_gateway.py:302:33: E702 Multiple statements on one line (semicolon)
+    |
+300 |         prompt_tokens = 1; completion_tokens = 1
+301 |     class FakeOResp:
+302 |         choices = [FakeChoice()]; usage = FakeOUsage()
+    |                                 ^ E702
+303 |     class FakeCompletions:
+304 |         def create(self, **kw):
+    |
+
+tests/test_tools_and_llm_gateway.py:305:34: E702 Multiple statements on one line (semicolon)
+    |
+303 |     class FakeCompletions:
+304 |         def create(self, **kw):
+305 |             captured_o.update(kw); return FakeOResp()
+    |                                  ^ E702
+306 |     class FakeChat:
+307 |         completions = FakeCompletions()
+    |
+
+tests/test_tools_and_llm_gateway.py:331:22: E702 Multiple statements on one line (semicolon)
+    |
+329 |     captured = {}
+330 |     class FakeBlock:
+331 |         type = "text"; text = "ok"
+    |                      ^ E702
+332 |     class FakeUsage:
+333 |         input_tokens = 1; output_tokens = 1
+    |
+
+tests/test_tools_and_llm_gateway.py:333:25: E702 Multiple statements on one line (semicolon)
+    |
+331 |         type = "text"; text = "ok"
+332 |     class FakeUsage:
+333 |         input_tokens = 1; output_tokens = 1
+    |                         ^ E702
+334 |     class FakeAResp:
+335 |         content = [FakeBlock()]; usage = FakeUsage()
+    |
+
+tests/test_tools_and_llm_gateway.py:335:32: E702 Multiple statements on one line (semicolon)
+    |
+333 |         input_tokens = 1; output_tokens = 1
+334 |     class FakeAResp:
+335 |         content = [FakeBlock()]; usage = FakeUsage()
+    |                                ^ E702
+336 |     class FakeAMessages:
+337 |         def create(self, **kw):
+    |
+
+tests/test_tools_and_llm_gateway.py:338:32: E702 Multiple statements on one line (semicolon)
+    |
+336 |     class FakeAMessages:
+337 |         def create(self, **kw):
+338 |             captured.update(kw); return FakeAResp()
+    |                                ^ E702
+339 |     class FakeAClient:
+340 |         messages = FakeAMessages()
+    |
+
+tests/test_tools_and_llm_gateway.py:357:22: E702 Multiple statements on one line (semicolon)
+    |
+355 |     captured = {}
+356 |     class FakeBlock:
+357 |         type = "text"; text = "ok"
+    |                      ^ E702
+358 |     class FakeUsage:
+359 |         input_tokens = 1; output_tokens = 1
+    |
+
+tests/test_tools_and_llm_gateway.py:359:25: E702 Multiple statements on one line (semicolon)
+    |
+357 |         type = "text"; text = "ok"
+358 |     class FakeUsage:
+359 |         input_tokens = 1; output_tokens = 1
+    |                         ^ E702
+360 |     class FakeAResp:
+361 |         content = [FakeBlock()]; usage = FakeUsage()
+    |
+
+tests/test_tools_and_llm_gateway.py:361:32: E702 Multiple statements on one line (semicolon)
+    |
+359 |         input_tokens = 1; output_tokens = 1
+360 |     class FakeAResp:
+361 |         content = [FakeBlock()]; usage = FakeUsage()
+    |                                ^ E702
+362 |     class FakeAMessages:
+363 |         def create(self, **kw):
+    |
+
+tests/test_tools_and_llm_gateway.py:364:32: E702 Multiple statements on one line (semicolon)
+    |
+362 |     class FakeAMessages:
+363 |         def create(self, **kw):
+364 |             captured.update(kw); return FakeAResp()
+    |                                ^ E702
+365 |     class FakeAClient:
+366 |         messages = FakeAMessages()
+    |
+
+Found 72 errors.
+[*] 14 fixable with the `--fix` option (5 hidden fixes can be enabled with the `--unsafe-fixes` option).

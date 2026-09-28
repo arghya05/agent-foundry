@@ -82,7 +82,8 @@ def cmd_eval(args: argparse.Namespace) -> None:
         else:
             print("\nDelta vs baseline:")
             for metric, delta in scorecard.compare_to(baseline).items():
-                print(f"  {metric}: {delta:+.4f}")
+                value = "not measured" if delta is None else f"{delta:+.4f}"
+                print(f"  {metric}: {value}")
 
     if args.save_baseline:
         if dataset is None:
@@ -90,13 +91,12 @@ def cmd_eval(args: argparse.Namespace) -> None:
         saved = dataset.save_baseline(scorecard, args.save_baseline)
         print(f"\nsaved baseline to {saved}")
 
-    if args.thresholds:
-        ok, reasons = scorecard.passes(json.loads(args.thresholds))
-        if not ok:
-            print("\nFAILED thresholds:")
-            for reason in reasons:
-                print(f"  - {reason}")
-            raise SystemExit(1)
+    ok, reasons = scorecard.passes(json.loads(args.thresholds) if args.thresholds else None)
+    if not ok:
+        print("\nFAILED evaluation gate:")
+        for reason in reasons:
+            print(f"  - {reason}")
+        raise SystemExit(1)
 
 
 def cmd_serve(args: argparse.Namespace) -> None:

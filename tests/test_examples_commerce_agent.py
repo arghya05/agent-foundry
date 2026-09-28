@@ -44,8 +44,13 @@ def test_commerce_agent_passes_its_own_eval_dataset():
 
     scorecard = run_eval(agent, dataset.to_cases(), dataset_name=dataset.name)
 
-    ok, reasons = scorecard.passes({"task_success_rate_min": 1.0, "trajectory_accuracy_rate_min": 1.0})
+    # Search/recommend have text oracles; the order case has an approval oracle.
+    # Require every case's actual criteria rather than inventing a text label
+    # for the approval-only case.
+    ok, reasons = scorecard.passes()
     assert ok, reasons
+    assert scorecard.metric_coverage["task_success_rate"] == 2 / 3
+    assert scorecard.trajectory_accuracy_rate == 1.0
 
 
 def test_place_order_pauses_for_approval_and_completes_on_resume():

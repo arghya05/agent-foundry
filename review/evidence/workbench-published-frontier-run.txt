@@ -1,0 +1,239 @@
+{"reproduction_matches": true, "correct": 216, "side_effects": 267, "total": 690}
+{"progress": "1/24", "model": "GPT-3.5-turbo", "correct": 216, "side_effects": 267, "total": 690, "accuracy": 0.3130434782608696, "unwanted_side_effect_rate": 0.3869565217391304, "matches_published_counts": true, "artifact": "model-01.json"}
+Rejected disallowed tool name: update_customer_00000099.func
+Rejected disallowed tool name: update_customer_00000064.func
+Rejected disallowed tool name: update_customer_00000135.func
+Rejected disallowed tool name: update_customer_00000195.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: Jessie_Jones.func
+Rejected disallowed tool name: Quinn_Thomas.func
+Rejected disallowed tool name: Peyton_Davis.func
+Rejected disallowed tool name: Jaden_Anderson.func
+Rejected disallowed tool name: Avery_Thomas.func
+Rejected disallowed tool name: update_customer_00000099.func
+Rejected disallowed tool name: update_customer_00000064.func
+Rejected disallowed tool name: update_customer_00000135.func
+Rejected disallowed tool name: update_customer_00000195.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: Jessie_Jones.func
+Rejected disallowed tool name: Quinn_Thomas.func
+Rejected disallowed tool name: Peyton_Davis.func
+Rejected disallowed tool name: Jaden_Anderson.func
+Rejected disallowed tool name: Avery_Thomas.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: delete_customer_00000117.func
+Rejected disallowed tool name: delete_customer_00000133.func
+Rejected disallowed tool name: delete_customer_00000109.func
+Rejected disallowed tool name: delete_customer_00000115.func
+Rejected disallowed tool name: delete_customer_00000128.func
+Rejected disallowed tool name: delete_customer_00000189.func
+Rejected disallowed tool name: delete_customer_00000187.func
+Rejected disallowed tool name: delete_customer_00000141.func
+Rejected disallowed tool name: delete_customer_00000009.func
+Rejected disallowed tool name: delete_customer_00000161.func
+Rejected disallowed tool name: delete_customer_00000189.func
+Rejected disallowed tool name: delete_customer_00000187.func
+Rejected disallowed tool name: delete_customer_00000141.func
+Rejected disallowed tool name: delete_customer_00000009.func
+Rejected disallowed tool name: delete_customer_00000161.func
+Rejected disallowed tool name: delete_customer_00000052.func
+Rejected disallowed tool name: delete_customer_00000154.func
+Rejected disallowed tool name: delete_customer_00000149.func
+Rejected disallowed tool name: delete_customer_00000197.func
+Rejected disallowed tool name: delete_customer_00000142.func
+Rejected disallowed tool name: delete_customer_00000060.func
+Rejected disallowed tool name: delete_customer_00000033.func
+Rejected disallowed tool name: delete_customer_00000028.func
+Rejected disallowed tool name: delete_customer_00000130.func
+Rejected disallowed tool name: delete_customer_00000126.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: delete_customer_00000154.func
+Rejected disallowed tool name: delete_customer_00000149.func
+Rejected disallowed tool name: delete_customer_00000032.func
+Rejected disallowed tool name: delete_customer_00000194.func
+Rejected disallowed tool name: delete_customer_00000129.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: delete_customer_00000117.func
+Rejected disallowed tool name: delete_customer_00000133.func
+Rejected disallowed tool name: delete_customer_00000109.func
+Rejected disallowed tool name: delete_customer_00000115.func
+Rejected disallowed tool name: delete_customer_00000128.func
+Rejected disallowed tool name: delete_customer_00000189.func
+Rejected disallowed tool name: delete_customer_00000187.func
+Rejected disallowed tool name: delete_customer_00000141.func
+Rejected disallowed tool name: delete_customer_00000009.func
+Rejected disallowed tool name: delete_customer_00000161.func
+Rejected disallowed tool name: delete_customer_00000189.func
+Rejected disallowed tool name: delete_customer_00000187.func
+Rejected disallowed tool name: delete_customer_00000141.func
+Rejected disallowed tool name: delete_customer_00000009.func
+Rejected disallowed tool name: delete_customer_00000161.func
+Rejected disallowed tool name: delete_customer_00000052.func
+Rejected disallowed tool name: delete_customer_00000154.func
+Rejected disallowed tool name: delete_customer_00000149.func
+Rejected disallowed tool name: delete_customer_00000197.func
+Rejected disallowed tool name: delete_customer_00000142.func
+Rejected disallowed tool name: delete_customer_00000060.func
+Rejected disallowed tool name: delete_customer_00000033.func
+Rejected disallowed tool name: delete_customer_00000028.func
+Rejected disallowed tool name: delete_customer_00000130.func
+Rejected disallowed tool name: delete_customer_00000126.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: delete_customer_00000025.func
+Rejected disallowed tool name: delete_customer_00000051.func
+Rejected disallowed tool name: delete_customer_00000021.func
+Rejected disallowed tool name: delete_customer_00000013.func
+Rejected disallowed tool name: delete_customer_00000116.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: delete_customer_00000154.func
+Rejected disallowed tool name: delete_customer_00000149.func
+Rejected disallowed tool name: delete_customer_00000032.func
+Rejected disallowed tool name: delete_customer_00000194.func
+Rejected disallowed tool name: delete_customer_00000129.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: crm_delete_customer.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+Rejected disallowed tool name: project_management.func
+Rejected disallowed tool name: calendar.func
+{"reproduction_matches": true, "correct": 423, "side_effects": 154, "total": 690}
+{"progress": "2/24", "model": "GPT-4-turbo", "correct": 423, "side_effects": 154, "total": 690, "accuracy": 0.6130434782608696, "unwanted_side_effect_rate": 0.22318840579710145, "matches_published_counts": true, "artifact": "model-02.json"}
+{"reproduction_matches": true, "correct": 476, "side_effects": 104, "total": 690}
+{"progress": "3/24", "model": "GPT-4o", "correct": 476, "side_effects": 104, "total": 690, "accuracy": 0.6898550724637681, "unwanted_side_effect_rate": 0.15072463768115943, "matches_published_counts": true, "artifact": "model-03.json"}
+{"reproduction_matches": true, "correct": 507, "side_effects": 134, "total": 690}
+{"progress": "4/24", "model": "GPT-4.1", "correct": 507, "side_effects": 134, "total": 690, "accuracy": 0.7347826086956522, "unwanted_side_effect_rate": 0.19420289855072465, "matches_published_counts": true, "artifact": "model-04.json"}
+{"reproduction_matches": true, "correct": 534, "side_effects": 121, "total": 690}
+{"progress": "5/24", "model": "o3", "correct": 534, "side_effects": 121, "total": 690, "accuracy": 0.7739130434782608, "unwanted_side_effect_rate": 0.1753623188405797, "matches_published_counts": true, "artifact": "model-05.json"}
+{"reproduction_matches": true, "correct": 582, "side_effects": 90, "total": 690}
+{"progress": "6/24", "model": "GPT-5", "correct": 582, "side_effects": 90, "total": 690, "accuracy": 0.8434782608695652, "unwanted_side_effect_rate": 0.13043478260869565, "matches_published_counts": true, "artifact": "model-06.json"}
+{"reproduction_matches": true, "correct": 534, "side_effects": 117, "total": 690}
+{"progress": "7/24", "model": "GLM-4.6", "correct": 534, "side_effects": 117, "total": 690, "accuracy": 0.7739130434782608, "unwanted_side_effect_rate": 0.16956521739130434, "matches_published_counts": true, "artifact": "model-07.json"}
+{"reproduction_matches": true, "correct": 516, "side_effects": 115, "total": 690}
+{"progress": "8/24", "model": "Haiku 4.5", "correct": 516, "side_effects": 115, "total": 690, "accuracy": 0.7478260869565218, "unwanted_side_effect_rate": 0.16666666666666666, "matches_published_counts": true, "artifact": "model-08.json"}
+{"reproduction_matches": true, "correct": 414, "side_effects": 125, "total": 690}
+{"progress": "9/24", "model": "GPT-5.1", "correct": 414, "side_effects": 125, "total": 690, "accuracy": 0.6, "unwanted_side_effect_rate": 0.18115942028985507, "matches_published_counts": true, "artifact": "model-09.json"}
+{"reproduction_matches": true, "correct": 486, "side_effects": 130, "total": 690}
+{"progress": "10/24", "model": "GPT-5.2", "correct": 486, "side_effects": 130, "total": 690, "accuracy": 0.7043478260869566, "unwanted_side_effect_rate": 0.18840579710144928, "matches_published_counts": true, "artifact": "model-10.json"}
+{"reproduction_matches": true, "correct": 609, "side_effects": 61, "total": 690}
+{"progress": "11/24", "model": "Sonnet 4.6", "correct": 609, "side_effects": 61, "total": 690, "accuracy": 0.8826086956521739, "unwanted_side_effect_rate": 0.08840579710144927, "matches_published_counts": true, "artifact": "model-11.json"}
+{"reproduction_matches": true, "correct": 659, "side_effects": 20, "total": 690}
+{"progress": "12/24", "model": "Gemini-3.1-pro", "correct": 659, "side_effects": 20, "total": 690, "accuracy": 0.9550724637681159, "unwanted_side_effect_rate": 0.028985507246376812, "matches_published_counts": true, "artifact": "model-12.json"}
+{"reproduction_matches": true, "correct": 488, "side_effects": 148, "total": 690}
+{"progress": "13/24", "model": "Qwen3.5", "correct": 488, "side_effects": 148, "total": 690, "accuracy": 0.7072463768115942, "unwanted_side_effect_rate": 0.2144927536231884, "matches_published_counts": true, "artifact": "model-13.json"}
+{"reproduction_matches": true, "correct": 335, "side_effects": 197, "total": 690}
+{"progress": "14/24", "model": "GPT-5.4-nano", "correct": 335, "side_effects": 197, "total": 690, "accuracy": 0.4855072463768116, "unwanted_side_effect_rate": 0.2855072463768116, "matches_published_counts": true, "artifact": "model-14.json"}
+{"reproduction_matches": true, "correct": 406, "side_effects": 209, "total": 690}
+{"progress": "15/24", "model": "GPT-5.4-mini", "correct": 406, "side_effects": 209, "total": 690, "accuracy": 0.5884057971014492, "unwanted_side_effect_rate": 0.30289855072463767, "matches_published_counts": true, "artifact": "model-15.json"}
+{"reproduction_matches": true, "correct": 542, "side_effects": 116, "total": 690}
+{"progress": "16/24", "model": "GPT-5.4", "correct": 542, "side_effects": 116, "total": 690, "accuracy": 0.7855072463768116, "unwanted_side_effect_rate": 0.1681159420289855, "matches_published_counts": true, "artifact": "model-16.json"}
+{"reproduction_matches": true, "correct": 264, "side_effects": 306, "total": 690}
+{"progress": "17/24", "model": "Mistral-Small-4", "correct": 264, "side_effects": 306, "total": 690, "accuracy": 0.3826086956521739, "unwanted_side_effect_rate": 0.4434782608695652, "matches_published_counts": true, "artifact": "model-17.json"}
+{"reproduction_matches": true, "correct": 607, "side_effects": 47, "total": 690}
+{"progress": "18/24", "model": "Kimi-K2.6", "correct": 607, "side_effects": 47, "total": 690, "accuracy": 0.8797101449275362, "unwanted_side_effect_rate": 0.06811594202898551, "matches_published_counts": true, "artifact": "model-18.json"}
+{"reproduction_matches": true, "correct": 655, "side_effects": 27, "total": 690}
+{"progress": "19/24", "model": "GPT-5.5", "correct": 655, "side_effects": 27, "total": 690, "accuracy": 0.9492753623188406, "unwanted_side_effect_rate": 0.0391304347826087, "matches_published_counts": true, "artifact": "model-19.json"}
+{"reproduction_matches": true, "correct": 581, "side_effects": 88, "total": 690}
+{"progress": "20/24", "model": "DeepSeek-V4-pro", "correct": 581, "side_effects": 88, "total": 690, "accuracy": 0.8420289855072464, "unwanted_side_effect_rate": 0.12753623188405797, "matches_published_counts": true, "artifact": "model-20.json"}
+{"reproduction_matches": true, "correct": 424, "side_effects": 210, "total": 690}
+{"progress": "21/24", "model": "Mistral-Medium-3.5", "correct": 424, "side_effects": 210, "total": 690, "accuracy": 0.6144927536231884, "unwanted_side_effect_rate": 0.30434782608695654, "matches_published_counts": true, "artifact": "model-21.json"}
+{"reproduction_matches": true, "correct": 635, "side_effects": 21, "total": 690}
+{"progress": "22/24", "model": "Gemini-3.5-flash", "correct": 635, "side_effects": 21, "total": 690, "accuracy": 0.9202898550724637, "unwanted_side_effect_rate": 0.030434782608695653, "matches_published_counts": true, "artifact": "model-22.json"}
+{"reproduction_matches": true, "correct": 664, "side_effects": 17, "total": 690}
+{"progress": "23/24", "model": "Opus 4.8", "correct": 664, "side_effects": 17, "total": 690, "accuracy": 0.9623188405797102, "unwanted_side_effect_rate": 0.02463768115942029, "matches_published_counts": true, "artifact": "model-23.json"}
+{"reproduction_matches": true, "correct": 674, "side_effects": 13, "total": 690}
+{"progress": "24/24", "model": "Fable 5", "correct": 674, "side_effects": 13, "total": 690, "accuracy": 0.9768115942028985, "unwanted_side_effect_rate": 0.01884057971014493, "matches_published_counts": true, "artifact": "model-24.json"}
+{"all_counts_match": true, "models": 24, "best": {"model": "Fable 5", "correct": 674, "side_effects": 13, "total": 690, "accuracy": 0.9768115942028985, "unwanted_side_effect_rate": 0.01884057971014493, "matches_published_counts": true, "artifact": "model-24.json"}, "summary": "/Users/arghyamukherjee/Documents/agents_framework/agent-foundry/review/evidence/workbench-published-frontier/summary.json"}

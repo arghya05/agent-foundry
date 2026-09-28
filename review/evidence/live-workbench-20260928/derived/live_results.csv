@@ -1,0 +1,25 @@
+campaign,phase,instruction_profile,complete,provider,arm,model,attempted,correct,planned,accuracy_among_attempted,unwanted_side_effects,errors,cost_usd_upper,model_requests,p50_latency_s,p95_latency_s,cost_per_success_usd_upper
+pilot-20260928,Rejected Anthropic setup,baseline,False,anthropic,foundry_langgraph_serial,claude-sonnet-5,1,0,12,0.0,0,1,2.02048,1,0.9000615830300376,0.9000615830300376,
+pilot-20260928,Rejected Anthropic setup,baseline,False,anthropic,foundry_native_serial,claude-sonnet-5,0,0,12,,0,0,0,0,,,
+pilot-20260928,Rejected Anthropic setup,baseline,False,anthropic,reference,claude-sonnet-5,0,0,12,,0,0,0,0,,,
+pilot-20260928,Rejected Anthropic setup,baseline,False,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,0,0,12,,0,0,0,0,,,
+pilot-20260928,Rejected Anthropic setup,baseline,False,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,0,0,12,,0,0,0,0,,,
+pilot-20260928,Rejected Anthropic setup,baseline,False,openai,reference,gpt-5.4-mini-2026-03-17,0,0,12,,0,0,0,0,,,
+pilot-20260928-openai,Rejected OpenAI setup,baseline,False,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,0,0,12,,0,0,0,0,,,
+pilot-20260928-openai,Rejected OpenAI setup,baseline,False,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,1,0,12,0.0,0,1,0.309216,1,2.4630561250378378,2.4630561250378378,
+pilot-20260928-openai,Rejected OpenAI setup,baseline,False,openai,reference,gpt-5.4-mini-2026-03-17,0,0,12,,0,0,0,0,,,
+pilot-20260928-anthropic-diagnostic,Rejected Anthropic workspace,baseline,False,anthropic,foundry_langgraph_serial,claude-sonnet-5,0,0,12,,0,0,0,0,,,
+pilot-20260928-anthropic-diagnostic,Rejected Anthropic workspace,baseline,False,anthropic,foundry_native_serial,claude-sonnet-5,1,0,12,0.0,0,1,2.02048,1,0.7927475000033155,0.7927475000033155,
+pilot-20260928-anthropic-diagnostic,Rejected Anthropic workspace,baseline,False,anthropic,reference,claude-sonnet-5,0,0,12,,0,0,0,0,,,
+pilot-20260928-openai-responses,Development baseline (12 tasks),baseline,True,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,12,10,12,0.8333333333333334,1,0,0.1959855,41,5.629717916541267,15.05182212498039,0.01959855
+pilot-20260928-openai-responses,Development baseline (12 tasks),baseline,True,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,12,12,12,1.0,0,0,0.17359200000000002,36,4.754023187502753,8.619956667011138,0.014466000000000001
+pilot-20260928-openai-responses,Development baseline (12 tasks),baseline,True,openai,reference,gpt-5.4-mini-2026-03-17,12,10,12,0.8333333333333334,2,0,0.187458,39,4.989115000003949,10.050414957979228,0.0187458
+heldout-20260928-baseline,Initial baseline (60; later inspected),baseline,True,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,60,48,60,0.8,8,0,0.9996247499999998,200,5.688893125014147,10.538301207998302,0.020825515624999996
+heldout-20260928-baseline,Initial baseline (60; later inspected),baseline,True,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,60,49,60,0.8166666666666667,7,0,1.00647375,201,5.6601289579994045,10.24280595802702,0.020540280612244898
+heldout-20260928-baseline,Initial baseline (60; later inspected),baseline,True,openai,reference,gpt-5.4-mini-2026-03-17,60,50,60,0.8333333333333334,6,0,0.9793904999999998,196,5.753726084018126,9.669953749980778,0.019587809999999997
+diagnostic-20260928-grounded,Guidance diagnostic (same 60),grounded,True,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,60,49,60,0.8166666666666667,5,1,1.28608275,189,5.957522187003633,10.001603541953955,0.026246586734693877
+diagnostic-20260928-grounded,Guidance diagnostic (same 60),grounded,True,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,60,49,60,0.8166666666666667,6,1,1.29769725,191,5.700825437495951,11.049872124975082,0.026483617346938774
+diagnostic-20260928-grounded,Guidance diagnostic (same 60),grounded,True,openai,reference,gpt-5.4-mini-2026-03-17,60,47,60,0.7833333333333333,8,1,1.295736,192,5.866014916507993,11.272507540998049,0.027568851063829787
+confirmation-20260928-baseline,Fresh baseline (next 60),baseline,False,openai,foundry_langgraph_serial,gpt-5.4-mini-2026-03-17,60,49,60,0.8166666666666667,7,3,1.8921952500000003,197,5.9126547494961414,11.629269334021956,0.03861622959183674
+confirmation-20260928-baseline,Fresh baseline (next 60),baseline,False,openai,foundry_native_serial,gpt-5.4-mini-2026-03-17,60,50,60,0.8333333333333334,8,1,1.24194075,189,5.957063562498661,11.228378708008677,0.024838815
+confirmation-20260928-baseline,Fresh baseline (next 60),baseline,False,openai,reference,gpt-5.4-mini-2026-03-17,59,45,60,0.7627118644067796,8,3,1.8133229999999994,181,5.813141749997158,13.289932542014867,0.04029606666666665

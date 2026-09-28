@@ -1,0 +1,72 @@
+{
+  "aggregates": {
+    "openai/foundry_langgraph_serial": {
+      "accuracy_among_attempted": 0.8529411764705882,
+      "api_latency_s": 246.89673288108315,
+      "attempted": 34,
+      "correct": 29,
+      "cost_per_success_usd_upper": 0.01971385344827586,
+      "cost_usd_upper": 0.57170175,
+      "errors": 0,
+      "model_requests": 111,
+      "p50_latency_s": 6.297464604489505,
+      "p95_latency_s": 10.934196166985203,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/foundry_native_serial": {
+      "accuracy_among_attempted": 0.8529411764705882,
+      "api_latency_s": 211.70088995620608,
+      "attempted": 34,
+      "correct": 29,
+      "cost_per_success_usd_upper": 0.019356206896551723,
+      "cost_usd_upper": 0.56133,
+      "errors": 0,
+      "model_requests": 110,
+      "p50_latency_s": 6.1361681045091245,
+      "p95_latency_s": 11.049872124975082,
+      "planned": 60,
+      "unwanted_side_effects": 4
+    },
+    "openai/reference": {
+      "accuracy_among_attempted": 0.7428571428571429,
+      "api_latency_s": 234.51839929196285,
+      "attempted": 35,
+      "correct": 26,
+      "cost_per_success_usd_upper": 0.03430903846153846,
+      "cost_usd_upper": 0.892035,
+      "errors": 1,
+      "model_requests": 115,
+      "p50_latency_s": 6.143079124973156,
+      "p95_latency_s": 12.86927274998743,
+      "planned": 60,
+      "unwanted_side_effects": 6
+    }
+  },
+  "complete": false,
+  "ledger_used_or_reserved_usd_upper": 9.91776725,
+  "note": "Missing tasks are not silently counted as successes. Historical results are not matched baselines.",
+  "paired": {
+    "openai/foundry_langgraph_serial-reference": {
+      "accuracy_difference": 0.08823529411764706,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0.17647058823529413
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 34
+    },
+    "openai/foundry_native_serial-reference": {
+      "accuracy_difference": 0.08823529411764706,
+      "exploratory_paired_bootstrap_95_interval": [
+        0,
+        0.17647058823529413
+      ],
+      "interpretation": "Pilot/exploratory; no SOTA or significance declaration",
+      "paired_tasks": 34
+    }
+  },
+  "rows_finished": 103,
+  "scope": "diagnostic",
+  "stop_reason": "RemoteProtocolError"
+}
